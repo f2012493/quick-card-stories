@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Play, Pause, Volume2, VolumeX, Share, Heart } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface NewsItem {
@@ -11,8 +11,9 @@ interface NewsItem {
   author: string;
   category: string;
   imageUrl: string;
-  videoUrl?: string;
   readTime: string;
+  publishedAt?: string;
+  sourceUrl?: string;
 }
 
 interface VideoCardProps {
@@ -39,7 +40,12 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   };
 
   const handleShare = () => {
-    toast.success("📱 Sharing feature coming soon!");
+    if (news.sourceUrl) {
+      navigator.clipboard.writeText(news.sourceUrl);
+      toast.success("📱 News link copied to clipboard!");
+    } else {
+      toast.success("📱 Sharing feature coming soon!");
+    }
   };
 
   const handleLike = () => {
@@ -47,13 +53,30 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
     toast.success(isLiked ? "💔 Removed from favorites" : "❤️ Added to favorites");
   };
 
+  const handleReadMore = () => {
+    if (news.sourceUrl) {
+      window.open(news.sourceUrl, '_blank');
+    }
+  };
+
+  const formatPublishedDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    return `${Math.floor(diffInHours / 24)}d ago`;
+  };
+
   return (
     <div className="relative w-full h-screen flex items-center justify-center">
-      {/* Background Image/Video */}
+      {/* Background Image */}
       <div 
         className="absolute inset-0 bg-cover bg-center"
         style={{
-          backgroundImage: `url(https://images.unsplash.com/${news.imageUrl}?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80)`
+          backgroundImage: `url(${news.imageUrl})`
         }}
       />
       
@@ -69,11 +92,15 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
               news.category === 'Tech' ? 'bg-blue-500/20 text-blue-400' :
               news.category === 'Politics' ? 'bg-red-500/20 text-red-400' :
               news.category === 'Business' ? 'bg-green-500/20 text-green-400' :
-              'bg-purple-500/20 text-purple-400'
+              news.category === 'Health' ? 'bg-purple-500/20 text-purple-400' :
+              'bg-gray-500/20 text-gray-400'
             }`}>
               {news.category}
             </div>
             <span className="text-white/60 text-xs">{news.readTime}</span>
+            {news.publishedAt && (
+              <span className="text-white/60 text-xs">{formatPublishedDate(news.publishedAt)}</span>
+            )}
           </div>
         </div>
 
@@ -83,7 +110,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
           <div className="mb-6">
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
               <p className="text-white/90 text-lg italic leading-relaxed">
-                "{news.quote}"
+                {news.quote}
               </p>
               <p className="text-white/60 text-sm mt-2">— {news.author}</p>
             </div>
@@ -103,6 +130,17 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
               {news.tldr}
             </p>
           </div>
+
+          {/* Read More Button */}
+          {news.sourceUrl && (
+            <button
+              onClick={handleReadMore}
+              className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 transition-colors px-4 py-2 rounded-full text-white text-sm mb-4 backdrop-blur-sm border border-white/20"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>Read Full Article</span>
+            </button>
+          )}
         </div>
 
         {/* Controls */}

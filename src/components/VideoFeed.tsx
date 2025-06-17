@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import VideoCard from './VideoCard';
-import { newsData } from '../data/mockNews';
+import { useNews } from '@/hooks/useNews';
+import { toast } from 'sonner';
 
 const VideoFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -10,6 +11,17 @@ const VideoFeed = () => {
   const startY = useRef(0);
   const currentY = useRef(0);
   const isDragging = useRef(false);
+
+  const { data: newsData = [], isLoading, error } = useNews({
+    category: 'general',
+    pageSize: 20
+  });
+
+  useEffect(() => {
+    if (error) {
+      toast.error('Failed to load news. Using offline content.');
+    }
+  }, [error]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
@@ -88,6 +100,25 @@ const VideoFeed = () => {
     }
   }, [currentIndex]);
 
+  if (isLoading) {
+    return (
+      <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
+        <div className="text-white text-lg">Loading latest news...</div>
+      </div>
+    );
+  }
+
+  if (newsData.length === 0) {
+    return (
+      <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
+        <div className="text-white text-lg text-center">
+          <p>No news available at the moment.</p>
+          <p className="text-sm text-white/60 mt-2">Please check your connection and try again.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className="relative w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing"
@@ -108,7 +139,7 @@ const VideoFeed = () => {
       >
         {newsData.map((news, index) => (
           <VideoCard
-            key={index}
+            key={news.id}
             news={news}
             isActive={index === currentIndex}
             index={index}
