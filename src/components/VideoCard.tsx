@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Volume2, VolumeX, Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,17 +25,87 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Clean up speech synthesis when component unmounts or news changes
+  useEffect(() => {
+    return () => {
+      if (utteranceRef.current) {
+        speechSynthesis.cancel();
+      }
+    };
+  }, [news.id]);
+
+  // Stop narration when card becomes inactive
+  useEffect(() => {
+    if (!isActive && isPlaying) {
+      handlePlayPause();
+    }
+  }, [isActive]);
+
+  const createNarrationText = () => {
+    return `${news.headline}. ${news.tldr}. Quote: ${news.quote}`;
+  };
 
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
-    if (!isPlaying) {
-      toast.success("🎬 AI narration would start playing here!");
+    if (!('speechSynthesis' in window)) {
+      toast.error("Text-to-speech is not supported in this browser");
+      return;
+    }
+
+    if (isPlaying) {
+      // Stop narration
+      speechSynthesis.cancel();
+      setIsPlaying(false);
+      toast.info("🔇 AI narration stopped");
+    } else {
+      // Start narration
+      if (isMuted) {
+        toast.info("🔊 Please unmute to hear AI narration");
+        return;
+      }
+
+      const text = createNarrationText();
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Configure speech settings
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      
+      // Set up event handlers
+      utterance.onstart = () => {
+        setIsPlaying(true);
+        toast.success("🎬 AI narration started");
+      };
+      
+      utterance.onend = () => {
+        setIsPlaying(false);
+        toast.info("🎬 AI narration completed");
+      };
+      
+      utterance.onerror = (event) => {
+        setIsPlaying(false);
+        toast.error("Error during narration: " + event.error);
+      };
+
+      utteranceRef.current = utterance;
+      speechSynthesis.speak(utterance);
     }
   };
 
   const handleMute = () => {
-    setIsMuted(!isMuted);
-    toast.info(isMuted ? "🔊 Audio enabled" : "🔇 Audio muted");
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    
+    if (newMutedState && isPlaying) {
+      // If muting while playing, stop the narration
+      speechSynthesis.cancel();
+      setIsPlaying(false);
+      toast.info("🔇 Audio muted - narration stopped");
+    } else {
+      toast.info(newMutedState ? "🔇 Audio muted" : "🔊 Audio enabled");
+    }
   };
 
   const handleShare = () => {
