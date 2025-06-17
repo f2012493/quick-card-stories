@@ -175,16 +175,6 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col justify-end">
-          {/* Quote Section */}
-          <div className="mb-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-              <p className="text-white/90 text-lg italic leading-relaxed">
-                {news.quote}
-              </p>
-              <p className="text-white/60 text-sm mt-2">— {news.author}</p>
-            </div>
-          </div>
-
           {/* Headline */}
           <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4">
             {news.headline}
