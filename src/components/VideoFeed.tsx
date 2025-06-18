@@ -25,8 +25,19 @@ const VideoFeed = () => {
   }, [error]);
 
   const getSwipeThreshold = () => {
-    // Use smaller threshold for mobile devices
-    return window.innerHeight * 0.15; // 15% of screen height
+    return window.innerHeight * 0.25; // Increased threshold for more deliberate swipes
+  };
+
+  const snapToPosition = (targetIndex: number) => {
+    if (containerRef.current) {
+      setIsTransitioning(true);
+      const translateY = -targetIndex * window.innerHeight;
+      containerRef.current.style.transform = `translateY(${translateY}px)`;
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 300);
+    }
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -44,8 +55,8 @@ const VideoFeed = () => {
     currentY.current = e.touches[0].clientY;
     const deltaY = currentY.current - startY.current;
     
-    // Add some resistance to prevent over-scrolling
-    const resistance = 0.6;
+    // Reduced resistance for smoother feel
+    const resistance = 0.8;
     const adjustedDelta = deltaY * resistance;
     
     if (containerRef.current) {
@@ -62,27 +73,26 @@ const VideoFeed = () => {
     const velocity = Math.abs(deltaY) / deltaTime;
     const threshold = getSwipeThreshold();
     
-    // Consider both distance and velocity for better UX
-    const shouldSwipe = Math.abs(deltaY) > threshold || (velocity > 0.5 && Math.abs(deltaY) > 50);
+    // More precise swipe detection
+    const shouldSwipe = Math.abs(deltaY) > threshold || (velocity > 0.3 && Math.abs(deltaY) > 30);
     
-    setIsTransitioning(true);
+    let targetIndex = currentIndex;
     
     if (shouldSwipe) {
       if (deltaY > 0 && currentIndex > 0) {
         // Swipe down - go to previous
-        setCurrentIndex(prev => prev - 1);
+        targetIndex = currentIndex - 1;
       } else if (deltaY < 0 && currentIndex < newsData.length - 1) {
         // Swipe up - go to next
-        setCurrentIndex(prev => prev + 1);
+        targetIndex = currentIndex + 1;
       }
     }
     
-    isDragging.current = false;
+    // Always snap to a position (either current or new)
+    setCurrentIndex(targetIndex);
+    snapToPosition(targetIndex);
     
-    // Reset transition flag after animation
-    setTimeout(() => {
-      setIsTransitioning(false);
-    }, 300);
+    isDragging.current = false;
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -99,7 +109,7 @@ const VideoFeed = () => {
     
     currentY.current = e.clientY;
     const deltaY = currentY.current - startY.current;
-    const resistance = 0.6;
+    const resistance = 0.8;
     const adjustedDelta = deltaY * resistance;
     
     if (containerRef.current) {
@@ -116,23 +126,22 @@ const VideoFeed = () => {
     const velocity = Math.abs(deltaY) / deltaTime;
     const threshold = getSwipeThreshold();
     
-    const shouldSwipe = Math.abs(deltaY) > threshold || (velocity > 0.5 && Math.abs(deltaY) > 50);
+    const shouldSwipe = Math.abs(deltaY) > threshold || (velocity > 0.3 && Math.abs(deltaY) > 30);
     
-    setIsTransitioning(true);
+    let targetIndex = currentIndex;
     
     if (shouldSwipe) {
       if (deltaY > 0 && currentIndex > 0) {
-        setCurrentIndex(prev => prev - 1);
+        targetIndex = currentIndex - 1;
       } else if (deltaY < 0 && currentIndex < newsData.length - 1) {
-        setCurrentIndex(prev => prev + 1);
+        targetIndex = currentIndex + 1;
       }
     }
     
-    isDragging.current = false;
+    setCurrentIndex(targetIndex);
+    snapToPosition(targetIndex);
     
-    setTimeout(() => {
-      setIsTransitioning(false);
-    }, 300);
+    isDragging.current = false;
   };
 
   const handleCardTap = () => {
@@ -140,7 +149,7 @@ const VideoFeed = () => {
   };
 
   useEffect(() => {
-    if (containerRef.current && !isDragging.current) {
+    if (containerRef.current && !isDragging.current && !isTransitioning) {
       const translateY = -currentIndex * window.innerHeight;
       containerRef.current.style.transform = `translateY(${translateY}px)`;
     }
@@ -209,22 +218,6 @@ const VideoFeed = () => {
             onTap={handleCardTap}
           />
         ))}
-      </div>
-      
-      {/* Progress indicator */}
-      <div className="fixed right-3 sm:right-4 top-1/2 transform -translate-y-1/2 z-50">
-        <div className="flex flex-col space-y-1 sm:space-y-2">
-          {newsData.map((_, index) => (
-            <div
-              key={index}
-              className={`w-0.5 sm:w-1 h-6 sm:h-8 rounded-full transition-all duration-300 ${
-                index === currentIndex 
-                  ? 'bg-blue-400 shadow-lg shadow-blue-400/50' 
-                  : 'bg-white/20'
-              }`}
-            />
-          ))}
-        </div>
       </div>
     </div>
   );
