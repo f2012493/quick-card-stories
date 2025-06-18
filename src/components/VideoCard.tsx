@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Volume2, VolumeX, Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -195,7 +194,7 @@ const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col justify-end pb-32 sm:pb-36">          
+        <div className="flex-1 flex flex-col justify-end pb-40 sm:pb-44">          
           {/* Headline */}
           <h1 className="text-white text-xl sm:text-2xl md:text-3xl font-bold leading-tight mb-3 sm:mb-4">
             {news.headline}
@@ -223,12 +222,9 @@ const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
           )}
         </div>
 
-        {/* Controls - Fixed at bottom with increased safe area padding */}
+        {/* Controls - Moved higher up */}
         <div 
-          className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 sm:px-6 py-6"
-          style={{ 
-            paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom) + 1.5rem))'
-          }}
+          className="absolute bottom-16 sm:bottom-20 left-0 right-0 flex items-center justify-between px-4 sm:px-6 py-6"
         >
           {/* Play Controls */}
           <div className="flex items-center space-x-3 sm:space-x-4">
