@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Volume2, VolumeX, Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,9 +20,10 @@ interface VideoCardProps {
   news: NewsItem;
   isActive: boolean;
   index: number;
+  onTap?: () => void;
 }
 
-const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
+const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
@@ -44,7 +46,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   }, [isActive]);
 
   const createNarrationText = () => {
-    return `${news.headline}. ${news.tldr}. Quote: ${news.quote}`;
+    return `${news.headline}. ${news.tldr}`;
   };
 
   const handlePlayPause = () => {
@@ -61,8 +63,8 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
     } else {
       // Start narration
       if (isMuted) {
-        toast.info("🔊 Please unmute to hear AI narration");
-        return;
+        setIsMuted(false);
+        toast.info("🔊 Audio enabled - starting narration");
       }
 
       const text = createNarrationText();
@@ -128,6 +130,21 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
     }
   };
 
+  const handleCardTap = (e: React.MouseEvent | React.TouchEvent) => {
+    // Prevent tap if user is interacting with buttons
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) {
+      return;
+    }
+    
+    // Call parent tap handler for play/pause
+    if (onTap) {
+      onTap();
+    } else {
+      handlePlayPause();
+    }
+  };
+
   const formatPublishedDate = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -140,10 +157,14 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   };
 
   return (
-    <div className="relative w-full h-screen flex items-center justify-center">
+    <div 
+      className="relative w-full h-screen flex items-center justify-center overflow-hidden"
+      onClick={handleCardTap}
+      onTouchEnd={handleCardTap}
+    >
       {/* Background Image */}
       <div 
-        className="absolute inset-0 bg-cover bg-center"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: `url(${news.imageUrl})`
         }}
@@ -153,11 +174,11 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40" />
       
       {/* Content */}
-      <div className="relative z-10 w-full h-full flex flex-col p-6">
+      <div className="relative z-10 w-full h-full flex flex-col p-4 sm:p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 pt-safe">
-          <div className="flex items-center space-x-3">
-            <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold ${
               news.category === 'Tech' ? 'bg-blue-500/20 text-blue-400' :
               news.category === 'Politics' ? 'bg-red-500/20 text-red-400' :
               news.category === 'Business' ? 'bg-green-500/20 text-green-400' :
@@ -174,18 +195,18 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col justify-end">
+        <div className="flex-1 flex flex-col justify-end">          
           {/* Headline */}
-          <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4">
+          <h1 className="text-white text-xl sm:text-2xl md:text-3xl font-bold leading-tight mb-3 sm:mb-4">
             {news.headline}
           </h1>
 
           {/* TL;DR */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wide">
               TL;DR
             </h2>
-            <p className="text-white/90 text-base leading-relaxed">
+            <p className="text-white/90 text-sm sm:text-base leading-relaxed">
               {news.tldr}
             </p>
           </div>
@@ -194,7 +215,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
           {news.sourceUrl && (
             <button
               onClick={handleReadMore}
-              className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 transition-colors px-4 py-2 rounded-full text-white text-sm mb-4 backdrop-blur-sm border border-white/20"
+              className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 transition-colors px-3 sm:px-4 py-2 rounded-full text-white text-sm mb-4 backdrop-blur-sm border border-white/20 w-fit"
             >
               <ExternalLink className="w-4 h-4" />
               <span>Read Full Article</span>
@@ -205,48 +226,60 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         {/* Controls */}
         <div className="flex items-center justify-between pb-safe">
           {/* Play Controls */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 sm:space-x-4">
             <button
-              onClick={handlePlayPause}
-              className="bg-blue-500 hover:bg-blue-600 transition-colors p-3 rounded-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePlayPause();
+              }}
+              className="bg-blue-500 hover:bg-blue-600 transition-colors p-2 sm:p-3 rounded-full"
             >
               {isPlaying ? (
-                <Pause className="w-6 h-6 text-white" />
+                <Pause className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               ) : (
-                <Play className="w-6 h-6 text-white ml-1" />
+                <Play className="w-5 h-5 sm:w-6 sm:h-6 text-white ml-0.5" />
               )}
             </button>
             
             <button
-              onClick={handleMute}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMute();
+              }}
               className="bg-white/20 hover:bg-white/30 transition-colors p-2 rounded-full backdrop-blur-sm"
             >
               {isMuted ? (
-                <VolumeX className="w-5 h-5 text-white" />
+                <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               ) : (
-                <Volume2 className="w-5 h-5 text-white" />
+                <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               )}
             </button>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <button
-              onClick={handleLike}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLike();
+              }}
               className={`p-2 rounded-full transition-all ${
                 isLiked 
                   ? 'bg-red-500 text-white' 
                   : 'bg-white/20 text-white hover:bg-white/30'
               } backdrop-blur-sm`}
             >
-              <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+              <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isLiked ? 'fill-current' : ''}`} />
             </button>
             
             <button
-              onClick={handleShare}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleShare();
+              }}
               className="bg-white/20 hover:bg-white/30 transition-colors p-2 rounded-full backdrop-blur-sm"
             >
-              <Share className="w-5 h-5 text-white" />
+              <Share className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </button>
           </div>
         </div>
@@ -254,12 +287,21 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
       {/* Swipe Indicator */}
       {index === 0 && (
-        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 animate-bounce">
+        <div className="absolute bottom-16 sm:bottom-20 left-1/2 transform -translate-x-1/2 animate-bounce">
           <div className="text-white/60 text-sm text-center">
-            <div className="w-8 h-12 border-2 border-white/40 rounded-full mb-2 mx-auto relative">
-              <div className="w-1 h-3 bg-white/60 rounded-full absolute top-2 left-1/2 transform -translate-x-1/2 animate-pulse" />
+            <div className="w-6 h-10 sm:w-8 sm:h-12 border-2 border-white/40 rounded-full mb-2 mx-auto relative">
+              <div className="w-1 h-2 sm:h-3 bg-white/60 rounded-full absolute top-2 left-1/2 transform -translate-x-1/2 animate-pulse" />
             </div>
             Swipe up for next story
+          </div>
+        </div>
+      )}
+
+      {/* Play Indicator */}
+      {isPlaying && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+          <div className="bg-black/30 backdrop-blur-sm rounded-full p-4">
+            <div className="w-8 h-8 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
           </div>
         </div>
       )}
