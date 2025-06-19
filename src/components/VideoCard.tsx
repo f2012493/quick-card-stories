@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Volume2, VolumeX, Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -194,7 +195,7 @@ const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col justify-end pb-40 sm:pb-44">          
+        <div className="flex-1 flex flex-col justify-end pb-20 sm:pb-24">          
           {/* Headline */}
           <h1 className="text-white text-xl sm:text-2xl md:text-3xl font-bold leading-tight mb-3 sm:mb-4">
             {news.headline}
@@ -222,10 +223,8 @@ const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
           )}
         </div>
 
-        {/* Controls - Moved higher up */}
-        <div 
-          className="absolute bottom-16 sm:bottom-20 left-0 right-0 flex items-center justify-between px-4 sm:px-6 py-6"
-        >
+        {/* Controls - Fixed at bottom with safe area padding */}
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between p-4 sm:p-6" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           {/* Play Controls */}
           <div className="flex items-center space-x-3 sm:space-x-4">
             <button
@@ -233,7 +232,7 @@ const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
                 e.stopPropagation();
                 handlePlayPause();
               }}
-              className="bg-blue-500 hover:bg-blue-600 transition-colors p-3 sm:p-3 rounded-full shadow-lg"
+              className="bg-blue-500 hover:bg-blue-600 transition-colors p-3 sm:p-3 rounded-full"
             >
               {isPlaying ? (
                 <Pause className="w-6 h-6 text-white" />
@@ -247,7 +246,7 @@ const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
                 e.stopPropagation();
                 handleMute();
               }}
-              className="bg-white/20 hover:bg-white/30 transition-colors p-2 sm:p-2 rounded-full backdrop-blur-sm shadow-lg"
+              className="bg-white/20 hover:bg-white/30 transition-colors p-2 sm:p-2 rounded-full backdrop-blur-sm"
             >
               {isMuted ? (
                 <VolumeX className="w-5 h-5 text-white" />
@@ -264,7 +263,7 @@ const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
                 e.stopPropagation();
                 handleLike();
               }}
-              className={`p-2 sm:p-2 rounded-full transition-all shadow-lg ${
+              className={`p-2 sm:p-2 rounded-full transition-all ${
                 isLiked 
                   ? 'bg-red-500 text-white' 
                   : 'bg-white/20 text-white hover:bg-white/30'
@@ -278,7 +277,7 @@ const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
                 e.stopPropagation();
                 handleShare();
               }}
-              className="bg-white/20 hover:bg-white/30 transition-colors p-2 sm:p-2 rounded-full backdrop-blur-sm shadow-lg"
+              className="bg-white/20 hover:bg-white/30 transition-colors p-2 sm:p-2 rounded-full backdrop-blur-sm"
             >
               <Share className="w-5 h-5 text-white" />
             </button>
@@ -288,7 +287,7 @@ const VideoCard = ({ news, isActive, index, onTap }: VideoCardProps) => {
 
       {/* Swipe Indicator */}
       {index === 0 && (
-        <div className="absolute bottom-40 sm:bottom-44 left-1/2 transform -translate-x-1/2 animate-bounce">
+        <div className="absolute bottom-32 sm:bottom-36 left-1/2 transform -translate-x-1/2 animate-bounce">
           <div className="text-white/60 text-sm text-center">
             <div className="w-6 h-10 sm:w-8 sm:h-12 border-2 border-white/40 rounded-full mb-2 mx-auto relative">
               <div className="w-1 h-2 sm:h-3 bg-white/60 rounded-full absolute top-2 left-1/2 transform -translate-x-1/2 animate-pulse" />
