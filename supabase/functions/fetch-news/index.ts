@@ -39,11 +39,94 @@ serve(async (req) => {
       throw new Error('NEWS_API_KEY not configured');
     }
 
-    const { category = 'general', pageSize = 20 } = await req.json().catch(() => ({}));
+    const { 
+      category = 'general', 
+      pageSize = 20, 
+      country,
+      city,
+      region 
+    } = await req.json().catch(() => ({}));
 
-    console.log(`Fetching news for category: ${category}, pageSize: ${pageSize}`);
+    console.log(`Fetching news for category: ${category}, pageSize: ${pageSize}, location: ${city}, ${region}, ${country}`);
 
-    const url = `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+    // Build URL with location-based parameters
+    let url = `https://newsapi.org/v2/top-headlines?`;
+    
+    // If we have country information, use it for more relevant news
+    if (country) {
+      // Map common country names to NewsAPI country codes
+      const countryCodeMap: { [key: string]: string } = {
+        'United States': 'us',
+        'Canada': 'ca',
+        'United Kingdom': 'gb',
+        'Australia': 'au',
+        'Germany': 'de',
+        'France': 'fr',
+        'Italy': 'it',
+        'Spain': 'es',
+        'Netherlands': 'nl',
+        'Belgium': 'be',
+        'Switzerland': 'ch',
+        'Austria': 'at',
+        'Sweden': 'se',
+        'Norway': 'no',
+        'Denmark': 'dk',
+        'Finland': 'fi',
+        'Poland': 'pl',
+        'Czech Republic': 'cz',
+        'Hungary': 'hu',
+        'Portugal': 'pt',
+        'Greece': 'gr',
+        'Ireland': 'ie',
+        'Russia': 'ru',
+        'Ukraine': 'ua',
+        'Turkey': 'tr',
+        'Israel': 'il',
+        'Saudi Arabia': 'sa',
+        'United Arab Emirates': 'ae',
+        'Egypt': 'eg',
+        'South Africa': 'za',
+        'Nigeria': 'ng',
+        'Kenya': 'ke',
+        'Morocco': 'ma',
+        'India': 'in',
+        'China': 'cn',
+        'Japan': 'jp',
+        'South Korea': 'kr',
+        'Thailand': 'th',
+        'Malaysia': 'my',
+        'Singapore': 'sg',
+        'Philippines': 'ph',
+        'Indonesia': 'id',
+        'Vietnam': 'vn',
+        'Taiwan': 'tw',
+        'Hong Kong': 'hk',
+        'New Zealand': 'nz',
+        'Argentina': 'ar',
+        'Brazil': 'br',
+        'Chile': 'cl',
+        'Colombia': 'co',
+        'Mexico': 'mx',
+        'Peru': 'pe',
+        'Venezuela': 've'
+      };
+      
+      const countryCode = countryCodeMap[country] || 'us';
+      url += `country=${countryCode}&`;
+      console.log(`Using country code: ${countryCode} for ${country}`);
+    } else {
+      url += `country=us&`;
+    }
+
+    url += `category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+    
+    // Add location-specific search terms if we have city/region info
+    if (city || region) {
+      const locationTerms = [city, region].filter(Boolean).join(' OR ');
+      url += `&q=${encodeURIComponent(locationTerms)}`;
+      console.log(`Added location search terms: ${locationTerms}`);
+    }
+
     console.log('Making request to NewsAPI...');
 
     const response = await fetch(url);
@@ -60,7 +143,23 @@ serve(async (req) => {
     console.log('NewsAPI status:', data.status);
 
     if (!data.articles || data.articles.length === 0) {
-      console.log('No articles returned from NewsAPI');
+      console.log('No articles returned from NewsAPI, trying fallback without location');
+      
+      // Fallback: try without location-specific terms
+      const fallbackUrl = `https://newsapi.org/v2/top-headlines?country=${country ? (countryCodeMap[country] || 'us') : 'us'}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+      
+      const fallbackResponse = await fetch(fallbackUrl);
+      if (fallbackResponse.ok) {
+        const fallbackData: NewsAPIResponse = await fallbackResponse.json();
+        if (fallbackData.articles && fallbackData.articles.length > 0) {
+          console.log(`Fallback returned ${fallbackData.articles.length} articles`);
+          data.articles = fallbackData.articles;
+        }
+      }
+    }
+
+    if (!data.articles || data.articles.length === 0) {
+      console.log('No articles available even with fallback');
       return new Response(JSON.stringify({ news: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

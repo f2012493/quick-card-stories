@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import VideoCard from './VideoCard';
 import { useNews } from '@/hooks/useNews';
+import { useLocation } from '@/hooks/useLocation';
 import { toast } from 'sonner';
 
 const VideoFeed = () => {
@@ -11,16 +12,22 @@ const VideoFeed = () => {
   const currentY = useRef(0);
   const isDragging = useRef(false);
 
+  const { locationData, isLoading: locationLoading } = useLocation();
+
   const { data: newsData = [], isLoading, error, isError } = useNews({
     category: 'general',
-    pageSize: 20
+    pageSize: 20,
+    country: locationData?.country,
+    city: locationData?.city,
+    region: locationData?.region
   });
 
   console.log('VideoFeed state:', { 
     newsDataLength: newsData.length, 
     isLoading, 
     isError, 
-    error: error?.message 
+    error: error?.message,
+    location: locationData
   });
 
   useEffect(() => {
@@ -29,6 +36,12 @@ const VideoFeed = () => {
       toast.error('Failed to load news. Please try again.');
     }
   }, [error]);
+
+  useEffect(() => {
+    if (locationData) {
+      toast.success(`📍 Loading news for ${locationData.city}, ${locationData.country}`);
+    }
+  }, [locationData]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
@@ -107,10 +120,15 @@ const VideoFeed = () => {
     }
   }, [currentIndex]);
 
-  if (isLoading) {
+  if (isLoading || locationLoading) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
-        <div className="text-white text-lg">Loading latest news...</div>
+        <div className="text-white text-lg text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading latest news...</p>
+          {locationLoading && <p className="text-sm text-white/60 mt-2">Detecting your location...</p>}
+          {locationData && <p className="text-sm text-blue-400 mt-2">📍 {locationData.city}, {locationData.country}</p>}
+        </div>
       </div>
     );
   }
@@ -123,6 +141,9 @@ const VideoFeed = () => {
           <p className="text-sm text-white/60 mt-2">
             {isError ? `Error: ${error?.message}` : 'Please check your connection and try again.'}
           </p>
+          {locationData && (
+            <p className="text-sm text-blue-400 mt-2">📍 Searched for: {locationData.city}, {locationData.country}</p>
+          )}
           <button 
             onClick={() => window.location.reload()} 
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -177,6 +198,13 @@ const VideoFeed = () => {
           ))}
         </div>
       </div>
+
+      {/* Location indicator */}
+      {locationData && (
+        <div className="fixed top-4 left-4 z-50 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm">
+          📍 {locationData.city}, {locationData.country}
+        </div>
+      )}
     </div>
   );
 };

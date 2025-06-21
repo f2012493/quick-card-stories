@@ -18,6 +18,9 @@ interface NewsItem {
 interface UseNewsOptions {
   category?: string;
   pageSize?: number;
+  country?: string;
+  city?: string;
+  region?: string;
 }
 
 export const useNews = (options: UseNewsOptions = {}) => {
@@ -49,7 +52,7 @@ export const useNews = (options: UseNewsOptions = {}) => {
         }
 
         const newsArray = data.news || [];
-        console.log(`Successfully fetched ${newsArray.length} news articles`);
+        console.log(`Successfully fetched ${newsArray.length} news articles for location: ${options.city}, ${options.country}`);
         
         return newsArray;
       } catch (err) {
