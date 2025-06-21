@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import VideoCard from './VideoCard';
 import { useNews } from '@/hooks/useNews';
@@ -11,6 +12,9 @@ const VideoFeed = () => {
   const startY = useRef(0);
   const currentY = useRef(0);
   const isDragging = useRef(false);
+  const velocityRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const lastYRef = useRef(0);
 
   const { locationData, isLoading: locationLoading } = useLocation();
 
@@ -37,23 +41,28 @@ const VideoFeed = () => {
     }
   }, [error]);
 
-  useEffect(() => {
-    if (locationData) {
-      toast.success(`📍 Loading news for ${locationData.city}, ${locationData.country}`);
-    }
-  }, [locationData]);
-
   const handleTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
+    lastYRef.current = e.touches[0].clientY;
+    lastTimeRef.current = Date.now();
     isDragging.current = true;
     setIsTransitioning(false);
+    velocityRef.current = 0;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging.current) return;
     
-    currentY.current = e.touches[0].clientY;
-    const deltaY = currentY.current - startY.current;
+    const currentTime = Date.now();
+    const currentYPos = e.touches[0].clientY;
+    const deltaY = currentYPos - startY.current;
+    const timeDelta = currentTime - lastTimeRef.current;
+    
+    if (timeDelta > 0) {
+      velocityRef.current = (currentYPos - lastYRef.current) / timeDelta;
+      lastYRef.current = currentYPos;
+      lastTimeRef.current = currentTime;
+    }
     
     if (containerRef.current) {
       const translateY = -currentIndex * window.innerHeight + deltaY;
@@ -64,31 +73,56 @@ const VideoFeed = () => {
   const handleTouchEnd = () => {
     if (!isDragging.current) return;
     
-    const deltaY = currentY.current - startY.current;
-    const threshold = window.innerHeight * 0.2;
+    const deltaY = lastYRef.current - startY.current;
+    const threshold = window.innerHeight * 0.15; // More sensitive threshold
+    const velocityThreshold = 0.5;
     
     setIsTransitioning(true);
     
-    if (deltaY > threshold && currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-    } else if (deltaY < -threshold && currentIndex < newsData.length - 1) {
-      setCurrentIndex(prev => prev + 1);
+    let shouldSwipe = false;
+    
+    // Check velocity for quick swipes
+    if (Math.abs(velocityRef.current) > velocityThreshold) {
+      shouldSwipe = true;
+    } else if (Math.abs(deltaY) > threshold) {
+      shouldSwipe = true;
+    }
+    
+    if (shouldSwipe) {
+      if (deltaY > 0 && currentIndex > 0) {
+        setCurrentIndex(prev => prev - 1);
+      } else if (deltaY < 0 && currentIndex < newsData.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+      }
     }
     
     isDragging.current = false;
+    velocityRef.current = 0;
   };
 
+  // Mouse events for desktop
   const handleMouseDown = (e: React.MouseEvent) => {
     startY.current = e.clientY;
+    lastYRef.current = e.clientY;
+    lastTimeRef.current = Date.now();
     isDragging.current = true;
     setIsTransitioning(false);
+    velocityRef.current = 0;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging.current) return;
     
-    currentY.current = e.clientY;
-    const deltaY = currentY.current - startY.current;
+    const currentTime = Date.now();
+    const currentYPos = e.clientY;
+    const deltaY = currentYPos - startY.current;
+    const timeDelta = currentTime - lastTimeRef.current;
+    
+    if (timeDelta > 0) {
+      velocityRef.current = (currentYPos - lastYRef.current) / timeDelta;
+      lastYRef.current = currentYPos;
+      lastTimeRef.current = currentTime;
+    }
     
     if (containerRef.current) {
       const translateY = -currentIndex * window.innerHeight + deltaY;
@@ -99,19 +133,45 @@ const VideoFeed = () => {
   const handleMouseUp = () => {
     if (!isDragging.current) return;
     
-    const deltaY = currentY.current - startY.current;
-    const threshold = window.innerHeight * 0.2;
+    const deltaY = lastYRef.current - startY.current;
+    const threshold = window.innerHeight * 0.15;
+    const velocityThreshold = 0.5;
     
     setIsTransitioning(true);
     
-    if (deltaY > threshold && currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-    } else if (deltaY < -threshold && currentIndex < newsData.length - 1) {
-      setCurrentIndex(prev => prev + 1);
+    let shouldSwipe = false;
+    
+    if (Math.abs(velocityRef.current) > velocityThreshold) {
+      shouldSwipe = true;
+    } else if (Math.abs(deltaY) > threshold) {
+      shouldSwipe = true;
+    }
+    
+    if (shouldSwipe) {
+      if (deltaY > 0 && currentIndex > 0) {
+        setCurrentIndex(prev => prev - 1);
+      } else if (deltaY < 0 && currentIndex < newsData.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+      }
     }
     
     isDragging.current = false;
+    velocityRef.current = 0;
   };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' && currentIndex > 0) {
+        setCurrentIndex(prev => prev - 1);
+      } else if (e.key === 'ArrowDown' && currentIndex < newsData.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, newsData.length]);
 
   useEffect(() => {
     if (containerRef.current && !isDragging.current) {
@@ -157,7 +217,7 @@ const VideoFeed = () => {
 
   return (
     <div 
-      className="relative w-full h-screen overflow-hidden cursor-grab active:cursor-grabbing"
+      className="relative w-full h-screen overflow-hidden select-none"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -165,6 +225,7 @@ const VideoFeed = () => {
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      style={{ touchAction: 'pan-y' }}
     >
       <div
         ref={containerRef}
@@ -184,15 +245,15 @@ const VideoFeed = () => {
       </div>
       
       {/* Progress indicator */}
-      <div className="fixed right-4 top-1/2 transform -translate-y-1/2 z-50">
-        <div className="flex flex-col space-y-2">
+      <div className="fixed right-2 top-1/2 transform -translate-y-1/2 z-50">
+        <div className="flex flex-col space-y-1">
           {newsData.map((_, index) => (
             <div
               key={index}
-              className={`w-1 h-8 rounded-full transition-all duration-300 ${
+              className={`w-0.5 h-6 rounded-full transition-all duration-300 ${
                 index === currentIndex 
-                  ? 'bg-blue-400 shadow-lg shadow-blue-400/50' 
-                  : 'bg-white/20'
+                  ? 'bg-white shadow-lg shadow-white/30' 
+                  : 'bg-white/30'
               }`}
             />
           ))}
@@ -201,7 +262,7 @@ const VideoFeed = () => {
 
       {/* Location indicator */}
       {locationData && (
-        <div className="fixed top-4 left-4 z-50 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm">
+        <div className="fixed top-4 left-4 z-50 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm border border-white/20">
           📍 {locationData.city}, {locationData.country}
         </div>
       )}

@@ -1,424 +1,200 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+interface NewsItem {
+  id: string;
+  headline: string;
+  tldr: string;
+  quote: string;
+  author: string;
+  category: string;
+  imageUrl: string;
+  readTime: string;
+  publishedAt?: string;
+  sourceUrl?: string;
+}
+
+const fallbackImages = [
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1080&h=1920&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=1080&h=1920&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1080&h=1920&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?w=1080&h=1920&fit=crop&crop=center',
+  'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=1080&h=1920&fit=crop&crop=center'
+];
+
+const getHighQualityImage = (originalUrl: string, index: number): string => {
+  if (!originalUrl || originalUrl.includes('placeholder')) {
+    return fallbackImages[index % fallbackImages.length];
+  }
+  
+  // Enhance image quality for common news sources
+  if (originalUrl.includes('unsplash.com')) {
+    return originalUrl.replace(/w=\d+/, 'w=1080').replace(/h=\d+/, 'h=1920');
+  }
+  
+  if (originalUrl.includes('pixabay.com')) {
+    return originalUrl.replace(/_\d+\./, '_1280.');
+  }
+  
+  // For other sources, try to get higher resolution
+  if (originalUrl.includes('?')) {
+    return `${originalUrl}&w=1080&h=1920&fit=crop&crop=center`;
+  } else {
+    return `${originalUrl}?w=1080&h=1920&fit=crop&crop=center`;
+  }
 };
 
-interface NewsAPIArticle {
-  title: string;
-  description: string;
-  url: string;
-  urlToImage: string;
-  publishedAt: string;
-  source: {
-    name: string;
-  };
-  author?: string;
-}
-
-interface NewsAPIResponse {
-  status: string;
-  totalResults: number;
-  articles: NewsAPIArticle[];
-}
-
-interface NewsDataArticle {
-  title: string;
-  description: string;
-  link: string;
-  image_url: string;
-  pubDate: string;
-  source_id: string;
-  creator?: string[];
-}
-
-interface NewsDataResponse {
-  status: string;
-  totalResults: number;
-  results: NewsDataArticle[];
-}
-
-interface SerpApiArticle {
-  title: string;
-  snippet: string;
-  link: string;
-  thumbnail?: string;
-  date: string;
-  source: string;
-}
-
-interface SerpApiResponse {
-  news_results: SerpApiArticle[];
-}
-
-// Move countryCodeMap to global scope
-const countryCodeMap: { [key: string]: string } = {
-  'United States': 'us',
-  'Canada': 'ca',
-  'United Kingdom': 'gb',
-  'Australia': 'au',
-  'Germany': 'de',
-  'France': 'fr',
-  'Italy': 'it',
-  'Spain': 'es',
-  'Netherlands': 'nl',
-  'Belgium': 'be',
-  'Switzerland': 'ch',
-  'Austria': 'at',
-  'Sweden': 'se',
-  'Norway': 'no',
-  'Denmark': 'dk',
-  'Finland': 'fi',
-  'Poland': 'pl',
-  'Czech Republic': 'cz',
-  'Hungary': 'hu',
-  'Portugal': 'pt',
-  'Greece': 'gr',
-  'Ireland': 'ie',
-  'Russia': 'ru',
-  'Ukraine': 'ua',
-  'Turkey': 'tr',
-  'Israel': 'il',
-  'Saudi Arabia': 'sa',
-  'United Arab Emirates': 'ae',
-  'Egypt': 'eg',
-  'South Africa': 'za',
-  'Nigeria': 'ng',
-  'Kenya': 'ke',
-  'Morocco': 'ma',
-  'India': 'in',
-  'China': 'cn',
-  'Japan': 'jp',
-  'South Korea': 'kr',
-  'Thailand': 'th',
-  'Malaysia': 'my',
-  'Singapore': 'sg',
-  'Philippines': 'ph',
-  'Indonesia': 'id',
-  'Vietnam': 'vn',
-  'Taiwan': 'tw',
-  'Hong Kong': 'hk',
-  'New Zealand': 'nz',
-  'Argentina': 'ar',
-  'Brazil': 'br',
-  'Chile': 'cl',
-  'Colombia': 'co',
-  'Mexico': 'mx',
-  'Peru': 'pe',
-  'Venezuela': 've'
+const isWeatherRelated = (headline: string): boolean => {
+  const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'cloudy', 'sunny', 'storm', 'hurricane', 'climate'];
+  const lowerHeadline = headline.toLowerCase();
+  return weatherKeywords.some(keyword => lowerHeadline.includes(keyword));
 };
 
-const newsDataCountryMap: { [key: string]: string } = {
-  'United States': 'us',
-  'Canada': 'ca', 
-  'United Kingdom': 'gb',
-  'Australia': 'au',
-  'Germany': 'de',
-  'France': 'fr',
-  'Italy': 'it',
-  'Spain': 'es',
-  'India': 'in',
-  'Japan': 'jp',
-  'Brazil': 'br',
-  'China': 'cn'
+const removeDuplicates = (news: NewsItem[]): NewsItem[] => {
+  const uniqueHeadlines = new Set<string>();
+  return news.filter(item => {
+    if (uniqueHeadlines.has(item.headline)) {
+      return false;
+    }
+    uniqueHeadlines.add(item.headline);
+    return true;
+  });
 };
-
-async function fetchFromNewsAPI(category: string, pageSize: number, country?: string) {
-  const newsApiKey = Deno.env.get('NEWS_API_KEY');
-  if (!newsApiKey) return null;
-
-  try {
-    // Focus on country-only search to avoid weather updates
-    const countryCode = country ? (countryCodeMap[country] || 'us') : 'us';
-    const countryUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
-    
-    console.log(`NewsAPI: Fetching country-specific news for ${countryCode}`);
-    
-    const countryResponse = await fetch(countryUrl);
-    if (countryResponse.ok) {
-      const countryData: NewsAPIResponse = await countryResponse.json();
-      console.log(`NewsAPI country search returned ${countryData.articles?.length || 0} articles`);
-      
-      if (countryData.articles && countryData.articles.length > 0) {
-        // Filter out weather-related articles
-        const filteredArticles = countryData.articles.filter(article => {
-          const lowerTitle = article.title.toLowerCase();
-          const lowerDescription = (article.description || '').toLowerCase();
-          const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'storm', 'forecast', 'degrees', 'celsius', 'fahrenheit'];
-          
-          return !weatherKeywords.some(keyword => 
-            lowerTitle.includes(keyword) || lowerDescription.includes(keyword)
-          );
-        });
-        
-        console.log(`Filtered out weather articles, remaining: ${filteredArticles.length}`);
-        return filteredArticles;
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('NewsAPI error:', error);
-    return null;
-  }
-}
-
-async function fetchFromNewsData(category: string, pageSize: number, country?: string) {
-  const newsDataKey = Deno.env.get('NEWSDATA_API_KEY');
-  if (!newsDataKey) return null;
-
-  try {
-    const countryCode = country ? newsDataCountryMap[country] : undefined;
-
-    const baseUrl = 'https://newsdata.io/api/1/news';
-    const params = new URLSearchParams({
-      apikey: newsDataKey,
-      category: category === 'general' ? 'top' : category,
-      size: pageSize.toString(),
-      language: 'en'
-    });
-
-    if (countryCode) {
-      params.append('country', countryCode);
-    }
-
-    // Exclude weather-related content
-    params.append('qInMeta', '-weather,-forecast,-temperature');
-
-    const url = `${baseUrl}?${params.toString()}`;
-    console.log(`NewsData.io: Fetching country-specific news for ${countryCode || 'all'}`);
-
-    const response = await fetch(url);
-    if (response.ok) {
-      const data: NewsDataResponse = await response.json();
-      console.log(`NewsData.io returned ${data.results?.length || 0} articles`);
-      
-      if (data.results && data.results.length > 0) {
-        // Additional client-side filtering for weather content
-        const filteredResults = data.results.filter(article => {
-          const lowerTitle = article.title.toLowerCase();
-          const lowerDescription = (article.description || '').toLowerCase();
-          const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'storm', 'forecast', 'degrees', 'celsius', 'fahrenheit'];
-          
-          return !weatherKeywords.some(keyword => 
-            lowerTitle.includes(keyword) || lowerDescription.includes(keyword)
-          );
-        });
-
-        return filteredResults.map(article => ({
-          title: article.title,
-          description: article.description || 'No description available',
-          url: article.link,
-          urlToImage: article.image_url,
-          publishedAt: article.pubDate,
-          source: { name: article.source_id },
-          author: article.creator?.[0]
-        }));
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('NewsData.io error:', error);
-    return null;
-  }
-}
-
-async function fetchFromSerpApi(category: string, pageSize: number, country?: string) {
-  const serpApiKey = Deno.env.get('SERPAPI_API_KEY');
-  if (!serpApiKey) return null;
-
-  try {
-    let query = category === 'general' ? 'news' : `${category} news`;
-    
-    // Add country context and exclude weather
-    if (country) {
-      query += ` ${country} -weather -forecast -temperature`;
-    } else {
-      query += ' -weather -forecast -temperature';
-    }
-
-    const url = `https://serpapi.com/search.json?engine=google&tbm=nws&q=${encodeURIComponent(query)}&num=${pageSize}&api_key=${serpApiKey}`;
-    console.log(`SerpApi: Fetching country-specific news with query: ${query}`);
-
-    const response = await fetch(url);
-    if (response.ok) {
-      const data: SerpApiResponse = await response.json();
-      console.log(`SerpApi returned ${data.news_results?.length || 0} articles`);
-      
-      if (data.news_results && data.news_results.length > 0) {
-        // Additional filtering for weather content
-        const filteredResults = data.news_results.filter(article => {
-          const lowerTitle = article.title.toLowerCase();
-          const lowerSnippet = (article.snippet || '').toLowerCase();
-          const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'storm', 'forecast', 'degrees', 'celsius', 'fahrenheit'];
-          
-          return !weatherKeywords.some(keyword => 
-            lowerTitle.includes(keyword) || lowerSnippet.includes(keyword)
-          );
-        });
-
-        return filteredResults.map(article => ({
-          title: article.title,
-          description: article.snippet || 'No description available',
-          url: article.link,
-          urlToImage: article.thumbnail || '/placeholder.svg',
-          publishedAt: article.date,
-          source: { name: article.source },
-          author: article.source
-        }));
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error('SerpApi error:', error);
-    return null;
-  }
-}
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { 
-      category = 'general', 
-      pageSize = 20, 
-      country 
-    } = await req.json().catch(() => ({}));
+    const { category = 'general', pageSize = 20, country, city, region } = await req.json()
+    
+    console.log('Fetching news with enhanced image quality for:', { country, city, region, category, pageSize })
 
-    console.log(`Fetching country-specific news for category: ${category}, pageSize: ${pageSize}, country: ${country}`);
+    let allNews: NewsItem[] = []
 
-    let articles: any[] = [];
-
-    // Try NewsAPI first (country-specific only)
-    console.log('Trying NewsAPI for country-specific news...');
-    const newsApiArticles = await fetchFromNewsAPI(category, pageSize, country);
-    if (newsApiArticles && newsApiArticles.length > 0) {
-      articles = newsApiArticles;
-      console.log(`NewsAPI provided ${articles.length} articles`);
-    }
-
-    // If NewsAPI didn't provide enough articles, try NewsData.io
-    if (articles.length < pageSize / 2) {
-      console.log('Trying NewsData.io for additional country-specific news...');
-      const newsDataArticles = await fetchFromNewsData(category, pageSize, country);
-      if (newsDataArticles && newsDataArticles.length > 0) {
-        articles = articles.concat(newsDataArticles);
-        console.log(`Added ${newsDataArticles.length} articles from NewsData.io, total: ${articles.length}`);
-      }
-    }
-
-    // If still not enough articles, try SerpApi
-    if (articles.length < pageSize / 2) {
-      console.log('Trying SerpApi for additional country-specific news...');
-      const serpApiArticles = await fetchFromSerpApi(category, pageSize, country);
-      if (serpApiArticles && serpApiArticles.length > 0) {
-        articles = articles.concat(serpApiArticles);
-        console.log(`Added ${serpApiArticles.length} articles from SerpApi, total: ${articles.length}`);
-      }
-    }
-
-    // Final fallback to US general news from NewsAPI
-    if (articles.length === 0) {
-      console.log('Trying final fallback to US general news via NewsAPI');
-      const fallbackUrl = `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=${pageSize}&apiKey=${Deno.env.get('NEWS_API_KEY')}`;
-      
-      const fallbackResponse = await fetch(fallbackUrl);
-      if (fallbackResponse.ok) {
-        const data: NewsAPIResponse = await fallbackResponse.json();
-        if (data.articles && data.articles.length > 0) {
-          // Filter weather content from fallback too
-          const filteredFallback = data.articles.filter(article => {
-            const lowerTitle = article.title.toLowerCase();
-            const lowerDescription = (article.description || '').toLowerCase();
-            const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'storm', 'forecast', 'degrees', 'celsius', 'fahrenheit'];
-            
-            return !weatherKeywords.some(keyword => 
-              lowerTitle.includes(keyword) || lowerDescription.includes(keyword)
-            );
-          });
-          
-          articles = filteredFallback;
-          console.log(`Fallback returned ${articles.length} articles after weather filtering`);
+    // Fetch news from NewsAPI
+    try {
+      const newsApiKey = Deno.env.get('NEWSAPI_KEY');
+      if (newsApiKey) {
+        const url = `https://newsapi.org/v2/top-headlines?country=${country || 'us'}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          const news = data.articles.map((article: any) => ({
+            id: crypto.randomUUID(),
+            headline: article.title,
+            tldr: article.description || 'No TLDR available',
+            quote: article.content || 'No quote available',
+            author: article.author || 'Unknown',
+            category: category,
+            imageUrl: article.urlToImage || '',
+            readTime: `${Math.floor(Math.random() * 3) + 2} min read`,
+            publishedAt: article.publishedAt,
+            sourceUrl: article.url
+          }));
+          allNews = allNews.concat(news);
+        } else {
+          console.error('NewsAPI error:', response.status, response.statusText);
         }
+      } else {
+        console.warn('NewsAPI key not found. Skipping NewsAPI.');
       }
+    } catch (e) {
+      console.error('Error fetching from NewsAPI:', e);
     }
 
-    if (articles.length === 0) {
-      console.log('No articles available from any source');
-      return new Response(JSON.stringify({ news: [] }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Remove duplicates based on title similarity
-    const uniqueArticles = articles.filter((article, index, self) => 
-      index === self.findIndex(a => 
-        a.title.toLowerCase().substring(0, 50) === article.title.toLowerCase().substring(0, 50)
-      )
-    );
-
-    // Transform and filter articles
-    const transformedNews = uniqueArticles
-      .filter(article => {
-        const hasRequiredFields = article.title && article.description && article.urlToImage && article.urlToImage !== '/placeholder.svg';
-        if (!hasRequiredFields) {
-          console.log('Filtered out article missing required fields:', article.title || 'Unknown title');
+    // Fetch news from NewsData.io
+    try {
+      const newsDataApiKey = Deno.env.get('NEWSDATAIO_API_KEY');
+      if (newsDataApiKey) {
+        const url = `https://newsdata.io/api/1/news?apikey=${newsDataApiKey}&country=${country || 'us'}&category=${category}&size=${pageSize}`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          const news = data.results.map((article: any) => ({
+            id: crypto.randomUUID(),
+            headline: article.title,
+            tldr: article.description || 'No TLDR available',
+            quote: article.content || 'No quote available',
+            author: article.creator ? article.creator[0] : 'Unknown',
+            category: category,
+            imageUrl: article.image_url || '',
+            readTime: `${Math.floor(Math.random() * 3) + 2} min read`,
+            publishedAt: article.pubDate,
+            sourceUrl: article.link
+          }));
+          allNews = allNews.concat(news);
+        } else {
+          console.error('NewsData.io error:', response.status, response.statusText);
         }
-        return hasRequiredFields;
-      })
-      .slice(0, pageSize) // Limit to requested page size
-      .map((article, index) => ({
-        id: `news-${Date.now()}-${index}`,
-        headline: article.title,
-        tldr: article.description,
-        quote: `"${article.description.substring(0, 100)}..."`,
-        author: article.author || article.source.name,
-        category: getCategoryFromTitle(article.title),
-        imageUrl: article.urlToImage,
-        readTime: '2 min read',
-        publishedAt: article.publishedAt,
-        sourceUrl: article.url
-      }));
+      } else {
+        console.warn('NewsData.io key not found. Skipping NewsData.io.');
+      }
+    } catch (e) {
+      console.error('Error fetching from NewsData.io:', e);
+    }
+    
+    // Fetch news from SerpApi (Google News)
+    try {
+      const serpApiKey = Deno.env.get('SERPAPI_KEY');
+      if (serpApiKey) {
+        const gl = country || 'US';
+        const hl = country ? country.toLowerCase() : 'en';
+        const url = `https://serpapi.com/search.json?engine=google_news&q=${category}&gl=${gl}&hl=${hl}&num=${pageSize}&api_key=${serpApiKey}`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          const news = data.articles.map((article: any) => ({
+            id: crypto.randomUUID(),
+            headline: article.title,
+            tldr: article.description || 'No TLDR available',
+            quote: article.snippet || 'No quote available',
+            author: article.source || 'Unknown',
+            category: category,
+            imageUrl: article.image || '',
+            readTime: `${Math.floor(Math.random() * 3) + 2} min read`,
+            publishedAt: article.date,
+            sourceUrl: article.link
+          }));
+          allNews = allNews.concat(news);
+        } else {
+          console.error('SerpApi error:', response.status, response.statusText);
+        }
+      } else {
+        console.warn('SerpApi key not found. Skipping SerpApi.');
+      }
+    } catch (e) {
+      console.error('Error fetching from SerpApi:', e);
+    }
 
-    console.log(`Successfully transformed ${transformedNews.length} unique country-specific articles`);
+    // Enhanced image processing
+    const processedNews = allNews.map((item, index) => ({
+      ...item,
+      imageUrl: getHighQualityImage(item.imageUrl, index),
+      readTime: item.readTime || `${Math.floor(Math.random() * 3) + 2} min read`
+    }));
 
-    return new Response(JSON.stringify({ news: transformedNews }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Error in fetch-news function:', error);
+    const uniqueNews = removeDuplicates(processedNews).slice(0, pageSize)
+    
+    console.log(`Returning ${uniqueNews.length} news articles with enhanced images`)
+    
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        news: []
-      }), 
-      {
+      JSON.stringify({ news: uniqueNews }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    console.error('Error fetching news:', error)
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
-    );
+    )
   }
-});
-
-function getCategoryFromTitle(title: string): string {
-  const techKeywords = ['AI', 'tech', 'digital', 'software', 'computer', 'internet', 'bitcoin', 'crypto'];
-  const businessKeywords = ['market', 'economy', 'business', 'financial', 'stock', 'investment'];
-  const healthKeywords = ['health', 'medical', 'hospital', 'disease', 'treatment', 'vaccine'];
-  const politicsKeywords = ['president', 'government', 'election', 'congress', 'senate', 'politics'];
-  
-  const lowerTitle = title.toLowerCase();
-  
-  if (techKeywords.some(keyword => lowerTitle.includes(keyword))) return 'Tech';
-  if (businessKeywords.some(keyword => lowerTitle.includes(keyword))) return 'Business';
-  if (healthKeywords.some(keyword => lowerTitle.includes(keyword))) return 'Health';
-  if (politicsKeywords.some(keyword => lowerTitle.includes(keyword))) return 'Politics';
-  
-  return 'General';
-}
+})
