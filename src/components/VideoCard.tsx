@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Share, Heart } from 'lucide-react';
+import { Play, Pause, Share, Heart, VolumeX, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { audioService } from '@/services/audioService';
 
@@ -27,6 +26,7 @@ interface VideoCardProps {
 const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [isSoundOn, setIsSoundOn] = useState(true);
 
   // Clean up audio when component unmounts or news changes
   useEffect(() => {
@@ -61,6 +61,11 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   };
 
   const handlePlayPause = async () => {
+    if (!isSoundOn) {
+      toast.error("Sound is muted. Turn on sound to hear narration.");
+      return;
+    }
+
     if (isPlaying) {
       audioService.stop();
       setIsPlaying(false);
@@ -81,6 +86,19 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         console.error('Narration failed:', error);
         setIsPlaying(false);
         toast.error("Audio playback failed");
+      }
+    }
+  };
+
+  const handleSoundToggle = () => {
+    setIsSoundOn(!isSoundOn);
+    if (!isSoundOn) {
+      toast.success("🔊 Sound turned on");
+    } else {
+      toast.success("🔇 Sound turned off");
+      if (isPlaying) {
+        audioService.stop();
+        setIsPlaying(false);
       }
     }
   };
@@ -193,6 +211,22 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         >
           <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
         </button>
+
+        {/* Sound Toggle Button */}
+        <button
+          onClick={handleSoundToggle}
+          className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg ${
+            isSoundOn 
+              ? 'bg-black/50 text-white hover:bg-black/70' 
+              : 'bg-red-500/90 text-white'
+          }`}
+        >
+          {isSoundOn ? (
+            <Volume2 className="w-6 h-6" />
+          ) : (
+            <VolumeX className="w-6 h-6" />
+          )}
+        </button>
         
         {/* Share Button */}
         <button
@@ -227,7 +261,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
       {/* Audio indicator */}
       <div className="absolute top-4 right-4 z-30">
         <div className="bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-xs border border-white/20">
-          {isPlaying ? '🔊 Playing 60s explainer' : '🎧 Tap to hear 60s explainer'}
+          {isPlaying ? '🔊 Playing 60s explainer' : isSoundOn ? '🎧 Tap to hear 60s explainer' : '🔇 Sound is off'}
         </div>
       </div>
     </div>
