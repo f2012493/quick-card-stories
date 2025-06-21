@@ -115,42 +115,72 @@ const extractMeaningfulSentences = (content: string): string[] => {
   return sentences.slice(0, 3); // Take first 3 meaningful sentences
 };
 
-const createFocusedSummary = (headline: string, content: string): string => {
-  const headlineWords = headline.toLowerCase();
+const generateTLDR = (content: string, headline: string): string => {
+  console.log(`Generating TL;DR for headline: "${headline}"`);
+  console.log(`Content preview: "${content.substring(0, 200)}..."`);
   
-  // Analyze headline for key topics and create contextual summary
-  if (headlineWords.includes('court') || headlineWords.includes('judge') || headlineWords.includes('ruling') || headlineWords.includes('legal')) {
-    return `A legal ruling has been issued in a case involving ${extractSubject(headline)}. The decision addresses key legal questions and may set important precedents for similar cases moving forward.`;
-  } 
+  // Check if content is meaningful
+  const contentLower = content.toLowerCase();
+  const headlineLower = headline.toLowerCase();
   
-  else if (headlineWords.includes('election') || headlineWords.includes('vote') || headlineWords.includes('campaign') || headlineWords.includes('political')) {
-    return `Electoral developments are taking place involving ${extractSubject(headline)}. The outcome could influence political dynamics and voter sentiment in upcoming decisions.`;
-  } 
+  // Extract meaningful sentences first
+  const meaningfulSentences = extractMeaningfulSentences(content);
   
-  else if (headlineWords.includes('economic') || headlineWords.includes('market') || headlineWords.includes('financial') || headlineWords.includes('stock') || headlineWords.includes('business')) {
-    return `Economic news has emerged regarding ${extractSubject(headline)}. This development may impact market conditions, business operations, and financial planning strategies.`;
-  } 
-  
-  else if (headlineWords.includes('technology') || headlineWords.includes('tech') || headlineWords.includes('ai') || headlineWords.includes('digital') || headlineWords.includes('cyber')) {
-    return `Technology sector developments involve ${extractSubject(headline)}. These changes could affect digital services, user experiences, and technological innovation trends.`;
-  } 
-  
-  else if (headlineWords.includes('health') || headlineWords.includes('medical') || headlineWords.includes('hospital') || headlineWords.includes('doctor') || headlineWords.includes('patient')) {
-    return `Health-related news concerns ${extractSubject(headline)}. This development may influence healthcare policies, medical practices, and public health outcomes.`;
-  } 
-  
-  else if (headlineWords.includes('climate') || headlineWords.includes('environment') || headlineWords.includes('weather') || headlineWords.includes('green')) {
-    return `Environmental developments involve ${extractSubject(headline)}. These changes could affect climate policies, environmental protection efforts, and sustainability initiatives.`;
+  // If we have good content, use it
+  if (meaningfulSentences.length > 0) {
+    // Build TL;DR from meaningful sentences (aim for 30-40 words max)
+    let tldr = '';
+    let wordCount = 0;
+    const targetWords = 35;
+    
+    for (const sentence of meaningfulSentences) {
+      const sentenceWords = sentence.split(' ').length;
+      if (wordCount + sentenceWords <= targetWords) {
+        tldr += sentence + '. ';
+        wordCount += sentenceWords;
+      } else {
+        // Add partial sentence if we can fit at least 8 more words
+        if (targetWords - wordCount >= 8) {
+          const words = sentence.split(' ');
+          const partialSentence = words.slice(0, targetWords - wordCount).join(' ');
+          tldr += partialSentence + '...';
+        }
+        break;
+      }
+    }
+    
+    tldr = tldr.trim();
+    if (tldr && !tldr.endsWith('.') && !tldr.endsWith('...')) {
+      tldr += '.';
+    }
+    
+    // If TL;DR is good and not too similar to headline, use it
+    if (tldr.length >= 50 && !tldr.toLowerCase().includes(headlineLower.substring(0, Math.min(20, headlineLower.length)))) {
+      console.log(`Generated TL;DR (${tldr.split(' ').length} words): "${tldr.substring(0, 100)}..."`);
+      return tldr;
+    }
   }
   
-  else if (headlineWords.includes('sports') || headlineWords.includes('game') || headlineWords.includes('team') || headlineWords.includes('player')) {
-    return `Sports news involves ${extractSubject(headline)}. This development affects team dynamics, player performances, and competitive standings in the sport.`;
-  }
+  // If content is poor or too similar to headline, create a very short summary
+  console.log('Creating short summary due to poor content');
   
-  else {
-    // General fallback with more specific analysis
-    const subject = extractSubject(headline);
-    return `Recent developments involving ${subject} have created significant interest. The situation involves multiple stakeholders and could have broader implications for the affected community and related sectors.`;
+  // Extract key terms from headline
+  const keyTerms = headline.split(' ').filter(word => 
+    word.length > 3 && 
+    !['that', 'this', 'with', 'from', 'they', 'them', 'have', 'been', 'were', 'will', 'says', 'after'].includes(word.toLowerCase())
+  ).slice(0, 3);
+  
+  // Create a minimal but informative summary
+  if (headlineLower.includes('court') || headlineLower.includes('judge') || headlineLower.includes('ruling')) {
+    return `Legal ruling affects ${keyTerms.join(' ').toLowerCase()}.`;
+  } else if (headlineLower.includes('election') || headlineLower.includes('vote') || headlineLower.includes('political')) {
+    return `Political development involving ${keyTerms.join(' ').toLowerCase()}.`;
+  } else if (headlineLower.includes('market') || headlineLower.includes('stock') || headlineLower.includes('economic')) {
+    return `Market movement related to ${keyTerms.join(' ').toLowerCase()}.`;
+  } else if (headlineLower.includes('tech') || headlineLower.includes('ai') || headlineLower.includes('digital')) {
+    return `Technology update regarding ${keyTerms.join(' ').toLowerCase()}.`;
+  } else {
+    return `News update on ${keyTerms.join(' ').toLowerCase()}.`;
   }
 };
 
@@ -175,65 +205,6 @@ const extractSubject = (headline: string): string => {
   );
   
   return meaningfulWords.slice(0, 3).join(' ').toLowerCase();
-};
-
-const generateTLDR = (content: string, headline: string): string => {
-  console.log(`Generating TL;DR for headline: "${headline}"`);
-  console.log(`Content preview: "${content.substring(0, 200)}..."`);
-  
-  // Check if content is meaningful
-  const contentLower = content.toLowerCase();
-  const headlineLower = headline.toLowerCase();
-  
-  // If content is empty, too short, or just repeats headline
-  if (!content || content.length < 50 || 
-      contentLower.includes(headlineLower.substring(0, Math.min(30, headlineLower.length)))) {
-    console.log('Creating focused summary from headline');
-    return createFocusedSummary(headline, content);
-  }
-  
-  // Extract meaningful sentences
-  const meaningfulSentences = extractMeaningfulSentences(content);
-  
-  if (meaningfulSentences.length === 0) {
-    console.log('No meaningful content found, creating focused summary');
-    return createFocusedSummary(headline, content);
-  }
-  
-  // Build TL;DR from meaningful sentences (aim for 50-60 words)
-  let tldr = '';
-  let wordCount = 0;
-  const targetWords = 55;
-  
-  for (const sentence of meaningfulSentences) {
-    const sentenceWords = sentence.split(' ').length;
-    if (wordCount + sentenceWords <= targetWords) {
-      tldr += sentence + '. ';
-      wordCount += sentenceWords;
-    } else {
-      // Add partial sentence if we can fit at least 10 more words
-      if (targetWords - wordCount >= 10) {
-        const words = sentence.split(' ');
-        const partialSentence = words.slice(0, targetWords - wordCount).join(' ');
-        tldr += partialSentence + '...';
-      }
-      break;
-    }
-  }
-  
-  // Clean up the TL;DR
-  tldr = tldr.trim();
-  if (!tldr.endsWith('.') && !tldr.endsWith('...')) {
-    tldr += '.';
-  }
-  
-  // If TL;DR is still too similar to headline or too short, use focused summary
-  if (tldr.length < 100 || tldr.toLowerCase().includes(headlineLower.substring(0, 20))) {
-    tldr = createFocusedSummary(headline, content);
-  }
-  
-  console.log(`Generated TL;DR (${tldr.split(' ').length} words): "${tldr.substring(0, 100)}..."`);
-  return tldr.substring(0, 400); // Ensure it's not too long
 };
 
 const generateNarrationText = (headline: string, tldr: string, content: string): string => {

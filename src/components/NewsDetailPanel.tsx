@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface NewsItem {
   id: string;
@@ -36,87 +37,53 @@ const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelPr
 
   useEffect(() => {
     if (isOpen && !analysis) {
-      generateAnalysis();
+      generateAIAnalysis();
     }
   }, [isOpen, news.id]);
 
-  const generateAnalysis = async () => {
+  const generateAIAnalysis = async () => {
     setIsLoading(true);
     try {
       // Call analytics tracking
       onAnalyze(news.id);
 
-      // Generate AI analysis based on available content
-      const whatHappened = analyzeWhatHappened(news);
-      const whyItMatters = analyzeWhyItMatters(news);
-      const whoItAffects = analyzeWhoItAffects(news);
+      console.log('Generating AI analysis for:', news.headline);
 
-      setAnalysis({
-        whatHappened,
-        whyItMatters,
-        whoItAffects
+      // Call our AI analysis edge function
+      const { data, error } = await supabase.functions.invoke('analyze-news', {
+        body: {
+          headline: news.headline,
+          tldr: news.tldr,
+          content: news.quote || news.narrationText || '',
+          category: news.category
+        }
       });
+
+      if (error) {
+        console.error('AI analysis error:', error);
+        throw new Error('Failed to generate AI analysis');
+      }
+
+      if (data) {
+        setAnalysis({
+          whatHappened: data.whatHappened,
+          whyItMatters: data.whyItMatters,
+          whoItAffects: data.whoItAffects
+        });
+      }
     } catch (error) {
       console.error('Failed to generate analysis:', error);
       toast.error('Failed to generate detailed analysis');
+      
+      // Fallback to basic analysis if AI fails
+      setAnalysis({
+        whatHappened: `${news.tldr || news.headline}`,
+        whyItMatters: 'This development may have broader implications for the affected sectors and communities.',
+        whoItAffects: 'Multiple stakeholders and related industries may be impacted by this development.'
+      });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const analyzeWhatHappened = (news: NewsItem): string => {
-    const content = news.tldr || news.quote || news.headline;
-    
-    // Extract key facts from the content
-    if (content.toLowerCase().includes('court') || content.toLowerCase().includes('ruling')) {
-      return `A legal decision has been made regarding ${news.headline.toLowerCase()}. ${content.substring(0, 150)}...`;
-    } else if (content.toLowerCase().includes('election') || content.toLowerCase().includes('vote')) {
-      return `Electoral developments have occurred involving ${news.headline.toLowerCase()}. ${content.substring(0, 150)}...`;
-    } else if (content.toLowerCase().includes('economic') || content.toLowerCase().includes('market')) {
-      return `Economic or market-related developments have taken place. ${content.substring(0, 150)}...`;
-    } else {
-      return `${content.substring(0, 200)}${content.length > 200 ? '...' : ''}`;
-    }
-  };
-
-  const analyzeWhyItMatters = (news: NewsItem): string => {
-    const category = news.category.toLowerCase();
-    
-    if (category.includes('tech')) {
-      return 'This technological development could impact how we interact with digital services, potentially affecting millions of users and setting new industry standards.';
-    } else if (category.includes('politic')) {
-      return 'This political development could influence policy decisions, affect public opinion, and have implications for governance and democratic processes.';
-    } else if (category.includes('business') || category.includes('econom')) {
-      return 'This business or economic development could affect market conditions, employment opportunities, and financial planning for individuals and organizations.';
-    } else if (category.includes('health')) {
-      return 'This health-related news could impact public health policies, individual health decisions, and healthcare systems.';
-    } else {
-      return 'This development is significant as it may influence related sectors, affect stakeholder decisions, and contribute to ongoing societal conversations.';
-    }
-  };
-
-  const analyzeWhoItAffects = (news: NewsItem): string => {
-    const content = news.tldr || news.quote || news.headline;
-    const category = news.category.toLowerCase();
-    
-    let primaryAffected = 'the general public';
-    let secondaryAffected = 'related industries and stakeholders';
-
-    if (category.includes('tech')) {
-      primaryAffected = 'technology users and digital service consumers';
-      secondaryAffected = 'tech companies, developers, and digital platforms';
-    } else if (category.includes('politic')) {
-      primaryAffected = 'citizens and voters';
-      secondaryAffected = 'political parties, government institutions, and policy makers';
-    } else if (category.includes('business')) {
-      primaryAffected = 'investors, employees, and consumers';
-      secondaryAffected = 'competing businesses, supply chains, and market regulators';
-    } else if (category.includes('health')) {
-      primaryAffected = 'patients and healthcare consumers';
-      secondaryAffected = 'healthcare providers, medical researchers, and health insurers';
-    }
-
-    return `This primarily affects ${primaryAffected}, with secondary impacts on ${secondaryAffected}. The broader implications may extend to related communities and decision-makers in the field.`;
   };
 
   const handleSourceClick = () => {
@@ -168,7 +135,7 @@ const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelPr
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                <span className="ml-2 text-gray-600">Generating analysis...</span>
+                <span className="ml-2 text-gray-600">Generating AI analysis...</span>
               </div>
             ) : analysis ? (
               <>

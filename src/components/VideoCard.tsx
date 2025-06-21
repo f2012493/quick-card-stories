@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Share, Heart, VolumeX, Volume2, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
@@ -31,6 +30,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [isSoundOn, setIsSoundOn] = useState(true);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   // Track time spent on this card
   useEffect(() => {
@@ -54,7 +54,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
   // Auto-start narration when card becomes active
   useEffect(() => {
-    if (isActive && !isPlaying && isSoundOn) {
+    if (isActive && !isPlaying && isSoundOn && audioUnlocked) {
       const timer = setTimeout(() => {
         handlePlayPause();
       }, 1000);
@@ -64,7 +64,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
       audioService.stop();
       setIsPlaying(false);
     }
-  }, [isActive, isSoundOn]);
+  }, [isActive, isSoundOn, audioUnlocked]);
 
   const createNarrationText = () => {
     if (news.narrationText) {
@@ -77,6 +77,16 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
     if (!isSoundOn) {
       toast.error("🔇 Sound is muted. Turn on sound to hear narration.");
       return;
+    }
+
+    // For mobile, unlock audio on first interaction
+    if (!audioUnlocked) {
+      try {
+        await audioService.enableAudioForMobile();
+        setAudioUnlocked(true);
+      } catch (error) {
+        console.log('Failed to unlock audio:', error);
+      }
     }
 
     if (isPlaying) {
@@ -103,7 +113,17 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
     }
   };
 
-  const handleSoundToggle = () => {
+  const handleSoundToggle = async () => {
+    // Unlock audio on first sound interaction for mobile
+    if (!audioUnlocked) {
+      try {
+        await audioService.enableAudioForMobile();
+        setAudioUnlocked(true);
+      } catch (error) {
+        console.log('Failed to unlock audio:', error);
+      }
+    }
+
     const newSoundState = !isSoundOn;
     setIsSoundOn(newSoundState);
     
@@ -288,7 +308,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         {/* Audio indicator */}
         <div className="absolute top-4 right-4 z-30">
           <div className="bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-xs border border-white/20">
-            {isPlaying ? '🔊 Playing explainer' : isSoundOn ? '🎧 Tap to hear explainer' : '🔇 Sound is off'}
+            {isPlaying ? '🔊 Playing explainer' : isSoundOn ? (audioUnlocked ? '🎧 Tap to hear explainer' : '🎧 Tap to enable audio') : '🔇 Sound is off'}
           </div>
         </div>
       </div>
