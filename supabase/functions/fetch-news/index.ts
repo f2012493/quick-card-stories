@@ -55,7 +55,17 @@ const unwantedPhrases = [
   'implications and next steps',
   'being analyzed',
   'continue to monitor',
-  'updates as it develops'
+  'updates as it develops',
+  'this represents a notable development',
+  'this development is being',
+  'the situation continues',
+  'more information becomes available',
+  'authorities and stakeholders',
+  'relevant authorities',
+  'situation as it updates',
+  'news development involves',
+  'continues to evolve',
+  'being closely monitored'
 ];
 
 const cleanContent = (text: string): string => {
@@ -80,49 +90,76 @@ const cleanContent = (text: string): string => {
 };
 
 const extractMeaningfulSentences = (content: string): string[] => {
-  if (!content || content.length < 20) return [];
+  if (!content || content.length < 30) return [];
   
   const cleaned = cleanContent(content);
-  if (cleaned.length < 20) return [];
+  if (cleaned.length < 30) return [];
   
   // Split into sentences and filter for meaningful content
   const sentences = cleaned.split(/[.!?]+/).map(s => s.trim()).filter(sentence => {
     const words = sentence.split(' ');
-    return sentence.length > 20 && 
-           words.length >= 5 && 
+    return sentence.length > 25 && 
+           words.length >= 6 && 
            !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase())) &&
            // Filter out vague sentences
-           !sentence.toLowerCase().includes('according to') &&
-           !sentence.toLowerCase().includes('sources say') &&
-           !sentence.toLowerCase().includes('reports suggest') &&
-           !sentence.toLowerCase().includes('it is believed') &&
-           !sentence.toLowerCase().includes('officials said') &&
-           // Check for actual content
-           words.some(word => word.length > 4); // At least one substantial word
+           !sentence.toLowerCase().includes('according to sources') &&
+           !sentence.toLowerCase().includes('reports indicate') &&
+           !sentence.toLowerCase().includes('it is understood') &&
+           !sentence.toLowerCase().includes('sources close to') &&
+           // Check for actual substantive content
+           words.some(word => word.length > 5) && // At least one substantial word
+           // Avoid sentences that are just quotes without context
+           !(sentence.startsWith('"') && sentence.endsWith('"') && words.length < 10);
   });
   
-  return sentences.slice(0, 4); // Take first 4 meaningful sentences
+  return sentences.slice(0, 3); // Take first 3 meaningful sentences
 };
 
-const createHeadlineBasedSummary = (headline: string): string => {
-  // Extract key information from headline and create a focused summary
-  const words = headline.toLowerCase();
+const createFocusedSummary = (headline: string, content: string): string => {
+  // Extract key information from headline and any available content
+  const headlineWords = headline.toLowerCase();
+  let summary = '';
   
-  // Identify key entities and actions from headline
-  let summary = headline;
-  
-  // Add minimal context based on headline content without generic phrases
-  if (words.includes('court') || words.includes('judge') || words.includes('ruling')) {
-    summary += '. The legal decision affects relevant parties and procedures.';
-  } else if (words.includes('election') || words.includes('vote') || words.includes('campaign')) {
-    summary += '. The electoral development impacts the political landscape.';
-  } else if (words.includes('economic') || words.includes('market') || words.includes('financial')) {
-    summary += '. The economic change influences market conditions and participants.';
-  } else if (words.includes('technology') || words.includes('tech') || words.includes('ai')) {
-    summary += '. The technological advancement represents a significant industry development.';
+  // Try to extract the core facts from the headline itself
+  if (headlineWords.includes('court') || headlineWords.includes('judge') || headlineWords.includes('ruling')) {
+    const match = headline.match(/(.+?)(court|judge|ruling)(.+)/i);
+    if (match) {
+      summary = `A legal decision has been made regarding ${match[1].trim()}. The ${match[2]} ${match[3].trim()}.`;
+    } else {
+      summary = `A significant legal ruling has been issued with implications for the parties involved.`;
+    }
+  } else if (headlineWords.includes('election') || headlineWords.includes('vote') || headlineWords.includes('campaign')) {
+    const match = headline.match(/(.+?)(election|vote|campaign)(.+)/i);
+    if (match) {
+      summary = `Electoral activity involving ${match[1].trim()} has resulted in ${match[3].trim()}.`;
+    } else {
+      summary = `Important electoral developments are taking place with significant political implications.`;
+    }
+  } else if (headlineWords.includes('economic') || headlineWords.includes('market') || headlineWords.includes('financial') || headlineWords.includes('stock')) {
+    const match = headline.match(/(.+?)(economic|market|financial|stock)(.+)/i);
+    if (match) {
+      summary = `Financial markets are responding to developments involving ${match[1].trim()}. ${match[3].trim()}.`;
+    } else {
+      summary = `Economic developments are impacting financial markets and business operations.`;
+    }
+  } else if (headlineWords.includes('technology') || headlineWords.includes('tech') || headlineWords.includes('ai') || headlineWords.includes('cyber')) {
+    const match = headline.match(/(.+?)(technology|tech|ai|cyber)(.+)/i);
+    if (match) {
+      summary = `Technology sector news involving ${match[1].trim()} has led to ${match[3].trim()}.`;
+    } else {
+      summary = `Significant technological developments are reshaping industry standards and practices.`;
+    }
   } else {
-    // For other topics, keep it very simple
-    summary += '. This represents a notable development in the field.';
+    // For other topics, try to extract the main subject and action
+    const words = headline.split(' ');
+    const mainSubject = words.slice(0, 3).join(' ');
+    const action = words.slice(3).join(' ');
+    
+    if (action.length > 5) {
+      summary = `Recent developments involving ${mainSubject} have resulted in ${action}.`;
+    } else {
+      summary = `Important news regarding ${mainSubject} has emerged with potential implications.`;
+    }
   }
   
   return summary;
@@ -132,35 +169,66 @@ const generateTLDR = (content: string, headline: string): string => {
   console.log(`Generating TL;DR for headline: "${headline}"`);
   console.log(`Content preview: "${content.substring(0, 200)}..."`);
   
+  // Check if content is just the headline repeated or very similar
+  const contentLower = content.toLowerCase();
+  const headlineLower = headline.toLowerCase();
+  const similarity = contentLower.includes(headlineLower.substring(0, Math.min(30, headlineLower.length)));
+  
+  if (similarity && content.length < headline.length + 50) {
+    console.log('Content too similar to headline, creating focused summary');
+    const focusedSummary = createFocusedSummary(headline, content);
+    return focusedSummary.substring(0, 350);
+  }
+  
   // Extract meaningful sentences from content
   const meaningfulSentences = extractMeaningfulSentences(content);
   
   if (meaningfulSentences.length === 0) {
-    // If no meaningful content, create focused summary from headline only
-    const headlineSummary = createHeadlineBasedSummary(headline);
-    console.log(`Generated headline-based TL;DR: "${headlineSummary}"`);
-    return headlineSummary.substring(0, 400);
+    console.log('No meaningful content found, creating focused summary from headline');
+    const focusedSummary = createFocusedSummary(headline, content);
+    return focusedSummary.substring(0, 350);
   }
   
   // Build TL;DR from meaningful sentences
   let tldr = meaningfulSentences.join('. ').trim();
+  
+  // Ensure it doesn't just repeat the headline
+  if (tldr.toLowerCase().includes(headline.toLowerCase().substring(0, Math.min(25, headline.length)))) {
+    // If TL;DR is too similar to headline, enhance it with focused summary
+    const focusedSummary = createFocusedSummary(headline, content);
+    tldr = `${focusedSummary} ${tldr}`;
+  }
   
   // Ensure it ends with proper punctuation
   if (!tldr.endsWith('.') && !tldr.endsWith('!') && !tldr.endsWith('?')) {
     tldr += '.';
   }
   
-  // Target around 60 words - if too long, trim to most important sentences
+  // Target around 50-60 words - if too long, trim intelligently
   const words = tldr.split(' ');
   
-  if (words.length > 70) {
-    // Take only the most substantial sentences
-    const bestSentences = meaningfulSentences.slice(0, 2);
-    tldr = bestSentences.join('. ') + '.';
+  if (words.length > 65) {
+    // Take the most important parts and ensure coherence
+    const firstSentence = meaningfulSentences[0] || '';
+    const secondSentence = meaningfulSentences[1] || '';
+    
+    if (firstSentence.length > 0 && secondSentence.length > 0) {
+      tldr = `${firstSentence}. ${secondSentence}.`;
+    } else if (firstSentence.length > 0) {
+      tldr = `${firstSentence}.`;
+    } else {
+      tldr = createFocusedSummary(headline, content);
+    }
+  }
+  
+  // Final check to ensure it's not just generic text
+  const finalWords = tldr.split(' ');
+  if (finalWords.length < 10 || unwantedPhrases.some(phrase => tldr.toLowerCase().includes(phrase))) {
+    tldr = createFocusedSummary(headline, content);
   }
   
   console.log(`Generated TL;DR (${tldr.split(' ').length} words): "${tldr.substring(0, 100)}..."`);
-  return tldr.substring(0, 400);
+  return tldr.substring(0, 350);
 };
 
 const generateNarrationText = (headline: string, tldr: string, content: string): string => {
@@ -170,10 +238,16 @@ const generateNarrationText = (headline: string, tldr: string, content: string):
   let narration = `Breaking News: ${headline}. `;
   let wordCount = narration.split(' ').length;
   
-  // Add the TL;DR content if it's meaningful
+  // Add the TL;DR content if it's meaningful and different from headline
   if (tldr && !unwantedPhrases.some(phrase => tldr.toLowerCase().includes(phrase.toLowerCase()))) {
-    narration += `Here's what you need to know: ${tldr} `;
-    wordCount = narration.split(' ').length;
+    const tldrLower = tldr.toLowerCase();
+    const headlineLower = headline.toLowerCase();
+    
+    // Only add TL;DR if it's not too similar to the headline
+    if (!tldrLower.includes(headlineLower.substring(0, Math.min(20, headlineLower.length)))) {
+      narration += `Here's what you need to know: ${tldr} `;
+      wordCount = narration.split(' ').length;
+    }
   }
   
   // Add more context from meaningful content if available and we have space
