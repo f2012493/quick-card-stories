@@ -13,6 +13,7 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
+  narrationText?: string;
 }
 
 interface UseNewsOptions {
@@ -27,7 +28,7 @@ export const useNews = (options: UseNewsOptions = {}) => {
   return useQuery({
     queryKey: ['news', options],
     queryFn: async (): Promise<NewsItem[]> => {
-      console.log('Fetching news with options:', options);
+      console.log('Fetching enhanced news with 60-word summaries and 60-second narrations:', options);
       
       try {
         const { data, error } = await supabase.functions.invoke('fetch-news', {
@@ -52,7 +53,7 @@ export const useNews = (options: UseNewsOptions = {}) => {
         }
 
         const newsArray = data.news || [];
-        console.log(`Successfully fetched ${newsArray.length} news articles for location: ${options.city}, ${options.country}`);
+        console.log(`Successfully fetched ${newsArray.length} enhanced news articles for location: ${options.city}, ${options.country}`);
         
         return newsArray;
       } catch (err) {

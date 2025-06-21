@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, Pause, Share, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 import { audioService } from '@/services/audioService';
@@ -15,6 +15,7 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
+  narrationText?: string;
 }
 
 interface VideoCardProps {
@@ -34,14 +35,28 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
     };
   }, [news.id]);
 
-  // Stop narration when card becomes inactive
+  // Auto-start narration when card becomes active
   useEffect(() => {
-    if (!isActive && isPlaying) {
-      handlePlayPause();
+    if (isActive && !isPlaying) {
+      // Start narration automatically after a short delay
+      const timer = setTimeout(() => {
+        handlePlayPause();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    } else if (!isActive && isPlaying) {
+      audioService.stop();
+      setIsPlaying(false);
     }
   }, [isActive]);
 
   const createNarrationText = () => {
+    // Use the enhanced narration text if available, otherwise fall back to basic format
+    if (news.narrationText) {
+      return news.narrationText;
+    }
+    
+    // Fallback to original format
     return `Breaking News: ${news.headline}. Here's what you need to know: ${news.tldr}`;
   };
 
@@ -82,12 +97,6 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   const handleLike = () => {
     setIsLiked(!isLiked);
     toast.success(isLiked ? "💔 Removed from favorites" : "❤️ Added to favorites");
-  };
-
-  const handleReadMore = () => {
-    if (news.sourceUrl) {
-      window.open(news.sourceUrl, '_blank');
-    }
   };
 
   const formatPublishedDate = (dateString?: string) => {
@@ -152,10 +161,10 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
             {news.headline}
           </h1>
 
-          {/* TL;DR */}
+          {/* TL;DR - Enhanced 60-word summary */}
           <div className="mb-6">
             <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
-              TL;DR
+              TL;DR (60 words)
             </h2>
             <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium">
               {news.tldr}
@@ -214,6 +223,13 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
           </div>
         </div>
       )}
+
+      {/* Audio indicator */}
+      <div className="absolute top-4 right-4 z-30">
+        <div className="bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-xs border border-white/20">
+          {isPlaying ? '🔊 Playing 60s explainer' : '🎧 Tap to hear 60s explainer'}
+        </div>
+      </div>
     </div>
   );
 };
