@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import VideoCard from './VideoCard';
 import { useNews } from '@/hooks/useNews';
@@ -12,14 +11,22 @@ const VideoFeed = () => {
   const currentY = useRef(0);
   const isDragging = useRef(false);
 
-  const { data: newsData = [], isLoading, error } = useNews({
+  const { data: newsData = [], isLoading, error, isError } = useNews({
     category: 'general',
     pageSize: 20
   });
 
+  console.log('VideoFeed state:', { 
+    newsDataLength: newsData.length, 
+    isLoading, 
+    isError, 
+    error: error?.message 
+  });
+
   useEffect(() => {
     if (error) {
-      toast.error('Failed to load news. Using offline content.');
+      console.error('News fetch error:', error);
+      toast.error('Failed to load news. Please try again.');
     }
   }, [error]);
 
@@ -108,12 +115,20 @@ const VideoFeed = () => {
     );
   }
 
-  if (newsData.length === 0) {
+  if (isError || newsData.length === 0) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
           <p>No news available at the moment.</p>
-          <p className="text-sm text-white/60 mt-2">Please check your connection and try again.</p>
+          <p className="text-sm text-white/60 mt-2">
+            {isError ? `Error: ${error?.message}` : 'Please check your connection and try again.'}
+          </p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

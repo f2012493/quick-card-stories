@@ -35,30 +35,46 @@ serve(async (req) => {
     const newsApiKey = Deno.env.get('NEWS_API_KEY');
     
     if (!newsApiKey) {
+      console.error('NEWS_API_KEY not configured');
       throw new Error('NEWS_API_KEY not configured');
     }
 
-    const { category = 'general', pageSize = 10 } = await req.json().catch(() => ({}));
+    const { category = 'general', pageSize = 20 } = await req.json().catch(() => ({}));
 
     console.log(`Fetching news for category: ${category}, pageSize: ${pageSize}`);
 
-    const response = await fetch(
-      `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`
-    );
+    const url = `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+    console.log('Making request to NewsAPI...');
+
+    const response = await fetch(url);
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('NewsAPI error:', response.status, errorText);
-      throw new Error(`NewsAPI request failed: ${response.status}`);
+      throw new Error(`NewsAPI request failed: ${response.status} - ${errorText}`);
     }
 
     const data: NewsAPIResponse = await response.json();
     
-    console.log(`Successfully fetched ${data.articles.length} articles`);
+    console.log(`NewsAPI returned ${data.articles?.length || 0} articles`);
+    console.log('NewsAPI status:', data.status);
+
+    if (!data.articles || data.articles.length === 0) {
+      console.log('No articles returned from NewsAPI');
+      return new Response(JSON.stringify({ news: [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Transform NewsAPI data to match our app's format
     const transformedNews = data.articles
-      .filter(article => article.title && article.description && article.urlToImage)
+      .filter(article => {
+        const hasRequiredFields = article.title && article.description && article.urlToImage;
+        if (!hasRequiredFields) {
+          console.log('Filtered out article missing required fields:', article.title);
+        }
+        return hasRequiredFields;
+      })
       .map((article, index) => ({
         id: `news-${Date.now()}-${index}`,
         headline: article.title,
@@ -72,6 +88,8 @@ serve(async (req) => {
         sourceUrl: article.url
       }));
 
+    console.log(`Transformed ${transformedNews.length} articles successfully`);
+
     return new Response(JSON.stringify({ news: transformedNews }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -80,7 +98,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        news: [] 
+        news: []
       }), 
       {
         status: 500,
