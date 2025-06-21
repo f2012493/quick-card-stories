@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import { useNews } from '@/hooks/useNews';
 import { useLocation } from '@/hooks/useLocation';
@@ -7,13 +7,13 @@ import { toast } from 'sonner';
 
 const VideoFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isScrolling, setIsScrolling] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartY = useRef(0);
-  const touchStartTime = useRef(0);
-  const lastTouchY = useRef(0);
-  const lastTouchTime = useRef(0);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
+  const startYRef = useRef(0);
+  const lastYRef = useRef(0);
+  const velocityRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const animationFrameRef = useRef<number>();
 
   const { locationData, isLoading: locationLoading } = useLocation();
 
@@ -40,7 +40,7 @@ const VideoFeed = () => {
     }
   }, [error]);
 
-  const scrollToIndex = (index: number, smooth = true) => {
+  const scrollToIndex = useCallback((index: number, smooth = true) => {
     if (containerRef.current) {
       const targetY = index * window.innerHeight;
       containerRef.current.scrollTo({
@@ -48,74 +48,122 @@ const VideoFeed = () => {
         behavior: smooth ? 'smooth' : 'instant'
       });
     }
-  };
+  }, []);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-    touchStartTime.current = Date.now();
-    lastTouchY.current = e.touches[0].clientY;
-    lastTouchTime.current = Date.now();
-    setIsScrolling(false);
-  };
+  const findClosestIndex = useCallback(() => {
+    if (!containerRef.current) return 0;
+    const scrollTop = containerRef.current.scrollTop;
+    return Math.round(scrollTop / window.innerHeight);
+  }, []);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    const currentY = e.touches[0].clientY;
-    const currentTime = Date.now();
+  const handleStart = useCallback((clientY: number) => {
+    setIsDragging(true);
+    startYRef.current = clientY;
+    lastYRef.current = clientY;
+    lastTimeRef.current = Date.now();
+    velocityRef.current = 0;
     
-    lastTouchY.current = currentY;
-    lastTouchTime.current = currentTime;
-  };
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+  }, []);
 
-  const handleTouchEnd = () => {
-    const touchEndY = lastTouchY.current;
-    const touchEndTime = lastTouchTime.current;
+  const handleMove = useCallback((clientY: number) => {
+    if (!isDragging) return;
     
-    const deltaY = touchEndY - touchStartY.current;
-    const deltaTime = touchEndTime - touchStartTime.current;
-    const velocity = Math.abs(deltaY) / deltaTime; // pixels per ms
+    const now = Date.now();
+    const timeDelta = now - lastTimeRef.current;
+    const yDelta = clientY - lastYRef.current;
     
-    const minSwipeDistance = 50;
+    if (timeDelta > 0) {
+      velocityRef.current = yDelta / timeDelta;
+    }
+    
+    lastYRef.current = clientY;
+    lastTimeRef.current = now;
+  }, [isDragging]);
+
+  const handleEnd = useCallback(() => {
+    if (!isDragging) return;
+    
+    setIsDragging(false);
+    
+    const totalDelta = lastYRef.current - startYRef.current;
+    const velocity = velocityRef.current;
+    
+    // Thresholds for navigation
+    const minDistance = 50;
     const minVelocity = 0.3;
     
-    // Determine if this is a valid swipe
-    const isValidSwipe = Math.abs(deltaY) > minSwipeDistance || velocity > minVelocity;
+    let newIndex = currentIndex;
     
-    if (isValidSwipe) {
-      if (deltaY > 0 && currentIndex > 0) {
-        // Swipe down - go to previous
-        setCurrentIndex(prev => prev - 1);
-      } else if (deltaY < 0 && currentIndex < newsData.length - 1) {
-        // Swipe up - go to next
-        setCurrentIndex(prev => prev + 1);
+    // Check if we should navigate based on distance or velocity
+    if (Math.abs(totalDelta) > minDistance || Math.abs(velocity) > minVelocity) {
+      if (totalDelta > 0 || velocity > minVelocity) {
+        // Swipe down - previous
+        newIndex = Math.max(0, currentIndex - 1);
+      } else if (totalDelta < 0 || velocity < -minVelocity) {
+        // Swipe up - next
+        newIndex = Math.min(newsData.length - 1, currentIndex + 1);
       }
     }
-  };
+    
+    setCurrentIndex(newIndex);
+  }, [isDragging, currentIndex, newsData.length]);
 
-  const handleScroll = () => {
-    if (containerRef.current && !isScrolling) {
-      const scrollTop = containerRef.current.scrollTop;
-      const newIndex = Math.round(scrollTop / window.innerHeight);
-      
-      if (newIndex !== currentIndex && newIndex >= 0 && newIndex < newsData.length) {
-        setCurrentIndex(newIndex);
-      }
-      
-      setIsScrolling(true);
-      
-      // Clear existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      
-      // Set timeout to snap to position when scrolling stops
-      scrollTimeoutRef.current = setTimeout(() => {
-        setIsScrolling(false);
-        scrollToIndex(currentIndex, true);
-      }, 150);
+  // Touch events
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    handleStart(e.touches[0].clientY);
+  }, [handleStart]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    handleMove(e.touches[0].clientY);
+  }, [handleMove]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    handleEnd();
+  }, [handleEnd]);
+
+  // Mouse events for desktop
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    handleStart(e.clientY);
+  }, [handleStart]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isDragging) {
+      e.preventDefault();
+      handleMove(e.clientY);
     }
-  };
+  }, [isDragging, handleMove]);
 
-  // Handle keyboard navigation
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    if (isDragging) {
+      e.preventDefault();
+      handleEnd();
+    }
+  }, [isDragging, handleEnd]);
+
+  // Wheel events
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    
+    // Throttle wheel events
+    const now = Date.now();
+    if (now - (handleWheel as any).lastWheelTime < 100) return;
+    (handleWheel as any).lastWheelTime = now;
+    
+    if (e.deltaY > 0 && currentIndex < newsData.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    } else if (e.deltaY < 0 && currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+    }
+  }, [currentIndex, newsData.length]);
+
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp' && currentIndex > 0) {
@@ -133,28 +181,33 @@ const VideoFeed = () => {
 
   // Scroll to current index when it changes
   useEffect(() => {
-    if (!isScrolling) {
-      scrollToIndex(currentIndex, true);
-    }
-  }, [currentIndex, isScrolling]);
+    scrollToIndex(currentIndex, true);
+  }, [currentIndex, scrollToIndex]);
 
-  // Handle wheel events for desktop
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    
-    const now = Date.now();
-    const timeDiff = now - (handleWheel as any).lastWheelTime || 0;
-    (handleWheel as any).lastWheelTime = now;
-    
-    // Throttle wheel events
-    if (timeDiff < 100) return;
-    
-    if (e.deltaY > 0 && currentIndex < newsData.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    } else if (e.deltaY < 0 && currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
+  // Add mouse event listeners for desktop drag
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        handleMove(e.clientY);
+      }
+    };
+
+    const handleGlobalMouseUp = (e: MouseEvent) => {
+      if (isDragging) {
+        handleEnd();
+      }
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
     }
-  };
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, handleMove, handleEnd]);
 
   if (isLoading || locationLoading) {
     return (
@@ -195,7 +248,7 @@ const VideoFeed = () => {
     <div className="relative w-full h-screen overflow-hidden">
       <div
         ref={containerRef}
-        className="w-full h-full overflow-y-scroll scrollbar-hide snap-y snap-mandatory"
+        className="w-full h-full overflow-hidden snap-y snap-mandatory"
         style={{
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -204,13 +257,23 @@ const VideoFeed = () => {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onScroll={handleScroll}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         onWheel={handleWheel}
       >
         {newsData.map((news, index) => (
           <div
             key={news.id}
             className="w-full h-screen snap-start snap-always flex-shrink-0"
+            style={{
+              transform: `translateY(${(index - currentIndex) * 100}vh)`,
+              transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0
+            }}
           >
             <VideoCard
               news={news}

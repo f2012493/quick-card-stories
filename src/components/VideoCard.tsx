@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Volume2, VolumeX, Share, Heart, Music } from 'lucide-react';
+import { Play, Pause, Share, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 import { audioService } from '@/services/audioService';
 
@@ -25,9 +25,7 @@ interface VideoCardProps {
 
 const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
-  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(true);
 
   // Clean up audio when component unmounts or news changes
   useEffect(() => {
@@ -52,18 +50,13 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
       audioService.stop();
       setIsPlaying(false);
     } else {
-      if (isMuted) {
-        toast.info("🔊 Tap volume to enable audio");
-        return;
-      }
-
       try {
         setIsPlaying(true);
         const text = createNarrationText();
         
         await audioService.playNarration({
           text,
-          backgroundMusic: backgroundMusicEnabled,
+          backgroundMusic: true,
           musicVolume: 0.25,
           speechVolume: 1.0
         });
@@ -75,24 +68,6 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         toast.error("Audio playback failed");
       }
     }
-  };
-
-  const handleMute = () => {
-    const newMutedState = !isMuted;
-    setIsMuted(newMutedState);
-    
-    if (newMutedState && isPlaying) {
-      audioService.stop();
-      setIsPlaying(false);
-      toast.info("🔇 Audio muted - narration stopped");
-    } else {
-      toast.info(newMutedState ? "🔇 Audio muted" : "🔊 Audio enabled");
-    }
-  };
-
-  const toggleBackgroundMusic = () => {
-    setBackgroundMusicEnabled(!backgroundMusicEnabled);
-    toast.info(backgroundMusicEnabled ? "🎵 Background music disabled" : "🎵 Background music enabled");
   };
 
   const handleShare = () => {
@@ -198,30 +173,6 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
       {/* Side Controls (Instagram Reels style) */}
       <div className="absolute right-4 bottom-20 z-30 flex flex-col space-y-4">
-        {/* Volume Control */}
-        <button
-          onClick={handleMute}
-          className="bg-black/50 hover:bg-black/70 transition-all duration-200 p-3 rounded-full backdrop-blur-md pointer-events-auto shadow-lg"
-        >
-          {isMuted ? (
-            <VolumeX className="w-6 h-6 text-white" />
-          ) : (
-            <Volume2 className="w-6 h-6 text-white" />
-          )}
-        </button>
-
-        {/* Background Music Toggle */}
-        <button
-          onClick={toggleBackgroundMusic}
-          className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg ${
-            backgroundMusicEnabled 
-              ? 'bg-blue-500/80 text-white' 
-              : 'bg-black/50 text-white/70 hover:bg-black/70'
-          }`}
-        >
-          <Music className="w-6 h-6" />
-        </button>
-
         {/* Like Button */}
         <button
           onClick={handleLike}

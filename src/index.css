@@ -66,10 +66,21 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Disable overscroll behavior */
+    overscroll-behavior: none;
+    /* Prevent pull-to-refresh on mobile */
+    overflow: hidden;
+  }
+  
+  html {
+    /* Prevent pull-to-refresh */
+    overscroll-behavior: none;
+    height: 100vh;
+    overflow: hidden;
   }
 }
 
-/* Hide scrollbars for Instagram Reels style scrolling */
+/* Hide scrollbars completely */
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -79,15 +90,51 @@
   display: none;
 }
 
-/* Smooth scrolling behavior */
+/* Smooth scrolling behavior with custom easing */
 html {
   scroll-behavior: smooth;
 }
 
-/* Prevent text selection during scrolling */
+/* Prevent text selection during interactions */
 .select-none {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+}
+
+/* Prevent overscroll/bounce effects on iOS */
+body {
+  position: fixed;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Disable touch callouts and highlights */
+* {
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Enable selection only for text content */
+p, h1, h2, h3, h4, h5, h6, span {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Hardware acceleration for smooth performance */
+.video-card {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
