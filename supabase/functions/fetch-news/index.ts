@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const corsHeaders = {
@@ -19,34 +18,46 @@ interface NewsItem {
   sourceUrl?: string;
 }
 
+// Enhanced fallback images with higher quality and news-appropriate visuals
 const fallbackImages = [
-  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1080&h=1920&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=1080&h=1920&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1080&h=1920&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?w=1080&h=1920&fit=crop&crop=center',
-  'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=1080&h=1920&fit=crop&crop=center'
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1440&h=2560&fit=crop&crop=center&auto=format&q=85',
+  'https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=1440&h=2560&fit=crop&crop=center&auto=format&q=85',
+  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1440&h=2560&fit=crop&crop=center&auto=format&q=85',
+  'https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?w=1440&h=2560&fit=crop&crop=center&auto=format&q=85',
+  'https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=1440&h=2560&fit=crop&crop=center&auto=format&q=85',
+  'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=1440&h=2560&fit=crop&crop=center&auto=format&q=85',
+  'https://images.unsplash.com/photo-1432888622747-4eb9a8a2c293?w=1440&h=2560&fit=crop&crop=center&auto=format&q=85',
+  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1440&h=2560&fit=crop&crop=center&auto=format&q=85'
 ];
 
 const getHighQualityImage = (originalUrl: string, index: number): string => {
-  if (!originalUrl || originalUrl.includes('placeholder')) {
+  if (!originalUrl || originalUrl.includes('placeholder') || originalUrl.includes('default')) {
     return fallbackImages[index % fallbackImages.length];
   }
   
-  // Enhance image quality for common news sources
+  // Enhanced image quality optimization
   if (originalUrl.includes('unsplash.com')) {
-    return originalUrl.replace(/w=\d+/, 'w=1080').replace(/h=\d+/, 'h=1920');
+    const baseUrl = originalUrl.split('?')[0];
+    return `${baseUrl}?w=1440&h=2560&fit=crop&crop=center&auto=format&q=85&dpr=2`;
   }
   
   if (originalUrl.includes('pixabay.com')) {
-    return originalUrl.replace(/_\d+\./, '_1280.');
+    return originalUrl.replace(/_\d+\./, '_1280.').replace(/&w=\d+/, '&w=1440').replace(/&h=\d+/, '&h=2560');
   }
   
-  // For other sources, try to get higher resolution
-  if (originalUrl.includes('?')) {
-    return `${originalUrl}&w=1080&h=1920&fit=crop&crop=center`;
-  } else {
-    return `${originalUrl}?w=1080&h=1920&fit=crop&crop=center`;
+  if (originalUrl.includes('pexels.com')) {
+    return originalUrl.replace(/\?.*/, '?auto=compress&cs=tinysrgb&w=1440&h=2560&dpr=2');
   }
+  
+  // For news API images, try to enhance quality
+  if (originalUrl.includes('newsapi.org') || originalUrl.includes('cdn.')) {
+    const separator = originalUrl.includes('?') ? '&' : '?';
+    return `${originalUrl}${separator}w=1440&h=2560&fit=crop&crop=smart&auto=format&q=85&dpr=2`;
+  }
+  
+  // Generic enhancement for other sources
+  const separator = originalUrl.includes('?') ? '&' : '?';
+  return `${originalUrl}${separator}w=1440&h=2560&fit=crop&crop=center&auto=format&q=85&fm=webp`;
 };
 
 const removeDuplicates = (news: NewsItem[]): NewsItem[] => {
@@ -86,7 +97,7 @@ serve(async (req) => {
   try {
     const { category = 'general', pageSize = 20, country, city, region } = await req.json()
     
-    console.log('Fetching news with enhanced image quality for:', { country, city, region, category, pageSize })
+    console.log('Fetching news with ultra-high quality images for:', { country, city, region, category, pageSize })
 
     let allNews: NewsItem[] = []
     const countryCode = getCountryCode(country || 'United States');
@@ -125,13 +136,12 @@ serve(async (req) => {
       console.error('Error fetching from NewsAPI:', e);
     }
 
-    // If we don't have enough news from NewsAPI, try other sources
+    // If we don't have enough news from NewsAPI, try NewsData.io
     if (allNews.length < 10) {
-      // Fetch news from NewsData.io with better parameters
       try {
         const newsDataApiKey = Deno.env.get('NEWSDATAIO_API_KEY');
         if (newsDataApiKey) {
-          const url = `https://newsdata.io/api/1/news?apikey=${newsDataApiKey}&country=${countryCode}&language=en&size=10`;
+          const url = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${countryCode}&language=en&size=10&image=1`;
           console.log('Calling NewsData.io with URL:', url);
           
           const response = await fetch(url);
@@ -162,7 +172,7 @@ serve(async (req) => {
       }
     }
 
-    // Enhanced image processing
+    // Ultra-enhanced image processing with better quality
     const processedNews = allNews.map((item, index) => ({
       ...item,
       imageUrl: getHighQualityImage(item.imageUrl, index),
@@ -171,7 +181,7 @@ serve(async (req) => {
 
     const uniqueNews = removeDuplicates(processedNews).slice(0, pageSize)
     
-    console.log(`Returning ${uniqueNews.length} news articles with enhanced images`)
+    console.log(`Returning ${uniqueNews.length} news articles with ultra-high quality images`)
     
     return new Response(
       JSON.stringify({ news: uniqueNews }),

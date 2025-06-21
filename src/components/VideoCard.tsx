@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Volume2, VolumeX, Share, Heart } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Share, Heart, Music } from 'lucide-react';
 import { toast } from 'sonner';
+import { audioService } from '@/services/audioService';
 
 interface NewsItem {
   id: string;
@@ -25,14 +27,12 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [backgroundMusicEnabled, setBackgroundMusicEnabled] = useState(true);
 
-  // Clean up speech synthesis when component unmounts or news changes
+  // Clean up audio when component unmounts or news changes
   useEffect(() => {
     return () => {
-      if (utteranceRef.current) {
-        speechSynthesis.cancel();
-      }
+      audioService.stop();
     };
   }, [news.id]);
 
@@ -44,17 +44,12 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   }, [isActive]);
 
   const createNarrationText = () => {
-    return `${news.headline}. ${news.tldr}`;
+    return `Breaking News: ${news.headline}. Here's what you need to know: ${news.tldr}`;
   };
 
-  const handlePlayPause = () => {
-    if (!('speechSynthesis' in window)) {
-      toast.error("Text-to-speech is not supported in this browser");
-      return;
-    }
-
+  const handlePlayPause = async () => {
     if (isPlaying) {
-      speechSynthesis.cancel();
+      audioService.stop();
       setIsPlaying(false);
     } else {
       if (isMuted) {
@@ -62,19 +57,23 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         return;
       }
 
-      const text = createNarrationText();
-      const utterance = new SpeechSynthesisUtterance(text);
-      
-      utterance.rate = 0.9;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-      
-      utterance.onstart = () => setIsPlaying(true);
-      utterance.onend = () => setIsPlaying(false);
-      utterance.onerror = () => setIsPlaying(false);
-
-      utteranceRef.current = utterance;
-      speechSynthesis.speak(utterance);
+      try {
+        setIsPlaying(true);
+        const text = createNarrationText();
+        
+        await audioService.playNarration({
+          text,
+          backgroundMusic: backgroundMusicEnabled,
+          musicVolume: 0.25,
+          speechVolume: 1.0
+        });
+        
+        setIsPlaying(false);
+      } catch (error) {
+        console.error('Narration failed:', error);
+        setIsPlaying(false);
+        toast.error("Audio playback failed");
+      }
     }
   };
 
@@ -83,12 +82,17 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
     setIsMuted(newMutedState);
     
     if (newMutedState && isPlaying) {
-      speechSynthesis.cancel();
+      audioService.stop();
       setIsPlaying(false);
       toast.info("🔇 Audio muted - narration stopped");
     } else {
       toast.info(newMutedState ? "🔇 Audio muted" : "🔊 Audio enabled");
     }
+  };
+
+  const toggleBackgroundMusic = () => {
+    setBackgroundMusicEnabled(!backgroundMusicEnabled);
+    toast.info(backgroundMusicEnabled ? "🎵 Background music disabled" : "🎵 Background music enabled");
   };
 
   const handleShare = () => {
@@ -124,18 +128,19 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
   return (
     <div className="relative w-full h-screen flex items-center justify-center">
-      {/* Background Image with better quality */}
+      {/* Background Image with enhanced quality */}
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: `url(${news.imageUrl})`,
           backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundPosition: 'center',
+          filter: 'brightness(0.9) contrast(1.1) saturate(1.2)'
         }}
       />
       
-      {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+      {/* Enhanced Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/40" />
       
       {/* Invisible Play Button (Instagram-style) */}
       <button
@@ -149,18 +154,18 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-4 pt-safe">
           <div className="flex items-center space-x-3">
-            <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              news.category === 'Tech' ? 'bg-blue-500/20 text-blue-400 border border-blue-400/30' :
-              news.category === 'Politics' ? 'bg-red-500/20 text-red-400 border border-red-400/30' :
-              news.category === 'Business' ? 'bg-green-500/20 text-green-400 border border-green-400/30' :
-              news.category === 'Health' ? 'bg-purple-500/20 text-purple-400 border border-purple-400/30' :
-              'bg-gray-500/20 text-gray-400 border border-gray-400/30'
+            <div className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
+              news.category === 'Tech' ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' :
+              news.category === 'Politics' ? 'bg-red-500/30 text-red-300 border border-red-400/50' :
+              news.category === 'Business' ? 'bg-green-500/30 text-green-300 border border-green-400/50' :
+              news.category === 'Health' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50' :
+              'bg-gray-500/30 text-gray-300 border border-gray-400/50'
             }`}>
               {news.category}
             </div>
-            <span className="text-white/60 text-xs">{news.readTime}</span>
+            <span className="text-white/70 text-xs font-medium">{news.readTime}</span>
             {news.publishedAt && (
-              <span className="text-white/60 text-xs">{formatPublishedDate(news.publishedAt)}</span>
+              <span className="text-white/70 text-xs">{formatPublishedDate(news.publishedAt)}</span>
             )}
           </div>
         </div>
@@ -168,23 +173,23 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col justify-end">
           {/* Headline */}
-          <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4 drop-shadow-lg">
+          <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4 drop-shadow-2xl">
             {news.headline}
           </h1>
 
           {/* TL;DR */}
           <div className="mb-6">
-            <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wide">
+            <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
               TL;DR
             </h2>
-            <p className="text-white/90 text-base leading-relaxed drop-shadow-md">
+            <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium">
               {news.tldr}
             </p>
           </div>
 
           {/* Author info if available */}
           {news.author && (
-            <p className="text-white/70 text-sm mb-4">
+            <p className="text-white/80 text-sm mb-4 font-medium">
               By {news.author}
             </p>
           )}
@@ -192,11 +197,11 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
       </div>
 
       {/* Side Controls (Instagram Reels style) */}
-      <div className="absolute right-4 bottom-20 z-30 flex flex-col space-y-6">
+      <div className="absolute right-4 bottom-20 z-30 flex flex-col space-y-4">
         {/* Volume Control */}
         <button
           onClick={handleMute}
-          className="bg-black/40 hover:bg-black/60 transition-colors p-3 rounded-full backdrop-blur-sm pointer-events-auto"
+          className="bg-black/50 hover:bg-black/70 transition-all duration-200 p-3 rounded-full backdrop-blur-md pointer-events-auto shadow-lg"
         >
           {isMuted ? (
             <VolumeX className="w-6 h-6 text-white" />
@@ -205,14 +210,26 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
           )}
         </button>
 
+        {/* Background Music Toggle */}
+        <button
+          onClick={toggleBackgroundMusic}
+          className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg ${
+            backgroundMusicEnabled 
+              ? 'bg-blue-500/80 text-white' 
+              : 'bg-black/50 text-white/70 hover:bg-black/70'
+          }`}
+        >
+          <Music className="w-6 h-6" />
+        </button>
+
         {/* Like Button */}
         <button
           onClick={handleLike}
-          className={`p-3 rounded-full transition-all pointer-events-auto ${
+          className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg ${
             isLiked 
-              ? 'bg-red-500 text-white scale-110' 
-              : 'bg-black/40 text-white hover:bg-black/60'
-          } backdrop-blur-sm`}
+              ? 'bg-red-500/90 text-white scale-110' 
+              : 'bg-black/50 text-white hover:bg-black/70'
+          }`}
         >
           <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
         </button>
@@ -220,7 +237,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         {/* Share Button */}
         <button
           onClick={handleShare}
-          className="bg-black/40 hover:bg-black/60 transition-colors p-3 rounded-full backdrop-blur-sm pointer-events-auto"
+          className="bg-black/50 hover:bg-black/70 transition-all duration-200 p-3 rounded-full backdrop-blur-md pointer-events-auto shadow-lg"
         >
           <Share className="w-6 h-6 text-white" />
         </button>
@@ -229,18 +246,18 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
       {/* Play/Pause Indicator (center) */}
       {isPlaying && (
         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-          <div className="bg-black/50 p-4 rounded-full backdrop-blur-sm animate-pulse">
-            <Pause className="w-8 h-8 text-white" />
+          <div className="bg-black/60 p-6 rounded-full backdrop-blur-md animate-pulse shadow-2xl">
+            <Pause className="w-10 h-10 text-white" />
           </div>
         </div>
       )}
 
-      {/* Swipe Indicator */}
+      {/* Enhanced Swipe Indicator */}
       {index === 0 && (
         <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 animate-bounce z-30">
-          <div className="text-white/60 text-sm text-center">
-            <div className="w-8 h-12 border-2 border-white/40 rounded-full mb-2 mx-auto relative">
-              <div className="w-1 h-3 bg-white/60 rounded-full absolute top-2 left-1/2 transform -translate-x-1/2 animate-pulse" />
+          <div className="text-white/70 text-sm text-center">
+            <div className="w-8 h-12 border-2 border-white/50 rounded-full mb-2 mx-auto relative backdrop-blur-sm">
+              <div className="w-1 h-3 bg-white/70 rounded-full absolute top-2 left-1/2 transform -translate-x-1/2 animate-pulse" />
             </div>
             Swipe up for next
           </div>
