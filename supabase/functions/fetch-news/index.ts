@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const corsHeaders = {
@@ -48,12 +49,6 @@ const getHighQualityImage = (originalUrl: string, index: number): string => {
   }
 };
 
-const isWeatherRelated = (headline: string): boolean => {
-  const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'cloudy', 'sunny', 'storm', 'hurricane', 'climate'];
-  const lowerHeadline = headline.toLowerCase();
-  return weatherKeywords.some(keyword => lowerHeadline.includes(keyword));
-};
-
 const removeDuplicates = (news: NewsItem[]): NewsItem[] => {
   const uniqueHeadlines = new Set<string>();
   return news.filter(item => {
@@ -63,6 +58,24 @@ const removeDuplicates = (news: NewsItem[]): NewsItem[] => {
     uniqueHeadlines.add(item.headline);
     return true;
   });
+};
+
+// Country code mapping for better API compatibility
+const getCountryCode = (country: string): string => {
+  const countryMap: { [key: string]: string } = {
+    'India': 'in',
+    'United States': 'us',
+    'United Kingdom': 'gb',
+    'Canada': 'ca',
+    'Australia': 'au',
+    'Germany': 'de',
+    'France': 'fr',
+    'Japan': 'jp',
+    'China': 'cn',
+    'Brazil': 'br'
+  };
+  
+  return countryMap[country] || 'us';
 };
 
 serve(async (req) => {
@@ -76,100 +89,77 @@ serve(async (req) => {
     console.log('Fetching news with enhanced image quality for:', { country, city, region, category, pageSize })
 
     let allNews: NewsItem[] = []
+    const countryCode = getCountryCode(country || 'United States');
 
     // Fetch news from NewsAPI
     try {
       const newsApiKey = Deno.env.get('NEWSAPI_KEY');
       if (newsApiKey) {
-        const url = `https://newsapi.org/v2/top-headlines?country=${country || 'us'}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+        const url = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+        console.log('Calling NewsAPI with URL:', url);
+        
         const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
-          const news = data.articles.map((article: any) => ({
-            id: crypto.randomUUID(),
-            headline: article.title,
-            tldr: article.description || 'No TLDR available',
-            quote: article.content || 'No quote available',
-            author: article.author || 'Unknown',
-            category: category,
-            imageUrl: article.urlToImage || '',
-            readTime: `${Math.floor(Math.random() * 3) + 2} min read`,
-            publishedAt: article.publishedAt,
-            sourceUrl: article.url
-          }));
-          allNews = allNews.concat(news);
+          if (data.articles && data.articles.length > 0) {
+            const news = data.articles.map((article: any) => ({
+              id: crypto.randomUUID(),
+              headline: article.title,
+              tldr: article.description || 'No description available',
+              quote: article.content || 'Read more at source',
+              author: article.author || article.source?.name || 'Unknown',
+              category: category,
+              imageUrl: article.urlToImage || '',
+              readTime: `${Math.floor(Math.random() * 3) + 2} min read`,
+              publishedAt: article.publishedAt,
+              sourceUrl: article.url
+            }));
+            allNews = allNews.concat(news);
+            console.log(`NewsAPI returned ${news.length} articles`);
+          }
         } else {
           console.error('NewsAPI error:', response.status, response.statusText);
         }
-      } else {
-        console.warn('NewsAPI key not found. Skipping NewsAPI.');
       }
     } catch (e) {
       console.error('Error fetching from NewsAPI:', e);
     }
 
-    // Fetch news from NewsData.io
-    try {
-      const newsDataApiKey = Deno.env.get('NEWSDATAIO_API_KEY');
-      if (newsDataApiKey) {
-        const url = `https://newsdata.io/api/1/news?apikey=${newsDataApiKey}&country=${country || 'us'}&category=${category}&size=${pageSize}`;
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          const news = data.results.map((article: any) => ({
-            id: crypto.randomUUID(),
-            headline: article.title,
-            tldr: article.description || 'No TLDR available',
-            quote: article.content || 'No quote available',
-            author: article.creator ? article.creator[0] : 'Unknown',
-            category: category,
-            imageUrl: article.image_url || '',
-            readTime: `${Math.floor(Math.random() * 3) + 2} min read`,
-            publishedAt: article.pubDate,
-            sourceUrl: article.link
-          }));
-          allNews = allNews.concat(news);
-        } else {
-          console.error('NewsData.io error:', response.status, response.statusText);
+    // If we don't have enough news from NewsAPI, try other sources
+    if (allNews.length < 10) {
+      // Fetch news from NewsData.io with better parameters
+      try {
+        const newsDataApiKey = Deno.env.get('NEWSDATAIO_API_KEY');
+        if (newsDataApiKey) {
+          const url = `https://newsdata.io/api/1/news?apikey=${newsDataApiKey}&country=${countryCode}&language=en&size=10`;
+          console.log('Calling NewsData.io with URL:', url);
+          
+          const response = await fetch(url);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.results && data.results.length > 0) {
+              const news = data.results.map((article: any) => ({
+                id: crypto.randomUUID(),
+                headline: article.title,
+                tldr: article.description || 'No description available',
+                quote: article.content || 'Read more at source',
+                author: article.creator ? article.creator[0] : article.source_id || 'Unknown',
+                category: category,
+                imageUrl: article.image_url || '',
+                readTime: `${Math.floor(Math.random() * 3) + 2} min read`,
+                publishedAt: article.pubDate,
+                sourceUrl: article.link
+              }));
+              allNews = allNews.concat(news);
+              console.log(`NewsData.io returned ${news.length} articles`);
+            }
+          } else {
+            console.error('NewsData.io error:', response.status, response.statusText);
+          }
         }
-      } else {
-        console.warn('NewsData.io key not found. Skipping NewsData.io.');
+      } catch (e) {
+        console.error('Error fetching from NewsData.io:', e);
       }
-    } catch (e) {
-      console.error('Error fetching from NewsData.io:', e);
-    }
-    
-    // Fetch news from SerpApi (Google News)
-    try {
-      const serpApiKey = Deno.env.get('SERPAPI_KEY');
-      if (serpApiKey) {
-        const gl = country || 'US';
-        const hl = country ? country.toLowerCase() : 'en';
-        const url = `https://serpapi.com/search.json?engine=google_news&q=${category}&gl=${gl}&hl=${hl}&num=${pageSize}&api_key=${serpApiKey}`;
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          const news = data.articles.map((article: any) => ({
-            id: crypto.randomUUID(),
-            headline: article.title,
-            tldr: article.description || 'No TLDR available',
-            quote: article.snippet || 'No quote available',
-            author: article.source || 'Unknown',
-            category: category,
-            imageUrl: article.image || '',
-            readTime: `${Math.floor(Math.random() * 3) + 2} min read`,
-            publishedAt: article.date,
-            sourceUrl: article.link
-          }));
-          allNews = allNews.concat(news);
-        } else {
-          console.error('SerpApi error:', response.status, response.statusText);
-        }
-      } else {
-        console.warn('SerpApi key not found. Skipping SerpApi.');
-      }
-    } catch (e) {
-      console.error('Error fetching from SerpApi:', e);
     }
 
     // Enhanced image processing
