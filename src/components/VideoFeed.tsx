@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 const VideoFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [allNews, setAllNews] = useState<any[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef(0);
   const lastYRef = useRef(0);
@@ -17,20 +19,64 @@ const VideoFeed = () => {
 
   const { locationData, isLoading: locationLoading } = useLocation();
 
-  const { data: newsData = [], isLoading, error, isError } = useNews({
+  const { data: newsData = [], isLoading, error, isError, refetch } = useNews({
     category: 'general',
-    pageSize: 20,
+    pageSize: 10,
     country: locationData?.country,
     city: locationData?.city,
     region: locationData?.region
   });
 
+  // Initialize news data
+  useEffect(() => {
+    if (newsData.length > 0 && allNews.length === 0) {
+      setAllNews(newsData);
+    }
+  }, [newsData]);
+
+  // Load more news when approaching the end
+  useEffect(() => {
+    const shouldLoadMore = currentIndex >= allNews.length - 3 && !isLoadingMore && allNews.length > 0;
+    
+    if (shouldLoadMore) {
+      loadMoreNews();
+    }
+  }, [currentIndex, allNews.length, isLoadingMore]);
+
+  const loadMoreNews = async () => {
+    if (isLoadingMore) return;
+    
+    setIsLoadingMore(true);
+    try {
+      // Refetch more news
+      const { data: newNewsData } = await refetch();
+      if (newNewsData && newNewsData.length > 0) {
+        // Filter out duplicates and add new news
+        const uniqueNews = newNewsData.filter(
+          newItem => !allNews.some(existingItem => existingItem.id === newItem.id)
+        );
+        
+        if (uniqueNews.length > 0) {
+          setAllNews(prev => [...prev, ...uniqueNews]);
+          console.log(`Loaded ${uniqueNews.length} more news items`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load more news:', error);
+      toast.error('Failed to load more news');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   console.log('VideoFeed state:', { 
-    newsDataLength: newsData.length, 
+    allNewsLength: allNews.length, 
+    currentIndex,
     isLoading, 
     isError, 
     error: error?.message,
-    location: locationData
+    location: locationData,
+    isLoadingMore
   });
 
   useEffect(() => {
@@ -48,12 +94,6 @@ const VideoFeed = () => {
         behavior: smooth ? 'smooth' : 'instant'
       });
     }
-  }, []);
-
-  const findClosestIndex = useCallback(() => {
-    if (!containerRef.current) return 0;
-    const scrollTop = containerRef.current.scrollTop;
-    return Math.round(scrollTop / window.innerHeight);
   }, []);
 
   const handleStart = useCallback((clientY: number) => {
@@ -91,25 +131,21 @@ const VideoFeed = () => {
     const totalDelta = lastYRef.current - startYRef.current;
     const velocity = velocityRef.current;
     
-    // Thresholds for navigation
     const minDistance = 50;
     const minVelocity = 0.3;
     
     let newIndex = currentIndex;
     
-    // Check if we should navigate based on distance or velocity
     if (Math.abs(totalDelta) > minDistance || Math.abs(velocity) > minVelocity) {
       if (totalDelta > 0 || velocity > minVelocity) {
-        // Swipe down - previous
         newIndex = Math.max(0, currentIndex - 1);
       } else if (totalDelta < 0 || velocity < -minVelocity) {
-        // Swipe up - next
-        newIndex = Math.min(newsData.length - 1, currentIndex + 1);
+        newIndex = Math.min(allNews.length - 1, currentIndex + 1);
       }
     }
     
     setCurrentIndex(newIndex);
-  }, [isDragging, currentIndex, newsData.length]);
+  }, [isDragging, currentIndex, allNews.length]);
 
   // Touch events
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -151,17 +187,16 @@ const VideoFeed = () => {
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     
-    // Throttle wheel events
     const now = Date.now();
     if (now - (handleWheel as any).lastWheelTime < 100) return;
     (handleWheel as any).lastWheelTime = now;
     
-    if (e.deltaY > 0 && currentIndex < newsData.length - 1) {
+    if (e.deltaY > 0 && currentIndex < allNews.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else if (e.deltaY < 0 && currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
     }
-  }, [currentIndex, newsData.length]);
+  }, [currentIndex, allNews.length]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -169,7 +204,7 @@ const VideoFeed = () => {
       if (e.key === 'ArrowUp' && currentIndex > 0) {
         e.preventDefault();
         setCurrentIndex(prev => prev - 1);
-      } else if (e.key === 'ArrowDown' && currentIndex < newsData.length - 1) {
+      } else if (e.key === 'ArrowDown' && currentIndex < allNews.length - 1) {
         e.preventDefault();
         setCurrentIndex(prev => prev + 1);
       }
@@ -177,14 +212,14 @@ const VideoFeed = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, newsData.length]);
+  }, [currentIndex, allNews.length]);
 
   // Scroll to current index when it changes
   useEffect(() => {
     scrollToIndex(currentIndex, true);
   }, [currentIndex, scrollToIndex]);
 
-  // Add mouse event listeners for desktop drag
+  // Global mouse events for desktop drag
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (isDragging) {
@@ -222,7 +257,7 @@ const VideoFeed = () => {
     );
   }
 
-  if (isError || newsData.length === 0) {
+  if (isError || allNews.length === 0) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
@@ -262,7 +297,7 @@ const VideoFeed = () => {
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
       >
-        {newsData.map((news, index) => (
+        {allNews.map((news, index) => (
           <div
             key={news.id}
             className="w-full h-screen snap-start snap-always flex-shrink-0"
@@ -287,16 +322,22 @@ const VideoFeed = () => {
       {/* Progress indicator */}
       <div className="fixed right-2 top-1/2 transform -translate-y-1/2 z-50">
         <div className="flex flex-col space-y-1">
-          {newsData.map((_, index) => (
-            <div
-              key={index}
-              className={`w-0.5 h-6 rounded-full transition-all duration-300 ${
-                index === currentIndex 
-                  ? 'bg-white shadow-lg shadow-white/30' 
-                  : 'bg-white/30'
-              }`}
-            />
-          ))}
+          {allNews.slice(Math.max(0, currentIndex - 2), currentIndex + 3).map((_, relativeIndex) => {
+            const actualIndex = Math.max(0, currentIndex - 2) + relativeIndex;
+            return (
+              <div
+                key={actualIndex}
+                className={`w-0.5 h-6 rounded-full transition-all duration-300 ${
+                  actualIndex === currentIndex 
+                    ? 'bg-white shadow-lg shadow-white/30' 
+                    : 'bg-white/30'
+                }`}
+              />
+            );
+          })}
+          {isLoadingMore && (
+            <div className="w-0.5 h-6 rounded-full bg-blue-400 animate-pulse" />
+          )}
         </div>
       </div>
 
@@ -304,6 +345,13 @@ const VideoFeed = () => {
       {locationData && (
         <div className="fixed top-4 left-4 z-50 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm border border-white/20">
           📍 {locationData.city}, {locationData.country}
+        </div>
+      )}
+
+      {/* Loading more indicator */}
+      {isLoadingMore && (
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 bg-black/50 backdrop-blur-sm rounded-full px-4 py-2 text-white text-sm">
+          Loading more news...
         </div>
       )}
     </div>
