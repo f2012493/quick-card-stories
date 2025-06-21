@@ -125,35 +125,16 @@ const newsDataCountryMap: { [key: string]: string } = {
   'China': 'cn'
 };
 
-async function fetchFromNewsAPI(category: string, pageSize: number, country?: string, city?: string, region?: string) {
+async function fetchFromNewsAPI(category: string, pageSize: number, country?: string) {
   const newsApiKey = Deno.env.get('NEWS_API_KEY');
   if (!newsApiKey) return null;
 
   try {
-    // Try location-specific search first
-    if (country && (city || region)) {
-      const countryCode = countryCodeMap[country] || 'us';
-      const locationTerms = [city, region].filter(Boolean).join(' OR ');
-      const locationUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&q=${encodeURIComponent(locationTerms)}&apiKey=${newsApiKey}`;
-      
-      console.log(`NewsAPI: Trying location-specific search with country code: ${countryCode} and terms: ${locationTerms}`);
-      
-      const locationResponse = await fetch(locationUrl);
-      if (locationResponse.ok) {
-        const locationData: NewsAPIResponse = await locationResponse.json();
-        console.log(`NewsAPI location search returned ${locationData.articles?.length || 0} articles`);
-        
-        if (locationData.articles && locationData.articles.length > 0) {
-          return locationData.articles;
-        }
-      }
-    }
-
-    // Try country-only search
+    // Focus on country-only search to avoid weather updates
     const countryCode = country ? (countryCodeMap[country] || 'us') : 'us';
     const countryUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
     
-    console.log(`NewsAPI: Trying country-only search with country code: ${countryCode}`);
+    console.log(`NewsAPI: Fetching country-specific news for ${countryCode}`);
     
     const countryResponse = await fetch(countryUrl);
     if (countryResponse.ok) {
@@ -161,7 +142,19 @@ async function fetchFromNewsAPI(category: string, pageSize: number, country?: st
       console.log(`NewsAPI country search returned ${countryData.articles?.length || 0} articles`);
       
       if (countryData.articles && countryData.articles.length > 0) {
-        return countryData.articles;
+        // Filter out weather-related articles
+        const filteredArticles = countryData.articles.filter(article => {
+          const lowerTitle = article.title.toLowerCase();
+          const lowerDescription = (article.description || '').toLowerCase();
+          const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'storm', 'forecast', 'degrees', 'celsius', 'fahrenheit'];
+          
+          return !weatherKeywords.some(keyword => 
+            lowerTitle.includes(keyword) || lowerDescription.includes(keyword)
+          );
+        });
+        
+        console.log(`Filtered out weather articles, remaining: ${filteredArticles.length}`);
+        return filteredArticles;
       }
     }
 
@@ -172,19 +165,12 @@ async function fetchFromNewsAPI(category: string, pageSize: number, country?: st
   }
 }
 
-async function fetchFromNewsData(category: string, pageSize: number, country?: string, city?: string, region?: string) {
+async function fetchFromNewsData(category: string, pageSize: number, country?: string) {
   const newsDataKey = Deno.env.get('NEWSDATA_API_KEY');
   if (!newsDataKey) return null;
 
   try {
-    let query = '';
     const countryCode = country ? newsDataCountryMap[country] : undefined;
-    
-    // Build query with location terms
-    if (city || region) {
-      const locationTerms = [city, region].filter(Boolean);
-      query = locationTerms.join(' OR ');
-    }
 
     const baseUrl = 'https://newsdata.io/api/1/news';
     const params = new URLSearchParams({
@@ -198,12 +184,11 @@ async function fetchFromNewsData(category: string, pageSize: number, country?: s
       params.append('country', countryCode);
     }
 
-    if (query) {
-      params.append('q', query);
-    }
+    // Exclude weather-related content
+    params.append('qInMeta', '-weather,-forecast,-temperature');
 
     const url = `${baseUrl}?${params.toString()}`;
-    console.log(`NewsData.io: Fetching from ${url}`);
+    console.log(`NewsData.io: Fetching country-specific news for ${countryCode || 'all'}`);
 
     const response = await fetch(url);
     if (response.ok) {
@@ -211,7 +196,18 @@ async function fetchFromNewsData(category: string, pageSize: number, country?: s
       console.log(`NewsData.io returned ${data.results?.length || 0} articles`);
       
       if (data.results && data.results.length > 0) {
-        return data.results.map(article => ({
+        // Additional client-side filtering for weather content
+        const filteredResults = data.results.filter(article => {
+          const lowerTitle = article.title.toLowerCase();
+          const lowerDescription = (article.description || '').toLowerCase();
+          const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'storm', 'forecast', 'degrees', 'celsius', 'fahrenheit'];
+          
+          return !weatherKeywords.some(keyword => 
+            lowerTitle.includes(keyword) || lowerDescription.includes(keyword)
+          );
+        });
+
+        return filteredResults.map(article => ({
           title: article.title,
           description: article.description || 'No description available',
           url: article.link,
@@ -230,21 +226,22 @@ async function fetchFromNewsData(category: string, pageSize: number, country?: s
   }
 }
 
-async function fetchFromSerpApi(category: string, pageSize: number, country?: string, city?: string, region?: string) {
+async function fetchFromSerpApi(category: string, pageSize: number, country?: string) {
   const serpApiKey = Deno.env.get('SERPAPI_API_KEY');
   if (!serpApiKey) return null;
 
   try {
     let query = category === 'general' ? 'news' : `${category} news`;
     
-    // Add location to query if available
-    if (city || region || country) {
-      const location = [city, region, country].filter(Boolean).join(' ');
-      query += ` ${location}`;
+    // Add country context and exclude weather
+    if (country) {
+      query += ` ${country} -weather -forecast -temperature`;
+    } else {
+      query += ' -weather -forecast -temperature';
     }
 
     const url = `https://serpapi.com/search.json?engine=google&tbm=nws&q=${encodeURIComponent(query)}&num=${pageSize}&api_key=${serpApiKey}`;
-    console.log(`SerpApi: Fetching news with query: ${query}`);
+    console.log(`SerpApi: Fetching country-specific news with query: ${query}`);
 
     const response = await fetch(url);
     if (response.ok) {
@@ -252,7 +249,18 @@ async function fetchFromSerpApi(category: string, pageSize: number, country?: st
       console.log(`SerpApi returned ${data.news_results?.length || 0} articles`);
       
       if (data.news_results && data.news_results.length > 0) {
-        return data.news_results.map(article => ({
+        // Additional filtering for weather content
+        const filteredResults = data.news_results.filter(article => {
+          const lowerTitle = article.title.toLowerCase();
+          const lowerSnippet = (article.snippet || '').toLowerCase();
+          const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'storm', 'forecast', 'degrees', 'celsius', 'fahrenheit'];
+          
+          return !weatherKeywords.some(keyword => 
+            lowerTitle.includes(keyword) || lowerSnippet.includes(keyword)
+          );
+        });
+
+        return filteredResults.map(article => ({
           title: article.title,
           description: article.snippet || 'No description available',
           url: article.link,
@@ -281,18 +289,16 @@ serve(async (req) => {
     const { 
       category = 'general', 
       pageSize = 20, 
-      country,
-      city,
-      region 
+      country 
     } = await req.json().catch(() => ({}));
 
-    console.log(`Fetching news for category: ${category}, pageSize: ${pageSize}, location: ${city}, ${region}, ${country}`);
+    console.log(`Fetching country-specific news for category: ${category}, pageSize: ${pageSize}, country: ${country}`);
 
     let articles: any[] = [];
 
-    // Try NewsAPI first
-    console.log('Trying NewsAPI...');
-    const newsApiArticles = await fetchFromNewsAPI(category, pageSize, country, city, region);
+    // Try NewsAPI first (country-specific only)
+    console.log('Trying NewsAPI for country-specific news...');
+    const newsApiArticles = await fetchFromNewsAPI(category, pageSize, country);
     if (newsApiArticles && newsApiArticles.length > 0) {
       articles = newsApiArticles;
       console.log(`NewsAPI provided ${articles.length} articles`);
@@ -300,8 +306,8 @@ serve(async (req) => {
 
     // If NewsAPI didn't provide enough articles, try NewsData.io
     if (articles.length < pageSize / 2) {
-      console.log('Trying NewsData.io...');
-      const newsDataArticles = await fetchFromNewsData(category, pageSize, country, city, region);
+      console.log('Trying NewsData.io for additional country-specific news...');
+      const newsDataArticles = await fetchFromNewsData(category, pageSize, country);
       if (newsDataArticles && newsDataArticles.length > 0) {
         articles = articles.concat(newsDataArticles);
         console.log(`Added ${newsDataArticles.length} articles from NewsData.io, total: ${articles.length}`);
@@ -310,8 +316,8 @@ serve(async (req) => {
 
     // If still not enough articles, try SerpApi
     if (articles.length < pageSize / 2) {
-      console.log('Trying SerpApi...');
-      const serpApiArticles = await fetchFromSerpApi(category, pageSize, country, city, region);
+      console.log('Trying SerpApi for additional country-specific news...');
+      const serpApiArticles = await fetchFromSerpApi(category, pageSize, country);
       if (serpApiArticles && serpApiArticles.length > 0) {
         articles = articles.concat(serpApiArticles);
         console.log(`Added ${serpApiArticles.length} articles from SerpApi, total: ${articles.length}`);
@@ -327,8 +333,19 @@ serve(async (req) => {
       if (fallbackResponse.ok) {
         const data: NewsAPIResponse = await fallbackResponse.json();
         if (data.articles && data.articles.length > 0) {
-          articles = data.articles;
-          console.log(`Fallback returned ${articles.length} articles`);
+          // Filter weather content from fallback too
+          const filteredFallback = data.articles.filter(article => {
+            const lowerTitle = article.title.toLowerCase();
+            const lowerDescription = (article.description || '').toLowerCase();
+            const weatherKeywords = ['weather', 'temperature', 'rain', 'snow', 'storm', 'forecast', 'degrees', 'celsius', 'fahrenheit'];
+            
+            return !weatherKeywords.some(keyword => 
+              lowerTitle.includes(keyword) || lowerDescription.includes(keyword)
+            );
+          });
+          
+          articles = filteredFallback;
+          console.log(`Fallback returned ${articles.length} articles after weather filtering`);
         }
       }
     }
@@ -370,7 +387,7 @@ serve(async (req) => {
         sourceUrl: article.url
       }));
 
-    console.log(`Successfully transformed ${transformedNews.length} unique articles from multiple sources`);
+    console.log(`Successfully transformed ${transformedNews.length} unique country-specific articles`);
 
     return new Response(JSON.stringify({ news: transformedNews }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
