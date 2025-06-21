@@ -21,24 +21,107 @@ interface NewsItem {
   narrationText?: string;
 }
 
-const generateTLDR = (content: string, headline: string): string => {
-  // Extract key information and create a 60-word summary
-  const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
-  const keyWords = headline.split(' ').filter(w => w.length > 3);
+const unwantedPhrases = [
+  'only available in paid plans',
+  'subscribe to continue reading',
+  'premium content',
+  'the news mill',
+  'breaking news',
+  'read more',
+  'click here',
+  'advertisement',
+  'sponsored content',
+  'paywall',
+  'sign up',
+  'login required',
+  'subscription required',
+  'premium subscription',
+  'free trial',
+  'upgrade to premium',
+  'full access',
+  'unlimited access'
+];
+
+const cleanContent = (text: string): string => {
+  if (!text) return '';
   
-  let summary = sentences[0] || headline;
-  let wordCount = summary.split(' ').length;
+  let cleaned = text.toLowerCase();
   
-  for (let i = 1; i < sentences.length && wordCount < 55; i++) {
-    const sentence = sentences[i].trim();
-    const sentenceWords = sentence.split(' ').length;
-    if (wordCount + sentenceWords <= 60) {
-      summary += '. ' + sentence;
-      wordCount += sentenceWords;
-    }
+  // Remove unwanted phrases
+  unwantedPhrases.forEach(phrase => {
+    const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    cleaned = cleaned.replace(regex, '');
+  });
+  
+  // Remove common website artifacts
+  cleaned = cleaned.replace(/\s+/g, ' '); // Multiple spaces
+  cleaned = cleaned.replace(/^\W+|\W+$/g, ''); // Leading/trailing non-word chars
+  cleaned = cleaned.replace(/^(by\s+)?([a-z\s]+\s+-)?\s*/i, ''); // Remove "By Author -" patterns
+  
+  return cleaned.trim();
+};
+
+const extractMeaningfulContent = (content: string, headline: string): string => {
+  if (!content || content.length < 20) return '';
+  
+  // Clean the content first
+  const cleaned = cleanContent(content);
+  if (cleaned.length < 20) return '';
+  
+  // Split into sentences and filter meaningful ones
+  const sentences = cleaned.split(/[.!?]+/).filter(sentence => {
+    const trimmed = sentence.trim();
+    return trimmed.length > 10 && 
+           !unwantedPhrases.some(phrase => trimmed.toLowerCase().includes(phrase)) &&
+           trimmed.split(' ').length > 3; // At least 4 words
+  });
+  
+  if (sentences.length === 0) {
+    // Fallback to headline-based summary
+    return `Breaking news update: ${headline}. More details to follow as this story develops.`;
   }
   
-  return summary.substring(0, 400); // Ensure reasonable length
+  return sentences.join('. ').trim();
+};
+
+const generateTLDR = (content: string, headline: string): string => {
+  // Extract meaningful content first
+  const meaningfulContent = extractMeaningfulContent(content, headline);
+  
+  if (!meaningfulContent || meaningfulContent.length < 20) {
+    // Create a basic summary from headline
+    const headlineWords = headline.split(' ');
+    if (headlineWords.length > 8) {
+      return `${headlineWords.slice(0, 8).join(' ')}... This developing story continues to unfold with new details emerging. Stay tuned for updates as more information becomes available.`;
+    }
+    return `${headline}. This is a developing news story with more details expected to emerge. We will continue monitoring the situation for updates.`;
+  }
+  
+  // Generate 60-word summary from meaningful content
+  const words = meaningfulContent.split(' ');
+  let summary = '';
+  let wordCount = 0;
+  
+  // Add words until we reach approximately 60 words
+  for (const word of words) {
+    if (wordCount >= 55) break; // Stop before 60 to leave room for proper ending
+    summary += word + ' ';
+    wordCount++;
+  }
+  
+  // Ensure it ends properly
+  summary = summary.trim();
+  if (!summary.endsWith('.') && !summary.endsWith('!') && !summary.endsWith('?')) {
+    summary += '.';
+  }
+  
+  // If still too short, pad with context
+  const finalWords = summary.split(' ');
+  if (finalWords.length < 40) {
+    summary += ' This story is developing and more information is expected to be released soon.';
+  }
+  
+  return summary.substring(0, 400); // Ensure reasonable character limit
 };
 
 const generateNarrationText = (headline: string, tldr: string, content: string): string => {
@@ -48,28 +131,34 @@ const generateNarrationText = (headline: string, tldr: string, content: string):
   let narration = `Breaking News: ${headline}. `;
   let wordCount = narration.split(' ').length;
   
-  // Add the TL;DR
-  narration += `Here's what you need to know: ${tldr}. `;
-  wordCount = narration.split(' ').length;
+  // Add the cleaned TL;DR
+  const cleanedTldr = cleanContent(tldr);
+  if (cleanedTldr) {
+    narration += `Here's what you need to know: ${cleanedTldr}. `;
+    wordCount = narration.split(' ').length;
+  }
   
   // Add more context from the content if we have space
   if (content && wordCount < targetWords - 20) {
-    const contentSentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
-    
-    for (const sentence of contentSentences) {
-      const sentenceWords = sentence.trim().split(' ').length;
-      if (wordCount + sentenceWords < targetWords) {
-        narration += sentence.trim() + '. ';
-        wordCount += sentenceWords;
-      } else {
-        break;
+    const meaningfulContent = extractMeaningfulContent(content, headline);
+    if (meaningfulContent) {
+      const contentSentences = meaningfulContent.split(/[.!?]+/).filter(s => s.trim().length > 10);
+      
+      for (const sentence of contentSentences) {
+        const sentenceWords = sentence.trim().split(' ').length;
+        if (wordCount + sentenceWords < targetWords) {
+          narration += sentence.trim() + '. ';
+          wordCount += sentenceWords;
+        } else {
+          break;
+        }
       }
     }
   }
   
   // Add a closing if we have space
   if (wordCount < targetWords - 10) {
-    narration += "This story is developing and we'll continue to monitor the situation.";
+    narration += "This story is developing and we'll continue to monitor the situation for further updates.";
   }
   
   return narration;
@@ -134,7 +223,7 @@ serve(async (req) => {
   try {
     const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
     
-    console.log('Fetching enhanced news with 60-word summaries and 60-second narrations for:', {
+    console.log('Fetching enhanced news with improved TL;DR accuracy for:', {
       country: country || 'Global',
       city: city || 'Unknown',
       region: region || 'Unknown',
@@ -189,14 +278,14 @@ serve(async (req) => {
       throw new Error('No articles found from any news source');
     }
 
-    // Transform articles to our format with enhanced content
+    // Transform articles to our format with enhanced content filtering
     const transformedNews: NewsItem[] = await Promise.all(
       articles.slice(0, pageSize).map(async (article, index) => {
         const headline = article.title || article.headline || 'Breaking News';
         const content = article.description || article.content || article.snippet || '';
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         
-        // Generate 60-word TL;DR
+        // Generate accurate 60-word TL;DR with improved filtering
         const tldr = generateTLDR(content, headline);
         
         // Generate 60-second narration text
@@ -204,6 +293,8 @@ serve(async (req) => {
         
         // Get high-quality image
         const imageUrl = await getHighQualityImage(originalImage, headline);
+        
+        console.log(`Generated TL;DR for "${headline.substring(0, 50)}...": "${tldr.substring(0, 100)}..."`);
         
         return {
           id: `news-${Date.now()}-${index}`,
@@ -221,7 +312,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} enhanced news articles with 60-word summaries and 60-second narrations`);
+    console.log(`Returning ${transformedNews.length} enhanced news articles with improved TL;DR accuracy`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),
