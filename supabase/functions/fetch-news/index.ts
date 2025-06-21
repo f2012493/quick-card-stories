@@ -106,60 +106,72 @@ serve(async (req) => {
 
     console.log(`Fetching news for category: ${category}, pageSize: ${pageSize}, location: ${city}, ${region}, ${country}`);
 
-    // Build URL with location-based parameters
-    let url = `https://newsapi.org/v2/top-headlines?`;
-    
-    // If we have country information, use it for more relevant news
-    if (country) {
+    let data: NewsAPIResponse | null = null;
+
+    // Try location-specific search first if we have location data
+    if (country && (city || region)) {
       const countryCode = countryCodeMap[country] || 'us';
-      url += `country=${countryCode}&`;
-      console.log(`Using country code: ${countryCode} for ${country}`);
-    } else {
-      url += `country=us&`;
-    }
-
-    url += `category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
-    
-    // Add location-specific search terms if we have city/region info
-    if (city || region) {
       const locationTerms = [city, region].filter(Boolean).join(' OR ');
-      url += `&q=${encodeURIComponent(locationTerms)}`;
-      console.log(`Added location search terms: ${locationTerms}`);
-    }
-
-    console.log('Making request to NewsAPI...');
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('NewsAPI error:', response.status, errorText);
-      throw new Error(`NewsAPI request failed: ${response.status} - ${errorText}`);
-    }
-
-    const data: NewsAPIResponse = await response.json();
-    
-    console.log(`NewsAPI returned ${data.articles?.length || 0} articles`);
-    console.log('NewsAPI status:', data.status);
-
-    if (!data.articles || data.articles.length === 0) {
-      console.log('No articles returned from NewsAPI, trying fallback without location');
+      const locationUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&q=${encodeURIComponent(locationTerms)}&apiKey=${newsApiKey}`;
       
-      // Fallback: try without location-specific terms
-      const fallbackUrl = `https://newsapi.org/v2/top-headlines?country=${country ? (countryCodeMap[country] || 'us') : 'us'}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+      console.log(`Trying location-specific search with country code: ${countryCode} and terms: ${locationTerms}`);
       
-      const fallbackResponse = await fetch(fallbackUrl);
-      if (fallbackResponse.ok) {
-        const fallbackData: NewsAPIResponse = await fallbackResponse.json();
-        if (fallbackData.articles && fallbackData.articles.length > 0) {
-          console.log(`Fallback returned ${fallbackData.articles.length} articles`);
-          data.articles = fallbackData.articles;
+      try {
+        const locationResponse = await fetch(locationUrl);
+        if (locationResponse.ok) {
+          const locationData: NewsAPIResponse = await locationResponse.json();
+          console.log(`Location search returned ${locationData.articles?.length || 0} articles`);
+          
+          if (locationData.articles && locationData.articles.length > 0) {
+            data = locationData;
+          }
         }
+      } catch (error) {
+        console.error('Location-specific search failed:', error);
       }
     }
 
-    if (!data.articles || data.articles.length === 0) {
-      console.log('No articles available even with fallback');
+    // If location search didn't return results, try country-only search
+    if (!data || !data.articles || data.articles.length === 0) {
+      const countryCode = country ? (countryCodeMap[country] || 'us') : 'us';
+      const countryUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+      
+      console.log(`Trying country-only search with country code: ${countryCode}`);
+      
+      try {
+        const countryResponse = await fetch(countryUrl);
+        if (countryResponse.ok) {
+          const countryData: NewsAPIResponse = await countryResponse.json();
+          console.log(`Country search returned ${countryData.articles?.length || 0} articles`);
+          
+          if (countryData.articles && countryData.articles.length > 0) {
+            data = countryData;
+          }
+        }
+      } catch (error) {
+        console.error('Country search failed:', error);
+      }
+    }
+
+    // Final fallback to US general news if nothing else worked
+    if (!data || !data.articles || data.articles.length === 0) {
+      const fallbackUrl = `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+      
+      console.log('Trying final fallback to US general news');
+      
+      const fallbackResponse = await fetch(fallbackUrl);
+      if (!fallbackResponse.ok) {
+        const errorText = await fallbackResponse.text();
+        console.error('Final fallback failed:', fallbackResponse.status, errorText);
+        throw new Error(`NewsAPI request failed: ${fallbackResponse.status} - ${errorText}`);
+      }
+
+      data = await fallbackResponse.json();
+      console.log(`Fallback returned ${data.articles?.length || 0} articles`);
+    }
+
+    if (!data || !data.articles || data.articles.length === 0) {
+      console.log('No articles available from any source');
       return new Response(JSON.stringify({ news: [] }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -170,7 +182,7 @@ serve(async (req) => {
       .filter(article => {
         const hasRequiredFields = article.title && article.description && article.urlToImage;
         if (!hasRequiredFields) {
-          console.log('Filtered out article missing required fields:', article.title);
+          console.log('Filtered out article missing required fields:', article.title || 'Unknown title');
         }
         return hasRequiredFields;
       })
@@ -187,7 +199,7 @@ serve(async (req) => {
         sourceUrl: article.url
       }));
 
-    console.log(`Transformed ${transformedNews.length} articles successfully`);
+    console.log(`Successfully transformed ${transformedNews.length} articles`);
 
     return new Response(JSON.stringify({ news: transformedNews }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
