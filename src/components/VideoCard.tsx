@@ -60,9 +60,16 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
   const handleReadFullArticle = () => {
     if (news.sourceUrl) {
-      const newWindow = window.open(news.sourceUrl, '_blank');
-      if (!newWindow) {
-        // Fallback if popup is blocked
+      // For Safari iOS compatibility, open immediately without any conditions
+      try {
+        const newWindow = window.open(news.sourceUrl, '_blank', 'noopener,noreferrer');
+        // If window.open returns null, it was blocked
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+          // Safari fallback - navigate in same tab
+          window.location.href = news.sourceUrl;
+        }
+      } catch (error) {
+        // Final fallback if everything fails
         window.location.href = news.sourceUrl;
       }
     } else {
