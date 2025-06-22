@@ -1,6 +1,6 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useClusteredNews } from './useClusteredNews';
 
 interface NewsItem {
   id: string;
@@ -21,13 +21,26 @@ interface UseNewsOptions {
   country?: string;
   city?: string;
   region?: string;
+  userId?: string;
 }
 
 export const useNews = (options: UseNewsOptions = {}) => {
-  return useQuery({
+  // Use the new clustered news system if we're in the new backend mode
+  const useNewBackend = true; // Feature flag - can be toggled
+
+  const clusteredNewsQuery = useClusteredNews({
+    userId: options.userId,
+    location: {
+      country: options.country,
+      city: options.city,
+      region: options.region
+    }
+  });
+
+  const legacyNewsQuery = useQuery({
     queryKey: ['news', options],
     queryFn: async (): Promise<NewsItem[]> => {
-      console.log('Fetching enhanced news with improved summaries:', options);
+      console.log('Fetching news with legacy system:', options);
       
       try {
         const { data, error } = await supabase.functions.invoke('fetch-news', {
@@ -39,30 +52,42 @@ export const useNews = (options: UseNewsOptions = {}) => {
           throw new Error(`Supabase function error: ${error.message}`);
         }
 
-        console.log('Supabase function response:', data);
-
-        if (!data) {
-          console.error('No data returned from function');
-          throw new Error('No data returned from function');
-        }
-
-        if (data.error) {
-          console.error('Function returned error:', data.error);
-          throw new Error(`Function error: ${data.error}`);
-        }
-
         const newsArray = data.news || [];
-        console.log(`Successfully fetched ${newsArray.length} enhanced news articles for location: ${options.city}, ${options.country}`);
+        console.log(`Successfully fetched ${newsArray.length} news articles`);
         
         return newsArray;
       } catch (err) {
-        console.error('Error in useNews hook:', err);
+        console.error('Error in legacy news hook:', err);
         throw err;
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !useNewBackend,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
+
+  if (useNewBackend) {
+    // Transform clustered news to match the expected NewsItem format
+    const transformedData = clusteredNewsQuery.data?.map((cluster, index) => ({
+      id: cluster.id,
+      headline: cluster.title,
+      tldr: cluster.description || cluster.title,
+      quote: cluster.description || '',
+      author: 'News Team',
+      category: cluster.category || 'general',
+      imageUrl: cluster.representative_image_url || `https://images.unsplash.com/photo-${1504711434969 + index}?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
+      readTime: '2 min read',
+      publishedAt: cluster.latest_published_at,
+      sourceUrl: '' // Will be filled from representative article if needed
+    })) || [];
+
+    return {
+      ...clusteredNewsQuery,
+      data: transformedData
+    };
+  }
+
+  return legacyNewsQuery;
 };
