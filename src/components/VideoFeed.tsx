@@ -341,9 +341,9 @@ const VideoFeed = () => {
         </div>
       </div>
 
-      {/* Location indicator */}
+      {/* Location indicator - moved to bottom left to avoid covering content */}
       {locationData && (
-        <div className="fixed top-4 left-4 z-50 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm border border-white/20">
+        <div className="fixed bottom-4 left-4 z-50 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm border border-white/20">
           📍 {locationData.city}, {locationData.country}
         </div>
       )}
