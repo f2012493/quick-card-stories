@@ -68,135 +68,115 @@ const unwantedPhrases = [
   'being closely monitored'
 ];
 
-const extractKeyFacts = (content: string, headline: string): string[] => {
-  if (!content || content.length < 30) return [];
+const generateImprovedTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
+  console.log(`Generating improved TL;DR for: "${headline}"`);
   
-  // Clean content first
+  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+  
+  // Combine all available content for better context
+  const fullContent = `${description} ${content}`.trim();
+  
+  if (openAIApiKey && fullContent.length > 20) {
+    try {
+      // Clean the content first
+      let cleanContent = fullContent;
+      unwantedPhrases.forEach(phrase => {
+        const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        cleanContent = cleanContent.replace(regex, '');
+      });
+
+      const prompt = `Create a clear, factual summary in exactly 2-3 sentences (maximum 60 words) for this news story:
+
+HEADLINE: ${headline}
+CONTENT: ${cleanContent.substring(0, 500)}
+
+Requirements:
+- 2-3 complete sentences only
+- Maximum 60 words total
+- Focus on WHO, WHAT, WHEN, WHERE
+- Be specific about actual facts and numbers
+- Avoid generic phrases like "development" or "situation"
+- Start with the most important fact`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a news summarization expert. Create precise, factual summaries that capture the essence of the story in minimal words. Never use generic phrases.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.2,
+          max_tokens: 80
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiSummary = data.choices[0].message.content.trim();
+        
+        if (aiSummary.length > 10 && aiSummary.split(' ').length <= 65) {
+          console.log(`AI-generated TL;DR: "${aiSummary}"`);
+          return aiSummary;
+        }
+      } else {
+        console.error('OpenAI API error:', await response.text());
+      }
+    } catch (error) {
+      console.error('AI summarization failed:', error);
+    }
+  }
+  
+  // Improved fallback - extract first meaningful sentence from content
+  return generateBetterFallback(fullContent, headline);
+};
+
+const generateBetterFallback = (content: string, headline: string): string => {
+  if (!content || content.length < 20) {
+    // If we have no content, create a simple summary from headline
+    const words = headline.split(' ').slice(0, 12);
+    return words.join(' ') + (words.length < headline.split(' ').length ? '...' : '');
+  }
+
+  // Clean content
   let cleaned = content.trim();
   unwantedPhrases.forEach(phrase => {
     const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     cleaned = cleaned.replace(regex, '');
   });
-  
-  // Split into sentences and analyze for facts
+
+  // Extract first meaningful sentences
   const sentences = cleaned.split(/[.!?]+/).map(s => s.trim()).filter(sentence => {
-    const words = sentence.split(' ');
     return sentence.length > 20 && 
-           words.length >= 5 && 
-           !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase())) &&
-           // Look for factual indicators
-           (sentence.includes('said') || sentence.includes('announced') || 
-            sentence.includes('reported') || sentence.includes('confirmed') ||
-            sentence.match(/\d+/) || // Contains numbers
-            sentence.includes('will') || sentence.includes('has') || sentence.includes('have'));
+           sentence.split(' ').length >= 4 &&
+           !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase()));
   });
-  
-  // Score sentences by factual content
-  const scoredSentences = sentences.map(sentence => {
-    let score = 0;
+
+  if (sentences.length > 0) {
+    const firstSentence = sentences[0];
+    const words = firstSentence.split(' ');
     
-    // Higher score for specific entities
-    if (/[A-Z][a-z]+\s[A-Z][a-z]+/.test(sentence)) score += 2; // Names
-    if (/\$\d+|£\d+|€\d+|\d+%|\d+\s?(million|billion|thousand)/.test(sentence)) score += 3; // Numbers/money
-    if (/(said|announced|confirmed|reported|stated|revealed)/.test(sentence)) score += 2; // Attribution
-    if (/(will|plans to|expected to|scheduled to)/.test(sentence)) score += 1; // Future actions
-    if (sentence.includes(headline.split(' ')[0])) score += 1; // Related to headline
-    
-    return { sentence, score };
-  });
-  
-  return scoredSentences
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map(item => item.sentence);
-};
-
-const generateImprovedTLDR = async (content: string, headline: string): Promise<string> => {
-  console.log(`Generating improved TL;DR for: "${headline}"`);
-  
-  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!openAIApiKey) {
-    // Fallback to basic extraction
-    return generateBasicTLDR(content, headline);
-  }
-
-  try {
-    const keyFacts = extractKeyFacts(content, headline);
-    const contextContent = keyFacts.length > 0 ? keyFacts.join(' ') : content.substring(0, 300);
-    
-    const prompt = `Create a concise 25-word summary for this news story:
-
-HEADLINE: ${headline}
-CONTENT: ${contextContent}
-
-Requirements:
-- Exactly 25 words or fewer
-- Focus on the most important fact or outcome
-- Avoid generic phrases like "development" or "situation"
-- Be specific about what actually happened
-- Start with the key action or result`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a news summarization expert. Create precise, factual summaries that capture the essence of the story in minimal words.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 50
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const aiSummary = data.choices[0].message.content.trim();
-      
-      if (aiSummary.length > 5 && aiSummary.split(' ').length <= 30) {
-        console.log(`AI-generated TL;DR: "${aiSummary}"`);
-        return aiSummary;
-      }
-    }
-  } catch (error) {
-    console.error('AI summarization failed:', error);
-  }
-  
-  // Fallback to improved basic extraction
-  return generateBasicTLDR(content, headline);
-};
-
-const generateBasicTLDR = (content: string, headline: string): string => {
-  const keyFacts = extractKeyFacts(content, headline);
-  
-  if (keyFacts.length > 0) {
-    // Use the highest-scoring fact and truncate to ~25 words
-    const bestFact = keyFacts[0];
-    const words = bestFact.split(' ');
-    if (words.length <= 25) {
-      return bestFact + '.';
+    // Limit to about 40-50 words for the fallback
+    if (words.length <= 50) {
+      return firstSentence + '.';
     } else {
-      return words.slice(0, 22).join(' ') + '...';
+      return words.slice(0, 45).join(' ') + '...';
     }
   }
-  
-  // Ultra-short fallback
-  const keyTerms = headline.split(' ').filter(word => 
-    word.length > 3 && 
-    !['that', 'this', 'with', 'from', 'they', 'them', 'have', 'been', 'were', 'will', 'says', 'after'].includes(word.toLowerCase())
-  ).slice(0, 3);
-  
-  return `Key development involving ${keyTerms.join(' ').toLowerCase()}.`;
+
+  // Last resort - use first part of content
+  const words = cleaned.split(' ').slice(0, 30);
+  return words.join(' ') + (words.length === 30 ? '...' : '');
 };
 
 const searchForImages = async (query: string): Promise<string[]> => {
@@ -300,16 +280,17 @@ serve(async (req) => {
       throw new Error('No articles found from any news source');
     }
 
-    // Transform articles to our format with enhanced summarization (no video generation)
+    // Transform articles to our format with enhanced summarization
     const transformedNews: NewsItem[] = await Promise.all(
       articles.slice(0, pageSize).map(async (article, index) => {
         const headline = article.title || article.headline || 'Breaking News';
-        const content = article.description || article.content || article.snippet || '';
+        const content = article.content || article.snippet || '';
+        const description = article.description || '';
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         const articleCategory = article.category || category || 'General';
         
-        // Generate enhanced TL;DR with AI
-        const tldr = await generateImprovedTLDR(content, headline);
+        // Generate enhanced TL;DR with better fallback
+        const tldr = await generateImprovedTLDR(content, headline, description);
         
         // Get high-quality image
         const imageUrl = await getHighQualityImage(originalImage, headline);
@@ -318,7 +299,7 @@ serve(async (req) => {
           id: `news-${Date.now()}-${index}`,
           headline: headline,
           tldr: tldr,
-          quote: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
+          quote: (description || content).substring(0, 200) + ((description || content).length > 200 ? '...' : ''),
           author: article.author || article.source?.name || 'News Team',
           category: String(articleCategory),
           imageUrl: imageUrl,
