@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -106,14 +107,14 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col justify-end pb-32">
+        <div className="flex-1 flex flex-col justify-end pb-40 md:pb-32">
           {/* Headline */}
           <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4 drop-shadow-2xl">
             {news.headline}
           </h1>
 
           {/* TL;DR */}
-          <div className="mb-6">
+          <div className="mb-8">
             <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
               TL;DR
             </h2>
@@ -124,10 +125,10 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
           {/* Read Full Article Button */}
           {news.sourceUrl && (
-            <div>
+            <div className="mb-4">
               <button
                 onClick={handleReadFullArticle}
-                className="flex items-center space-x-2 bg-blue-600/90 hover:bg-blue-700/90 text-white px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg"
+                className="flex items-center space-x-2 bg-blue-600/90 hover:bg-blue-700/90 active:bg-blue-800/90 text-white px-6 py-3 rounded-full text-sm font-medium transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg touch-manipulation"
               >
                 <ExternalLink className="w-4 h-4" />
                 <span>Read Full Article</span>
@@ -138,14 +139,14 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
       </div>
 
       {/* Side Controls */}
-      <div className="absolute right-4 bottom-20 z-30 flex flex-col space-y-4">
+      <div className="absolute right-4 bottom-32 md:bottom-20 z-30 flex flex-col space-y-4">
         {/* Like Button */}
         <button
           onClick={handleLike}
-          className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg ${
+          className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg touch-manipulation ${
             isLiked 
               ? 'bg-red-500/90 text-white scale-110' 
-              : 'bg-black/50 text-white hover:bg-black/70'
+              : 'bg-black/50 text-white hover:bg-black/70 active:bg-black/80'
           }`}
         >
           <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
@@ -154,7 +155,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         {/* Share Button */}
         <button
           onClick={handleShare}
-          className="bg-black/50 hover:bg-black/70 transition-all duration-200 p-3 rounded-full backdrop-blur-md pointer-events-auto shadow-lg"
+          className="bg-black/50 hover:bg-black/70 active:bg-black/80 transition-all duration-200 p-3 rounded-full backdrop-blur-md pointer-events-auto shadow-lg touch-manipulation"
         >
           <Share className="w-6 h-6 text-white" />
         </button>
