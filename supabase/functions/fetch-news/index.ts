@@ -259,10 +259,10 @@ const cleanHeadlineForTLDR = (headline: string): string => {
 const generateImprovedTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
   console.log(`Generating improved TL;DR for: "${headline}"`);
   
-  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
   const fullContent = `${description} ${content}`.trim();
   
-  if (openAIApiKey && fullContent.length > 50) {
+  if (geminiApiKey && fullContent.length > 50) {
     try {
       // Clean the content first
       let cleanContent = fullContent;
@@ -283,39 +283,36 @@ Requirements:
 - Start with the most important information
 - No generic phrases like "development" or "situation"`;
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a news editor who creates precise, factual summaries. Focus on concrete details and avoid vague language.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.1,
-          max_tokens: 100
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 100,
+            topP: 0.8,
+            topK: 10
+          }
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const aiSummary = data.choices[0].message.content.trim();
+        const aiSummary = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         
-        if (aiSummary.length > 20 && aiSummary.split(' ').length >= 20 && aiSummary.split(' ').length <= 70) {
+        if (aiSummary && aiSummary.length > 20 && aiSummary.split(' ').length >= 20 && aiSummary.split(' ').length <= 70) {
           console.log(`AI-generated TL;DR: "${aiSummary}"`);
           return aiSummary;
         }
       } else {
-        console.error('OpenAI API error:', await response.text());
+        console.error('Gemini API error:', await response.text());
       }
     } catch (error) {
       console.error('AI summarization failed:', error);
@@ -364,31 +361,39 @@ const getHighQualityImage = async (originalUrl: string, headline: string): Promi
   return `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
 };
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+const fetchNewsWithFallback = async (newsApiKey: string, newsDataApiKey: string, country: string, category: string): Promise<any[]> => {
+  let allArticles: any[] = [];
+  
+  // Multiple fallback strategies for different countries and regions
+  const strategies = [
+    // Strategy 1: Country-specific
+    {
+      newsApiCountry: country === 'India' ? 'in' : country === 'United States' ? 'us' : 'us',
+      newsDataCountry: country === 'India' ? 'in' : country === 'United States' ? 'us' : 'us'
+    },
+    // Strategy 2: Global/US fallback
+    {
+      newsApiCountry: 'us',
+      newsDataCountry: 'us'
+    },
+    // Strategy 3: No country filter (global)
+    {
+      newsApiCountry: null,
+      newsDataCountry: null
+    }
+  ];
 
-  try {
-    const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
+  for (const strategy of strategies) {
+    console.log(`Trying strategy: NewsAPI country=${strategy.newsApiCountry}, NewsData country=${strategy.newsDataCountry}`);
     
-    console.log('Fetching high-quality news with enhanced filtering:', {
-      country: country || 'Global',
-      city: city || 'Unknown',
-      region: region || 'Unknown',
-      category,
-      pageSize
-    });
-
-    const newsApiKey = Deno.env.get('NEWS_API_KEY') || '0043c6873e3d42e7a36db1d1a840d818';
-    const newsDataApiKey = Deno.env.get('NEWS_DATA_API_KEY') || 'pub_cb335a5f57774d94927cfdc70ae36cd6';
-
-    let allArticles: any[] = [];
-
-    // Try NewsAPI first with larger fetch for better filtering
+    // Try NewsAPI
     try {
-      const countryCode = country === 'India' ? 'in' : 'us';
-      const newsApiUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=30&apiKey=${newsApiKey}`;
+      let newsApiUrl;
+      if (strategy.newsApiCountry) {
+        newsApiUrl = `https://newsapi.org/v2/top-headlines?country=${strategy.newsApiCountry}&category=${category}&pageSize=30&apiKey=${newsApiKey}`;
+      } else {
+        newsApiUrl = `https://newsapi.org/v2/everything?q=news&sortBy=publishedAt&pageSize=30&apiKey=${newsApiKey}`;
+      }
       
       console.log('Calling NewsAPI with URL:', newsApiUrl);
       
@@ -403,11 +408,15 @@ serve(async (req) => {
       console.error('NewsAPI failed:', error);
     }
 
-    // Try NewsData.io for additional articles
-    if (allArticles.length < 20) {
+    // Try NewsData.io if we don't have enough articles
+    if (allArticles.length < 15) {
       try {
-        const countryCode = country === 'India' ? 'in' : 'us';
-        const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${countryCode}&language=en&size=20&image=1`;
+        let newsDataUrl;
+        if (strategy.newsDataCountry) {
+          newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${strategy.newsDataCountry}&language=en&size=20&image=1`;
+        } else {
+          newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&language=en&size=20&image=1`;
+        }
         
         console.log('Calling NewsData.io with URL:', newsDataUrl);
         
@@ -423,8 +432,58 @@ serve(async (req) => {
       }
     }
 
+    // If we have enough articles, break out of the loop
+    if (allArticles.length >= 10) {
+      console.log(`Strategy successful: collected ${allArticles.length} articles`);
+      break;
+    }
+  }
+
+  return allArticles;
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
+    
+    console.log('Fetching high-quality news with enhanced filtering and robust fallbacks:', {
+      country: country || 'Global',
+      city: city || 'Unknown',
+      region: region || 'Unknown',
+      category,
+      pageSize
+    });
+
+    const newsApiKey = Deno.env.get('NEWS_API_KEY') || '0043c6873e3d42e7a36db1d1a840d818';
+    const newsDataApiKey = Deno.env.get('NEWS_DATA_API_KEY') || 'pub_cb335a5f57774d94927cfdc70ae36cd6';
+
+    // Use the robust fetching strategy
+    const allArticles = await fetchNewsWithFallback(newsApiKey, newsDataApiKey, country || 'United States', category);
+
     if (allArticles.length === 0) {
-      throw new Error('No articles found from any news source');
+      console.log('No articles found, returning fallback news');
+      // Return some fallback news instead of failing
+      const fallbackNews = [{
+        id: `news-fallback-${Date.now()}`,
+        headline: 'News service temporarily unavailable',
+        tldr: 'We are experiencing temporary issues with our news sources. Please try again in a few minutes.',
+        quote: 'News will be available shortly',
+        author: 'News Team',
+        category: 'general',
+        imageUrl: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        readTime: '1 min read',
+        publishedAt: new Date().toISOString(),
+        sourceUrl: ''
+      }];
+      
+      return new Response(
+        JSON.stringify({ news: fallbackNews }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Filter out low-quality articles
@@ -435,9 +494,12 @@ serve(async (req) => {
     const uniqueArticles = removeDuplicates(validArticles);
     console.log(`Removed duplicates: ${uniqueArticles.length} unique articles remaining`);
 
+    // Ensure we have at least some articles to work with
+    const articlesToProcess = uniqueArticles.length > 0 ? uniqueArticles : allArticles.slice(0, Math.min(10, allArticles.length));
+
     // Transform articles to our format with enhanced summarization
     const transformedNews: NewsItem[] = await Promise.all(
-      uniqueArticles.slice(0, pageSize).map(async (article, index) => {
+      articlesToProcess.slice(0, pageSize).map(async (article, index) => {
         const headline = article.title || article.headline || 'Breaking News';
         const content = article.content || article.snippet || '';
         const description = article.description || '';
