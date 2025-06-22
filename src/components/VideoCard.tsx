@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Share, Heart, ChevronUp, Volume2, VolumeX } from 'lucide-react';
+import { Share, Heart, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { analyticsService } from '@/services/analyticsService';
 import NewsDetailPanel from './NewsDetailPanel';
@@ -89,9 +89,24 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
     console.log(`Analyzing news: ${newsId}`);
   };
 
-  const handleMuteToggle = () => {
+  // Handle tap-to-toggle audio
+  const handleVideoTap = (e: React.MouseEvent) => {
+    // Prevent event bubbling to avoid unwanted interactions
+    e.stopPropagation();
+    
     setIsMuted(!isMuted);
-    toast.success(isMuted ? "🔊 Sound enabled" : "🔇 Sound muted");
+    toast.success(isMuted ? "🔊 Sound enabled" : "🔇 Sound muted", {
+      duration: 1000,
+    });
+
+    // Update video iframe with new mute state
+    if (iframeRef.current && news.videoUrl && isActive) {
+      const videoUrl = new URL(news.videoUrl);
+      videoUrl.searchParams.set('autoplay', '1');
+      videoUrl.searchParams.set('mute', (!isMuted) ? '1' : '0');
+      
+      iframeRef.current.src = videoUrl.toString();
+    }
   };
 
   const formatPublishedDate = (dateString?: string) => {
@@ -108,17 +123,33 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   return (
     <>
       <div className="relative w-full h-screen flex items-center justify-center">
-        {/* Video Background */}
+        {/* Video Background with tap-to-toggle audio */}
         {news.videoUrl ? (
-          <iframe
-            ref={iframeRef}
-            className="absolute inset-0 w-full h-full object-cover"
-            src={`${news.videoUrl}&autoplay=${isActive ? '1' : '0'}&mute=${isMuted ? '1' : '0'}`}
-            title={news.headline}
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
+          <div 
+            className="absolute inset-0 w-full h-full cursor-pointer"
+            onClick={handleVideoTap}
+          >
+            <iframe
+              ref={iframeRef}
+              className="absolute inset-0 w-full h-full object-cover"
+              src={`${news.videoUrl}&autoplay=${isActive ? '1' : '0'}&mute=${isMuted ? '1' : '0'}`}
+              title={news.headline}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+            
+            {/* Audio indicator overlay */}
+            <div className="absolute bottom-4 left-4 z-10">
+              <div className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur-sm border transition-all duration-200 ${
+                !isMuted 
+                  ? 'bg-green-500/30 text-green-300 border-green-400/50' 
+                  : 'bg-red-500/30 text-red-300 border-red-400/50'
+              }`}>
+                {!isMuted ? '🔊 Tap to mute' : '🔇 Tap for sound'}
+              </div>
+            </div>
+          </div>
         ) : (
           // Fallback to image background if no video
           <>
@@ -204,22 +235,6 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
             }`}
           >
             <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
-          </button>
-
-          {/* Mute/Unmute Button */}
-          <button
-            onClick={handleMuteToggle}
-            className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg ${
-              !isMuted 
-                ? 'bg-black/50 text-white hover:bg-black/70' 
-                : 'bg-red-500/90 text-white'
-            }`}
-          >
-            {!isMuted ? (
-              <Volume2 className="w-6 h-6" />
-            ) : (
-              <VolumeX className="w-6 h-6" />
-            )}
           </button>
           
           {/* Share Button */}
