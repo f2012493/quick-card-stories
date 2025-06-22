@@ -257,69 +257,11 @@ const cleanHeadlineForTLDR = (headline: string): string => {
 };
 
 const generateImprovedTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
-  console.log(`Generating improved TL;DR for: "${headline}"`);
+  console.log(`Generating TL;DR using enhanced extraction for: "${headline}"`);
   
-  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
   const fullContent = `${description} ${content}`.trim();
   
-  if (geminiApiKey && fullContent.length > 50) {
-    try {
-      // Clean the content first
-      let cleanContent = fullContent;
-      unwantedPhrases.forEach(phrase => {
-        const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-        cleanContent = cleanContent.replace(regex, '');
-      });
-
-      const prompt = `Create a precise 2-sentence summary (45-60 words) for this news story. Focus on WHO, WHAT, WHEN, WHERE with specific facts and numbers. Avoid generic phrases.
-
-HEADLINE: ${headline}
-CONTENT: ${cleanContent.substring(0, 800)}
-
-Requirements:
-- Exactly 2 complete sentences
-- 45-60 words total
-- Include specific facts, numbers, names, locations
-- Start with the most important information
-- No generic phrases like "development" or "situation"`;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 100,
-            topP: 0.8,
-            topK: 10
-          }
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const aiSummary = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-        
-        if (aiSummary && aiSummary.length > 20 && aiSummary.split(' ').length >= 20 && aiSummary.split(' ').length <= 70) {
-          console.log(`AI-generated TL;DR: "${aiSummary}"`);
-          return aiSummary;
-        }
-      } else {
-        console.error('Gemini API error:', await response.text());
-      }
-    } catch (error) {
-      console.error('AI summarization failed:', error);
-    }
-  }
-  
-  // Enhanced fallback logic
+  // Use enhanced fallback logic only - no AI
   return extractKeyFacts(fullContent, headline);
 };
 
@@ -450,7 +392,7 @@ serve(async (req) => {
   try {
     const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
     
-    console.log('Fetching high-quality news with enhanced filtering and robust fallbacks:', {
+    console.log('Fetching high-quality news without AI dependency:', {
       country: country || 'Global',
       city: city || 'Unknown',
       region: region || 'Unknown',
@@ -506,7 +448,7 @@ serve(async (req) => {
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         const articleCategory = article.category || category || 'General';
         
-        // Generate enhanced TL;DR
+        // Generate enhanced TL;DR without AI
         const tldr = await generateImprovedTLDR(content, headline, description);
         
         // Get high-quality image
@@ -527,7 +469,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} high-quality news articles with enhanced summaries`);
+    console.log(`Returning ${transformedNews.length} high-quality news articles with enhanced non-AI summaries`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),
