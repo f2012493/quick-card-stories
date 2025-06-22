@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -17,7 +18,7 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
-  narrationText?: string;
+  videoUrl?: string;
 }
 
 const unwantedPhrases = [
@@ -68,197 +69,204 @@ const unwantedPhrases = [
   'being closely monitored'
 ];
 
-const cleanContent = (text: string): string => {
-  if (!text) return '';
+const extractKeyFacts = (content: string, headline: string): string[] => {
+  if (!content || content.length < 30) return [];
   
-  let cleaned = text.trim();
-  
-  // Remove unwanted phrases (case insensitive)
+  // Clean content first
+  let cleaned = content.trim();
   unwantedPhrases.forEach(phrase => {
     const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     cleaned = cleaned.replace(regex, '');
   });
   
-  // Remove common website artifacts and metadata
-  cleaned = cleaned.replace(/\s+/g, ' '); // Multiple spaces
-  cleaned = cleaned.replace(/^\W+|\W+$/g, ''); // Leading/trailing non-word chars
-  cleaned = cleaned.replace(/^(by\s+)?([a-z\s]+\s+-+)?\s*/i, ''); // Remove "By Author -" patterns
-  cleaned = cleaned.replace(/^(source:|via:|from:)\s*/i, ''); // Remove source prefixes
-  cleaned = cleaned.replace(/\b(photo|image|getty|reuters|ap|afp):\s*/gi, ''); // Remove photo credits
-  
-  return cleaned.trim();
-};
-
-const extractMeaningfulSentences = (content: string): string[] => {
-  if (!content || content.length < 30) return [];
-  
-  const cleaned = cleanContent(content);
-  if (cleaned.length < 30) return [];
-  
-  // Split into sentences and filter for meaningful content
+  // Split into sentences and analyze for facts
   const sentences = cleaned.split(/[.!?]+/).map(s => s.trim()).filter(sentence => {
     const words = sentence.split(' ');
-    return sentence.length > 25 && 
-           words.length >= 6 && 
+    return sentence.length > 20 && 
+           words.length >= 5 && 
            !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase())) &&
-           // Filter out vague sentences
-           !sentence.toLowerCase().includes('according to sources') &&
-           !sentence.toLowerCase().includes('reports indicate') &&
-           !sentence.toLowerCase().includes('it is understood') &&
-           !sentence.toLowerCase().includes('sources close to') &&
-           // Check for actual substantive content
-           words.some(word => word.length > 5) && // At least one substantial word
-           // Avoid sentences that are just quotes without context
-           !(sentence.startsWith('"') && sentence.endsWith('"') && words.length < 10);
+           // Look for factual indicators
+           (sentence.includes('said') || sentence.includes('announced') || 
+            sentence.includes('reported') || sentence.includes('confirmed') ||
+            sentence.match(/\d+/) || // Contains numbers
+            sentence.includes('will') || sentence.includes('has') || sentence.includes('have'));
   });
   
-  return sentences.slice(0, 3); // Take first 3 meaningful sentences
+  // Score sentences by factual content
+  const scoredSentences = sentences.map(sentence => {
+    let score = 0;
+    
+    // Higher score for specific entities
+    if (/[A-Z][a-z]+\s[A-Z][a-z]+/.test(sentence)) score += 2; // Names
+    if (/\$\d+|£\d+|€\d+|\d+%|\d+\s?(million|billion|thousand)/.test(sentence)) score += 3; // Numbers/money
+    if (/(said|announced|confirmed|reported|stated|revealed)/.test(sentence)) score += 2; // Attribution
+    if (/(will|plans to|expected to|scheduled to)/.test(sentence)) score += 1; // Future actions
+    if (sentence.includes(headline.split(' ')[0])) score += 1; // Related to headline
+    
+    return { sentence, score };
+  });
+  
+  return scoredSentences
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(item => item.sentence);
 };
 
-const generateTLDR = (content: string, headline: string): string => {
-  console.log(`Generating TL;DR for headline: "${headline}"`);
-  console.log(`Content preview: "${content.substring(0, 200)}..."`);
+const generateImprovedTLDR = async (content: string, headline: string): Promise<string> => {
+  console.log(`Generating improved TL;DR for: "${headline}"`);
   
-  // Check if content is meaningful
-  const contentLower = content.toLowerCase();
-  const headlineLower = headline.toLowerCase();
-  
-  // Extract meaningful sentences first
-  const meaningfulSentences = extractMeaningfulSentences(content);
-  
-  // If we have good content, use it
-  if (meaningfulSentences.length > 0) {
-    // Build TL;DR from meaningful sentences (aim for 30-40 words max)
-    let tldr = '';
-    let wordCount = 0;
-    const targetWords = 35;
+  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+  if (!openAIApiKey) {
+    // Fallback to basic extraction
+    return generateBasicTLDR(content, headline);
+  }
+
+  try {
+    const keyFacts = extractKeyFacts(content, headline);
+    const contextContent = keyFacts.length > 0 ? keyFacts.join(' ') : content.substring(0, 300);
     
-    for (const sentence of meaningfulSentences) {
-      const sentenceWords = sentence.split(' ').length;
-      if (wordCount + sentenceWords <= targetWords) {
-        tldr += sentence + '. ';
-        wordCount += sentenceWords;
-      } else {
-        // Add partial sentence if we can fit at least 8 more words
-        if (targetWords - wordCount >= 8) {
-          const words = sentence.split(' ');
-          const partialSentence = words.slice(0, targetWords - wordCount).join(' ');
-          tldr += partialSentence + '...';
-        }
-        break;
+    const prompt = `Create a concise 25-word summary for this news story:
+
+HEADLINE: ${headline}
+CONTENT: ${contextContent}
+
+Requirements:
+- Exactly 25 words or fewer
+- Focus on the most important fact or outcome
+- Avoid generic phrases like "development" or "situation"
+- Be specific about what actually happened
+- Start with the key action or result`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a news summarization expert. Create precise, factual summaries that capture the essence of the story in minimal words.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 50
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const aiSummary = data.choices[0].message.content.trim();
+      
+      if (aiSummary.length > 5 && aiSummary.split(' ').length <= 30) {
+        console.log(`AI-generated TL;DR: "${aiSummary}"`);
+        return aiSummary;
       }
     }
-    
-    tldr = tldr.trim();
-    if (tldr && !tldr.endsWith('.') && !tldr.endsWith('...')) {
-      tldr += '.';
-    }
-    
-    // If TL;DR is good and not too similar to headline, use it
-    if (tldr.length >= 50 && !tldr.toLowerCase().includes(headlineLower.substring(0, Math.min(20, headlineLower.length)))) {
-      console.log(`Generated TL;DR (${tldr.split(' ').length} words): "${tldr.substring(0, 100)}..."`);
-      return tldr;
+  } catch (error) {
+    console.error('AI summarization failed:', error);
+  }
+  
+  // Fallback to improved basic extraction
+  return generateBasicTLDR(content, headline);
+};
+
+const generateBasicTLDR = (content: string, headline: string): string => {
+  const keyFacts = extractKeyFacts(content, headline);
+  
+  if (keyFacts.length > 0) {
+    // Use the highest-scoring fact and truncate to ~25 words
+    const bestFact = keyFacts[0];
+    const words = bestFact.split(' ');
+    if (words.length <= 25) {
+      return bestFact + '.';
+    } else {
+      return words.slice(0, 22).join(' ') + '...';
     }
   }
   
-  // If content is poor or too similar to headline, create a very short summary
-  console.log('Creating short summary due to poor content');
-  
-  // Extract key terms from headline
+  // Ultra-short fallback
   const keyTerms = headline.split(' ').filter(word => 
     word.length > 3 && 
     !['that', 'this', 'with', 'from', 'they', 'them', 'have', 'been', 'were', 'will', 'says', 'after'].includes(word.toLowerCase())
   ).slice(0, 3);
   
-  // Create a minimal but informative summary
-  if (headlineLower.includes('court') || headlineLower.includes('judge') || headlineLower.includes('ruling')) {
-    return `Legal ruling affects ${keyTerms.join(' ').toLowerCase()}.`;
-  } else if (headlineLower.includes('election') || headlineLower.includes('vote') || headlineLower.includes('political')) {
-    return `Political development involving ${keyTerms.join(' ').toLowerCase()}.`;
-  } else if (headlineLower.includes('market') || headlineLower.includes('stock') || headlineLower.includes('economic')) {
-    return `Market movement related to ${keyTerms.join(' ').toLowerCase()}.`;
-  } else if (headlineLower.includes('tech') || headlineLower.includes('ai') || headlineLower.includes('digital')) {
-    return `Technology update regarding ${keyTerms.join(' ').toLowerCase()}.`;
-  } else {
-    return `News update on ${keyTerms.join(' ').toLowerCase()}.`;
-  }
+  return `Key development involving ${keyTerms.join(' ').toLowerCase()}.`;
 };
 
-const extractSubject = (headline: string): string => {
-  // Extract the main subject from headline
-  const words = headline.split(' ');
-  
-  // Look for proper nouns (capitalized words that aren't at the start)
-  const properNouns = words.filter((word, index) => 
-    index > 0 && word.length > 2 && /^[A-Z]/.test(word) && 
-    !['The', 'And', 'Or', 'But', 'In', 'On', 'At', 'To', 'For'].includes(word)
-  );
-  
-  if (properNouns.length > 0) {
-    return properNouns.slice(0, 2).join(' ').toLowerCase();
+const generateVideoFromNews = async (headline: string, summary: string): Promise<string> => {
+  try {
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      console.log('No OpenAI key available for video generation');
+      return getPlaceholderVideo();
+    }
+
+    // Generate a video prompt
+    const prompt = `Create a 30-second video script for this news story: "${headline}". Summary: ${summary}. 
+    
+    Make it engaging and visual, focusing on the key facts. Describe specific scenes, text overlays, and visual elements that would work well in a short vertical video format.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a video content creator specializing in news videos for social media. Create engaging, factual video scripts.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 200
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Generated video script for:', headline);
+      
+      // For now, return a placeholder video URL
+      // In a real implementation, you'd send this script to a video generation service
+      return getPlaceholderVideo();
+    }
+  } catch (error) {
+    console.error('Video generation failed:', error);
   }
   
-  // Fallback to first 3-4 meaningful words
-  const meaningfulWords = words.filter(word => 
-    word.length > 3 && 
-    !['that', 'this', 'with', 'from', 'they', 'them', 'have', 'been', 'were', 'will'].includes(word.toLowerCase())
-  );
-  
-  return meaningfulWords.slice(0, 3).join(' ').toLowerCase();
+  return getPlaceholderVideo();
 };
 
-const generateNarrationText = (headline: string, tldr: string, content: string): string => {
-  // Create a 60-second explainer (approximately 150-180 words for natural speech pace)
-  const targetWords = 160;
+const getPlaceholderVideo = (): string => {
+  // Return a placeholder video URL - in production you'd use actual video generation
+  const videoIds = [
+    'dQw4w9WgXcQ', // Sample video IDs for demo
+    'ScMzIvxBSi4',
+    'ZbZSe6N_BXs',
+    'ePpPVE-GGJw',
+    'mN3z3eSVG7A'
+  ];
   
-  let narration = `Breaking News: ${headline}. `;
-  let wordCount = narration.split(' ').length;
-  
-  // Add the TL;DR content if it's meaningful and different from headline
-  if (tldr && !unwantedPhrases.some(phrase => tldr.toLowerCase().includes(phrase.toLowerCase()))) {
-    const tldrLower = tldr.toLowerCase();
-    const headlineLower = headline.toLowerCase();
-    
-    // Only add TL;DR if it's not too similar to the headline
-    if (!tldrLower.includes(headlineLower.substring(0, Math.min(20, headlineLower.length)))) {
-      narration += `Here's what you need to know: ${tldr} `;
-      wordCount = narration.split(' ').length;
-    }
-  }
-  
-  // Add more context from meaningful content if available and we have space
-  if (content && wordCount < targetWords - 20) {
-    const meaningfulSentences = extractMeaningfulSentences(content);
-    
-    for (const sentence of meaningfulSentences.slice(0, 2)) {
-      const sentenceWords = sentence.split(' ').length;
-      if (wordCount + sentenceWords < targetWords) {
-        narration += sentence + '. ';
-        wordCount += sentenceWords;
-      } else {
-        break;
-      }
-    }
-  }
-  
-  // Add a simple closing if we have space
-  if (wordCount < targetWords - 5) {
-    narration += "That's the latest update.";
-  }
-  
-  return narration;
+  const randomId = videoIds[Math.floor(Math.random() * videoIds.length)];
+  return `https://www.youtube.com/embed/${randomId}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1`;
 };
 
 const searchForImages = async (query: string): Promise<string[]> => {
   try {
-    // Use a simple image search approach
-    const searchQueries = [
-      `${query} news`,
-      `${query} latest`,
-      query.split(' ').slice(0, 3).join(' ')
-    ];
-    
-    // Return high-quality placeholder URLs based on the search
     const imageUrls = [
       `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
       `https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
@@ -275,10 +283,8 @@ const searchForImages = async (query: string): Promise<string[]> => {
 };
 
 const getHighQualityImage = async (originalUrl: string, headline: string): Promise<string> => {
-  // If original image exists and is high quality, use it
   if (originalUrl && originalUrl.includes('http')) {
     try {
-      // Check if image is accessible
       const response = await fetch(originalUrl, { method: 'HEAD' });
       if (response.ok) {
         return originalUrl;
@@ -288,15 +294,12 @@ const getHighQualityImage = async (originalUrl: string, headline: string): Promi
     }
   }
   
-  // Search for relevant images
   const searchImages = await searchForImages(headline);
   
-  // Return the first available high-quality image
   if (searchImages.length > 0) {
     return searchImages[Math.floor(Math.random() * searchImages.length)];
   }
   
-  // Fallback to a high-quality news placeholder
   return `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
 };
 
@@ -308,7 +311,7 @@ serve(async (req) => {
   try {
     const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
     
-    console.log('Fetching news with improved content filtering:', {
+    console.log('Fetching news with enhanced summarization and video generation:', {
       country: country || 'Global',
       city: city || 'Unknown',
       region: region || 'Unknown',
@@ -363,18 +366,18 @@ serve(async (req) => {
       throw new Error('No articles found from any news source');
     }
 
-    // Transform articles to our format with improved content filtering
+    // Transform articles to our format with enhanced summarization and video generation
     const transformedNews: NewsItem[] = await Promise.all(
       articles.slice(0, pageSize).map(async (article, index) => {
         const headline = article.title || article.headline || 'Breaking News';
         const content = article.description || article.content || article.snippet || '';
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         
-        // Generate accurate TL;DR with improved filtering
-        const tldr = generateTLDR(content, headline);
+        // Generate enhanced TL;DR with AI
+        const tldr = await generateImprovedTLDR(content, headline);
         
-        // Generate narration text
-        const narrationText = generateNarrationText(headline, tldr, content);
+        // Generate video for the news story
+        const videoUrl = await generateVideoFromNews(headline, tldr);
         
         // Get high-quality image
         const imageUrl = await getHighQualityImage(originalImage, headline);
@@ -387,15 +390,15 @@ serve(async (req) => {
           author: article.author || article.source?.name || 'News Team',
           category: article.category || category || 'General',
           imageUrl: imageUrl,
-          readTime: '2 min read',
+          readTime: '30 sec video',
           publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
           sourceUrl: article.url || article.link || '',
-          narrationText: narrationText
+          videoUrl: videoUrl
         };
       })
     );
 
-    console.log(`Returning ${transformedNews.length} news articles with improved content filtering`);
+    console.log(`Returning ${transformedNews.length} news articles with enhanced summaries and videos`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),

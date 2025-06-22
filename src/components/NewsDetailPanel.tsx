@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ExternalLink } from 'lucide-react';
+import { X, ExternalLink, Clock, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,7 +15,7 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
-  narrationText?: string;
+  videoUrl?: string;
 }
 
 interface NewsDetailPanelProps {
@@ -25,73 +25,90 @@ interface NewsDetailPanelProps {
   onAnalyze: (newsId: string) => void;
 }
 
-interface NewsAnalysis {
-  whatHappened: string;
-  whyItMatters: string;
-  whoItAffects: string;
+interface RelatedNewsItem {
+  headline: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  summary: string;
 }
 
 const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelProps) => {
-  const [analysis, setAnalysis] = useState<NewsAnalysis | null>(null);
+  const [relatedNews, setRelatedNews] = useState<RelatedNewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen && !analysis) {
-      generateAIAnalysis();
+    if (isOpen && relatedNews.length === 0) {
+      fetchRelatedNews();
     }
   }, [isOpen, news.id]);
 
-  const generateAIAnalysis = async () => {
+  const fetchRelatedNews = async () => {
     setIsLoading(true);
     try {
       // Call analytics tracking
       onAnalyze(news.id);
 
-      console.log('Generating AI analysis for:', news.headline);
+      console.log('Fetching related news for:', news.headline);
 
-      // Call our AI analysis edge function
-      const { data, error } = await supabase.functions.invoke('analyze-news', {
+      // Call our related news edge function
+      const { data, error } = await supabase.functions.invoke('get-related-news', {
         body: {
           headline: news.headline,
-          tldr: news.tldr,
-          content: news.quote || news.narrationText || '',
           category: news.category
         }
       });
 
       if (error) {
-        console.error('AI analysis error:', error);
-        throw new Error('Failed to generate AI analysis');
+        console.error('Related news error:', error);
+        throw new Error('Failed to fetch related news');
       }
 
-      if (data) {
-        setAnalysis({
-          whatHappened: data.whatHappened,
-          whyItMatters: data.whyItMatters,
-          whoItAffects: data.whoItAffects
-        });
+      if (data && data.relatedNews) {
+        setRelatedNews(data.relatedNews);
       }
     } catch (error) {
-      console.error('Failed to generate analysis:', error);
-      toast.error('Failed to generate detailed analysis');
+      console.error('Failed to fetch related news:', error);
+      toast.error('Failed to load related news');
       
-      // Fallback to basic analysis if AI fails
-      setAnalysis({
-        whatHappened: `${news.tldr || news.headline}`,
-        whyItMatters: 'This development may have broader implications for the affected sectors and communities.',
-        whoItAffects: 'Multiple stakeholders and related industries may be impacted by this development.'
-      });
+      // Fallback to mock data
+      setRelatedNews([
+        {
+          headline: 'Related story from another perspective',
+          source: 'News Source 1',
+          url: '#',
+          publishedAt: new Date().toISOString(),
+          summary: 'Additional context and information about this developing story...'
+        },
+        {
+          headline: 'Expert analysis on similar developments',
+          source: 'News Source 2', 
+          url: '#',
+          publishedAt: new Date().toISOString(),
+          summary: 'Industry experts weigh in on the implications of this news...'
+        }
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSourceClick = () => {
-    if (news.sourceUrl) {
-      window.open(news.sourceUrl, '_blank');
+  const handleSourceClick = (url: string) => {
+    if (url && url !== '#') {
+      window.open(url, '_blank');
     } else {
       toast.info('Source link not available');
     }
+  };
+
+  const formatPublishedDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    return `${Math.floor(diffInHours / 24)}d ago`;
   };
 
   if (!isOpen) return null;
@@ -100,7 +117,7 @@ const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelPr
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
       <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] overflow-hidden">
         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">News Analysis</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Related Coverage</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -130,53 +147,68 @@ const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelPr
             <p className="text-gray-600 text-sm">By {news.author}</p>
           </div>
 
-          {/* Analysis Sections */}
-          <div className="p-4 space-y-6">
+          {/* Related News Section */}
+          <div className="p-4">
+            <div className="flex items-center space-x-2 mb-4">
+              <Globe className="w-5 h-5 text-blue-500" />
+              <h4 className="text-lg font-semibold text-gray-900">
+                Related Coverage from Other Sources
+              </h4>
+            </div>
+
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                <span className="ml-2 text-gray-600">Generating AI analysis...</span>
+                <span className="ml-2 text-gray-600">Loading related news...</span>
               </div>
-            ) : analysis ? (
-              <>
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
-                    <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm mr-2">1</span>
-                    What Happened
-                  </h4>
-                  <p className="text-gray-700 leading-relaxed">{analysis.whatHappened}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
-                    <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm mr-2">2</span>
-                    Why It Matters
-                  </h4>
-                  <p className="text-gray-700 leading-relaxed">{analysis.whyItMatters}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2 flex items-center">
-                    <span className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm mr-2">3</span>
-                    Who It Affects
-                  </h4>
-                  <p className="text-gray-700 leading-relaxed">{analysis.whoItAffects}</p>
-                </div>
-
-                {/* Source Link */}
-                {news.sourceUrl && (
-                  <div className="pt-4 border-t border-gray-100">
-                    <button
-                      onClick={handleSourceClick}
-                      className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span className="font-medium">Read Full Article</span>
-                    </button>
+            ) : relatedNews.length > 0 ? (
+              <div className="space-y-4">
+                {relatedNews.map((article, index) => (
+                  <div
+                    key={index}
+                    className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    onClick={() => handleSourceClick(article.url)}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h5 className="font-semibold text-gray-900 text-sm leading-tight flex-1 mr-2">
+                        {article.headline}
+                      </h5>
+                      <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    </div>
+                    
+                    <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                      {article.summary}
+                    </p>
+                    
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span className="font-medium">{article.source}</span>
+                      <div className="flex items-center space-x-1">
+                        <Clock className="w-3 h-3" />
+                        <span>{formatPublishedDate(article.publishedAt)}</span>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </>
-            ) : null}
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Globe className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                <p>No related coverage found</p>
+              </div>
+            )}
+
+            {/* Original Source Link */}
+            {news.sourceUrl && (
+              <div className="pt-6 border-t border-gray-100 mt-6">
+                <button
+                  onClick={() => handleSourceClick(news.sourceUrl!)}
+                  className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors w-full"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span className="font-medium">Read Original Article</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

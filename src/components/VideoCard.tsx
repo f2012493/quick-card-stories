@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Play, Pause, Share, Heart, VolumeX, Volume2, ChevronUp } from 'lucide-react';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Share, Heart, ChevronUp, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'sonner';
-import { audioService } from '@/services/audioService';
 import { analyticsService } from '@/services/analyticsService';
 import NewsDetailPanel from './NewsDetailPanel';
 
@@ -16,7 +16,7 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
-  narrationText?: string;
+  videoUrl?: string;
 }
 
 interface VideoCardProps {
@@ -26,11 +26,10 @@ interface VideoCardProps {
 }
 
 const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
-  const [isSoundOn, setIsSoundOn] = useState(true);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Track time spent on this card
   useEffect(() => {
@@ -45,98 +44,23 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
     };
   }, [isActive, news.id, news.category]);
 
-  // Clean up audio when component unmounts or news changes
+  // Handle video autoplay when card becomes active
   useEffect(() => {
-    return () => {
-      audioService.stop();
-    };
-  }, [news.id]);
-
-  // Auto-start narration when card becomes active
-  useEffect(() => {
-    if (isActive && !isPlaying && isSoundOn && audioUnlocked) {
-      const timer = setTimeout(() => {
-        handlePlayPause();
-      }, 1000);
+    if (isActive && iframeRef.current && news.videoUrl) {
+      // Update iframe src to include autoplay parameter
+      const videoUrl = new URL(news.videoUrl);
+      videoUrl.searchParams.set('autoplay', '1');
+      videoUrl.searchParams.set('mute', isMuted ? '1' : '0');
       
-      return () => clearTimeout(timer);
-    } else if (!isActive && isPlaying) {
-      audioService.stop();
-      setIsPlaying(false);
+      iframeRef.current.src = videoUrl.toString();
+    } else if (!isActive && iframeRef.current) {
+      // Pause video when not active
+      const videoUrl = new URL(news.videoUrl || '');
+      videoUrl.searchParams.set('autoplay', '0');
+      
+      iframeRef.current.src = videoUrl.toString();
     }
-  }, [isActive, isSoundOn, audioUnlocked]);
-
-  const createNarrationText = () => {
-    if (news.narrationText) {
-      return news.narrationText;
-    }
-    return `Breaking News: ${news.headline}. Here's what you need to know: ${news.tldr}`;
-  };
-
-  const handlePlayPause = async () => {
-    if (!isSoundOn) {
-      toast.error("🔇 Sound is muted. Turn on sound to hear narration.");
-      return;
-    }
-
-    // For mobile, unlock audio on first interaction
-    if (!audioUnlocked) {
-      try {
-        await audioService.enableAudioForMobile();
-        setAudioUnlocked(true);
-      } catch (error) {
-        console.log('Failed to unlock audio:', error);
-      }
-    }
-
-    if (isPlaying) {
-      audioService.stop();
-      setIsPlaying(false);
-    } else {
-      try {
-        setIsPlaying(true);
-        const text = createNarrationText();
-        
-        await audioService.playNarration({
-          text,
-          backgroundMusic: true,
-          musicVolume: 0.2,
-          speechVolume: 1.0
-        });
-        
-        setIsPlaying(false);
-      } catch (error) {
-        console.error('Narration failed:', error);
-        setIsPlaying(false);
-        toast.error("🚫 Audio playback failed. Please try again.");
-      }
-    }
-  };
-
-  const handleSoundToggle = async () => {
-    // Unlock audio on first sound interaction for mobile
-    if (!audioUnlocked) {
-      try {
-        await audioService.enableAudioForMobile();
-        setAudioUnlocked(true);
-      } catch (error) {
-        console.log('Failed to unlock audio:', error);
-      }
-    }
-
-    const newSoundState = !isSoundOn;
-    setIsSoundOn(newSoundState);
-    
-    if (newSoundState) {
-      toast.success("🔊 Sound enabled");
-    } else {
-      toast.success("🔇 Sound disabled");
-      if (isPlaying) {
-        audioService.stop();
-        setIsPlaying(false);
-      }
-    }
-  };
+  }, [isActive, news.videoUrl, isMuted]);
 
   const handleShare = () => {
     if (news.sourceUrl) {
@@ -162,8 +86,12 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   };
 
   const handleAnalyze = (newsId: string) => {
-    // This is called when the detail panel analyzes the news
     console.log(`Analyzing news: ${newsId}`);
+  };
+
+  const handleMuteToggle = () => {
+    setIsMuted(!isMuted);
+    toast.success(isMuted ? "🔊 Sound enabled" : "🔇 Sound muted");
   };
 
   const formatPublishedDate = (dateString?: string) => {
@@ -180,28 +108,35 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   return (
     <>
       <div className="relative w-full h-screen flex items-center justify-center">
-        {/* Background Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url(${news.imageUrl})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            filter: 'brightness(0.9) contrast(1.1) saturate(1.2)'
-          }}
-        />
+        {/* Video Background */}
+        {news.videoUrl ? (
+          <iframe
+            ref={iframeRef}
+            className="absolute inset-0 w-full h-full object-cover"
+            src={`${news.videoUrl}&autoplay=${isActive ? '1' : '0'}&mute=${isMuted ? '1' : '0'}`}
+            title={news.headline}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          // Fallback to image background if no video
+          <>
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: `url(${news.imageUrl})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'brightness(0.9) contrast(1.1) saturate(1.2)'
+              }}
+            />
+            {/* Gradient Overlay for image fallback */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/40" />
+          </>
+        )}
         
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/40" />
-        
-        {/* Invisible Play Button */}
-        <button
-          onClick={handlePlayPause}
-          className="absolute inset-0 w-full h-full z-10 bg-transparent"
-          aria-label={isPlaying ? "Pause narration" : "Play narration"}
-        />
-        
-        {/* Content */}
+        {/* Content Overlay */}
         <div className="relative z-20 w-full h-full flex flex-col p-6 pointer-events-none">
           {/* Header */}
           <div className="flex items-center justify-between mb-4 pt-safe">
@@ -245,7 +180,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
               className="self-start mb-4 px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white font-medium border border-white/30 hover:bg-white/30 transition-all duration-200 pointer-events-auto flex items-center space-x-2"
             >
               <ChevronUp className="w-4 h-4" />
-              <span>Explore</span>
+              <span>Related Coverage</span>
             </button>
 
             {/* Author info */}
@@ -271,16 +206,16 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
             <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
           </button>
 
-          {/* Sound Toggle Button */}
+          {/* Mute/Unmute Button */}
           <button
-            onClick={handleSoundToggle}
+            onClick={handleMuteToggle}
             className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg ${
-              isSoundOn 
+              !isMuted 
                 ? 'bg-black/50 text-white hover:bg-black/70' 
                 : 'bg-red-500/90 text-white'
             }`}
           >
-            {isSoundOn ? (
+            {!isMuted ? (
               <Volume2 className="w-6 h-6" />
             ) : (
               <VolumeX className="w-6 h-6" />
@@ -296,19 +231,10 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
           </button>
         </div>
 
-        {/* Play/Pause Indicator */}
-        {isPlaying && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-            <div className="bg-black/60 p-6 rounded-full backdrop-blur-md animate-pulse shadow-2xl">
-              <Pause className="w-10 h-10 text-white" />
-            </div>
-          </div>
-        )}
-
-        {/* Audio indicator */}
+        {/* Video indicator */}
         <div className="absolute top-4 right-4 z-30">
           <div className="bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-xs border border-white/20">
-            {isPlaying ? '🔊 Playing explainer' : isSoundOn ? (audioUnlocked ? '🎧 Tap to hear explainer' : '🎧 Tap to enable audio') : '🔇 Sound is off'}
+            {news.videoUrl ? '📹 AI Video Story' : '📰 News Story'}
           </div>
         </div>
       </div>
