@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,9 +21,13 @@ interface VideoCardProps {
   news: NewsItem;
   isActive: boolean;
   index: number;
+  locationData?: {
+    city: string;
+    country: string;
+  };
 }
 
-const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
+const VideoCard = ({ news, isActive, index, locationData }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
 
   // Track time spent on this card
@@ -94,19 +99,30 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
       
       {/* Content Overlay */}
       <div className="relative z-20 w-full h-full flex flex-col p-6 pointer-events-none">
-        {/* Header - Updated to remove News Story box and add more top padding */}
+        {/* Header - Now contains location and time info */}
         <div className="flex items-center justify-between mb-4 pt-16">
           <div className="flex items-center space-x-3">
-            <div className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
-              news.category === 'Tech' ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' :
-              news.category === 'Politics' ? 'bg-red-500/30 text-red-300 border border-red-400/50' :
-              news.category === 'Business' ? 'bg-green-500/30 text-green-300 border border-green-400/50' :
-              news.category === 'Health' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50' :
-              'bg-gray-500/30 text-gray-300 border border-gray-400/50'
-            }`}>
-              {news.category}
-            </div>
-            <span className="text-white/70 text-xs font-medium">{news.readTime}</span>
+            {/* Only show category if it's not "general" */}
+            {news.category && news.category.toLowerCase() !== 'general' && (
+              <div className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
+                news.category === 'Tech' ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' :
+                news.category === 'Politics' ? 'bg-red-500/30 text-red-300 border border-red-400/50' :
+                news.category === 'Business' ? 'bg-green-500/30 text-green-300 border border-green-400/50' :
+                news.category === 'Health' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50' :
+                'bg-gray-500/30 text-gray-300 border border-gray-400/50'
+              }`}>
+                {news.category}
+              </div>
+            )}
+            
+            {/* Location info */}
+            {locationData && (
+              <div className="bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-xs border border-white/20">
+                📍 {locationData.city}, {locationData.country}
+              </div>
+            )}
+            
+            {/* Time ago */}
             {news.publishedAt && (
               <span className="text-white/70 text-xs">{formatPublishedDate(news.publishedAt)}</span>
             )}
@@ -130,7 +146,7 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
             </p>
           </div>
 
-          {/* Read Full Article Button - Removed author section */}
+          {/* Read Full Article Button */}
           {news.sourceUrl && (
             <div className="mb-6">
               <button
