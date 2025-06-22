@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -19,31 +18,6 @@ interface NewsItem {
   publishedAt?: string;
   sourceUrl?: string;
 }
-
-// Enhanced filtering for clickbait and low-quality content
-const clickbaitPhrases = [
-  'you won\'t believe',
-  'shocking',
-  'this will blow your mind',
-  'doctors hate this',
-  'click here',
-  'what happens next',
-  'the reason why',
-  'you need to see this',
-  'this changes everything',
-  'wait until you see',
-  'the truth about',
-  'secrets revealed',
-  'insider reveals',
-  'leaked',
-  'exclusive footage',
-  'viral video',
-  'must watch',
-  'gone wrong',
-  'prank',
-  'reaction video',
-  'compilation'
-];
 
 const unwantedPhrases = [
   'only available in paid plans',
@@ -98,171 +72,92 @@ const unwantedPhrases = [
   'significant development'
 ];
 
-const isClickbait = (headline: string, content: string = ''): boolean => {
-  const textToCheck = `${headline} ${content}`.toLowerCase();
-  return clickbaitPhrases.some(phrase => textToCheck.includes(phrase.toLowerCase()));
-};
+const generateSmartFallback = (content: string, headline: string, description: string = ''): string => {
+  console.log(`Generating smart fallback for: "${headline}"`);
+  
+  // Combine all available content
+  const fullContent = `${description} ${content}`.trim();
+  
+  if (!fullContent || fullContent.length < 20) {
+    // Extract key information from headline if no content
+    return extractFromHeadline(headline);
+  }
 
-const isValidNewsArticle = (article: any): boolean => {
-  const headline = article.title || article.headline || '';
-  const content = article.content || article.description || '';
-  
-  // Filter out clickbait
-  if (isClickbait(headline, content)) {
-    return false;
-  }
-  
-  // Filter out very short headlines (likely incomplete)
-  if (headline.length < 20) {
-    return false;
-  }
-  
-  // Filter out articles without proper content
-  if (!content || content.length < 50) {
-    return false;
-  }
-  
-  // Filter out promotional content
-  const promotionalKeywords = ['advertisement', 'sponsored', 'promo', 'buy now', 'limited time'];
-  if (promotionalKeywords.some(keyword => headline.toLowerCase().includes(keyword))) {
-    return false;
-  }
-  
-  return true;
-};
-
-const removeDuplicates = (articles: any[]): any[] => {
-  const seen = new Set();
-  const uniqueArticles = [];
-  
-  for (const article of articles) {
-    const headline = (article.title || article.headline || '').toLowerCase();
-    
-    // Create a simplified version of the headline for comparison
-    const simplified = headline
-      .replace(/[^\w\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .split(' ')
-      .slice(0, 5) // First 5 words
-      .join(' ');
-    
-    if (!seen.has(simplified) && simplified.length > 10) {
-      seen.add(simplified);
-      uniqueArticles.push(article);
-    }
-  }
-  
-  return uniqueArticles;
-};
-
-const extractKeyFacts = (content: string, headline: string): string => {
-  if (!content || content.length < 30) {
-    return cleanHeadlineForTLDR(headline);
-  }
-  
-  // Clean and prepare content
-  let cleanContent = content.trim();
-  
-  // Remove unwanted phrases
+  // Clean content thoroughly
+  let cleaned = fullContent.toLowerCase();
   unwantedPhrases.forEach(phrase => {
     const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    cleanContent = cleanContent.replace(regex, '');
+    cleaned = cleaned.replace(regex, '');
   });
+
+  // Remove common filler words and phrases
+  cleaned = cleaned.replace(/\b(according to|reports suggest|sources say|it is reported|officials said|experts believe)\b/gi, '');
+  cleaned = cleaned.replace(/\b(in a statement|in an interview|during a press conference)\b/gi, '');
   
-  // Remove promotional language
-  cleanContent = cleanContent.replace(/\b(according to sources|reports suggest|it is believed)\b/gi, '');
-  
-  // Split into sentences and find the most informative ones
-  const sentences = cleanContent.split(/[.!?]+/).map(s => s.trim()).filter(sentence => {
-    return sentence.length > 20 && 
-           sentence.length < 200 &&
-           sentence.split(' ').length >= 6 &&
-           sentence.split(' ').length <= 35 &&
-           !sentence.match(/^\s*(the|this|that|it|there|in|on|at)\s+/i) &&
-           !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase()));
+  // Split into sentences and find meaningful ones
+  const sentences = cleaned.split(/[.!?]+/).map(s => s.trim()).filter(sentence => {
+    return sentence.length > 15 && 
+           sentence.split(' ').length >= 5 &&
+           !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase())) &&
+           !sentence.match(/^\s*(the|this|that|it|there)\s+/i); // Avoid sentences starting with weak words
   });
-  
-  if (sentences.length === 0) {
-    return cleanHeadlineForTLDR(headline);
+
+  if (sentences.length > 0) {
+    // Take first meaningful sentence and enhance it
+    let summary = sentences[0].trim();
+    
+    // Capitalize first letter
+    summary = summary.charAt(0).toUpperCase() + summary.slice(1);
+    
+    // Limit to reasonable length
+    const words = summary.split(' ');
+    if (words.length > 45) {
+      summary = words.slice(0, 40).join(' ') + '...';
+    } else if (!summary.endsWith('.')) {
+      summary += '.';
+    }
+    
+    return summary;
   }
-  
-  // Prioritize sentences with numbers, names, or specific details
-  const scoredSentences = sentences.map(sentence => {
-    let score = 0;
-    
-    // Bonus for numbers/statistics
-    if (/\d+/.test(sentence)) score += 2;
-    
-    // Bonus for proper nouns (likely names/places)
-    const words = sentence.split(' ');
-    const capitalizedWords = words.filter(word => /^[A-Z][a-z]+/.test(word));
-    score += Math.min(capitalizedWords.length, 3);
-    
-    // Bonus for action words
-    const actionWords = ['announced', 'launched', 'arrested', 'elected', 'died', 'appointed', 'signed', 'approved', 'rejected'];
-    if (actionWords.some(word => sentence.toLowerCase().includes(word))) score += 2;
-    
-    // Penalty for vague language
-    const vagueWords = ['reportedly', 'allegedly', 'possibly', 'might', 'could'];
-    if (vagueWords.some(word => sentence.toLowerCase().includes(word))) score -= 1;
-    
-    return { sentence, score };
-  });
-  
-  // Sort by score and take the best sentence
-  scoredSentences.sort((a, b) => b.score - a.score);
-  let bestSentence = scoredSentences[0].sentence;
-  
-  // Ensure it starts with a capital letter
-  bestSentence = bestSentence.charAt(0).toUpperCase() + bestSentence.slice(1);
-  
-  // Trim to ~50-60 words if too long
-  const words = bestSentence.split(' ');
-  if (words.length > 55) {
-    bestSentence = words.slice(0, 50).join(' ') + '...';
-  } else if (!bestSentence.endsWith('.')) {
-    bestSentence += '.';
-  }
-  
-  return bestSentence;
+
+  // Last resort - extract from headline
+  return extractFromHeadline(headline);
 };
 
-const cleanHeadlineForTLDR = (headline: string): string => {
-  let cleaned = headline.trim();
+const extractFromHeadline = (headline: string): string => {
+  // Clean the headline and make it more descriptive
+  let summary = headline.trim();
   
   // Remove quotes if they wrap the entire headline
-  if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
-    cleaned = cleaned.slice(1, -1);
+  if (summary.startsWith('"') && summary.endsWith('"')) {
+    summary = summary.slice(1, -1);
   }
   
-  // Remove common headline prefixes
-  cleaned = cleaned.replace(/^(Breaking:|BREAKING:|News:|UPDATE:)\s*/i, '');
+  // If headline is too short, keep as is
+  if (summary.split(' ').length <= 8) {
+    return summary + (summary.endsWith('.') ? '' : '.');
+  }
   
-  // If very long, intelligently truncate
-  const words = cleaned.split(' ');
+  // If headline is very long, truncate smartly
+  const words = summary.split(' ');
   if (words.length > 15) {
-    // Find a good breaking point
-    let breakPoint = 12;
-    for (let i = 10; i < Math.min(15, words.length); i++) {
-      if (words[i].match(/[.,:;]$/)) {
-        breakPoint = i + 1;
-        break;
-      }
-    }
-    cleaned = words.slice(0, breakPoint).join(' ') + '...';
+    // Try to find a natural break point
+    const firstPart = words.slice(0, 12).join(' ');
+    return firstPart + (firstPart.endsWith('.') ? '' : '...');
   }
   
-  return cleaned + (cleaned.endsWith('.') ? '' : '.');
+  return summary + (summary.endsWith('.') ? '' : '.');
 };
 
 const generateImprovedTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
   console.log(`Generating improved TL;DR for: "${headline}"`);
   
   const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+  
+  // Combine all available content for better context
   const fullContent = `${description} ${content}`.trim();
   
-  if (openAIApiKey && fullContent.length > 50) {
+  if (openAIApiKey && fullContent.length > 20) {
     try {
       // Clean the content first
       let cleanContent = fullContent;
@@ -271,17 +166,18 @@ const generateImprovedTLDR = async (content: string, headline: string, descripti
         cleanContent = cleanContent.replace(regex, '');
       });
 
-      const prompt = `Create a precise 2-sentence summary (45-60 words) for this news story. Focus on WHO, WHAT, WHEN, WHERE with specific facts and numbers. Avoid generic phrases.
+      const prompt = `Create a clear, factual summary in exactly 2-3 sentences (maximum 60 words) for this news story:
 
 HEADLINE: ${headline}
-CONTENT: ${cleanContent.substring(0, 800)}
+CONTENT: ${cleanContent.substring(0, 500)}
 
 Requirements:
-- Exactly 2 complete sentences
-- 45-60 words total
-- Include specific facts, numbers, names, locations
-- Start with the most important information
-- No generic phrases like "development" or "situation"`;
+- 2-3 complete sentences only
+- Maximum 60 words total
+- Focus on WHO, WHAT, WHEN, WHERE
+- Be specific about actual facts and numbers
+- Avoid generic phrases like "development" or "situation"
+- Start with the most important fact`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -294,15 +190,15 @@ Requirements:
           messages: [
             {
               role: 'system',
-              content: 'You are a news editor who creates precise, factual summaries. Focus on concrete details and avoid vague language.'
+              content: 'You are a news summarization expert. Create precise, factual summaries that capture the essence of the story in minimal words. Never use generic phrases.'
             },
             {
               role: 'user',
               content: prompt
             }
           ],
-          temperature: 0.1,
-          max_tokens: 100
+          temperature: 0.2,
+          max_tokens: 80
         }),
       });
 
@@ -310,7 +206,7 @@ Requirements:
         const data = await response.json();
         const aiSummary = data.choices[0].message.content.trim();
         
-        if (aiSummary.length > 20 && aiSummary.split(' ').length >= 20 && aiSummary.split(' ').length <= 70) {
+        if (aiSummary.length > 10 && aiSummary.split(' ').length <= 65) {
           console.log(`AI-generated TL;DR: "${aiSummary}"`);
           return aiSummary;
         }
@@ -322,8 +218,46 @@ Requirements:
     }
   }
   
-  // Enhanced fallback logic
-  return extractKeyFacts(fullContent, headline);
+  // Use improved fallback
+  return generateSmartFallback(fullContent, headline, description);
+};
+
+const generateBetterFallback = (content: string, headline: string): string => {
+  if (!content || content.length < 20) {
+    // If we have no content, create a simple summary from headline
+    const words = headline.split(' ').slice(0, 12);
+    return words.join(' ') + (words.length < headline.split(' ').length ? '...' : '');
+  }
+
+  // Clean content
+  let cleaned = content.trim();
+  unwantedPhrases.forEach(phrase => {
+    const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    cleaned = cleaned.replace(regex, '');
+  });
+
+  // Extract first meaningful sentences
+  const sentences = cleaned.split(/[.!?]+/).map(s => s.trim()).filter(sentence => {
+    return sentence.length > 20 && 
+           sentence.split(' ').length >= 4 &&
+           !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase()));
+  });
+
+  if (sentences.length > 0) {
+    const firstSentence = sentences[0];
+    const words = firstSentence.split(' ');
+    
+    // Limit to about 40-50 words for the fallback
+    if (words.length <= 50) {
+      return firstSentence + '.';
+    } else {
+      return words.slice(0, 45).join(' ') + '...';
+    }
+  }
+
+  // Last resort - use first part of content
+  const words = cleaned.split(' ').slice(0, 30);
+  return words.join(' ') + (words.length === 30 ? '...' : '');
 };
 
 const searchForImages = async (query: string): Promise<string[]> => {
@@ -372,7 +306,7 @@ serve(async (req) => {
   try {
     const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
     
-    console.log('Fetching high-quality news with enhanced filtering:', {
+    console.log('Fetching news with enhanced summarization:', {
       country: country || 'Global',
       city: city || 'Unknown',
       region: region || 'Unknown',
@@ -383,12 +317,12 @@ serve(async (req) => {
     const newsApiKey = Deno.env.get('NEWS_API_KEY') || '0043c6873e3d42e7a36db1d1a840d818';
     const newsDataApiKey = Deno.env.get('NEWS_DATA_API_KEY') || 'pub_cb335a5f57774d94927cfdc70ae36cd6';
 
-    let allArticles: any[] = [];
+    let articles: any[] = [];
 
-    // Try NewsAPI first with larger fetch for better filtering
+    // Try NewsAPI first
     try {
       const countryCode = country === 'India' ? 'in' : 'us';
-      const newsApiUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=30&apiKey=${newsApiKey}`;
+      const newsApiUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
       
       console.log('Calling NewsAPI with URL:', newsApiUrl);
       
@@ -397,17 +331,17 @@ serve(async (req) => {
       
       if (newsApiData.articles && newsApiData.articles.length > 0) {
         console.log(`NewsAPI returned ${newsApiData.articles.length} articles`);
-        allArticles = allArticles.concat(newsApiData.articles);
+        articles = newsApiData.articles;
       }
     } catch (error) {
       console.error('NewsAPI failed:', error);
     }
 
-    // Try NewsData.io for additional articles
-    if (allArticles.length < 20) {
+    // If NewsAPI didn't provide enough articles, try NewsData.io
+    if (articles.length < 5) {
       try {
         const countryCode = country === 'India' ? 'in' : 'us';
-        const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${countryCode}&language=en&size=20&image=1`;
+        const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${countryCode}&language=en&size=10&image=1`;
         
         console.log('Calling NewsData.io with URL:', newsDataUrl);
         
@@ -416,35 +350,27 @@ serve(async (req) => {
         
         if (newsDataData.results && newsDataData.results.length > 0) {
           console.log(`NewsData.io returned ${newsDataData.results.length} articles`);
-          allArticles = allArticles.concat(newsDataData.results);
+          articles = articles.concat(newsDataData.results.slice(0, 10));
         }
       } catch (error) {
         console.error('NewsData.io failed:', error);
       }
     }
 
-    if (allArticles.length === 0) {
+    if (articles.length === 0) {
       throw new Error('No articles found from any news source');
     }
 
-    // Filter out low-quality articles
-    const validArticles = allArticles.filter(isValidNewsArticle);
-    console.log(`Filtered from ${allArticles.length} to ${validArticles.length} quality articles`);
-
-    // Remove duplicates
-    const uniqueArticles = removeDuplicates(validArticles);
-    console.log(`Removed duplicates: ${uniqueArticles.length} unique articles remaining`);
-
     // Transform articles to our format with enhanced summarization
     const transformedNews: NewsItem[] = await Promise.all(
-      uniqueArticles.slice(0, pageSize).map(async (article, index) => {
+      articles.slice(0, pageSize).map(async (article, index) => {
         const headline = article.title || article.headline || 'Breaking News';
         const content = article.content || article.snippet || '';
         const description = article.description || '';
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         const articleCategory = article.category || category || 'General';
         
-        // Generate enhanced TL;DR
+        // Generate enhanced TL;DR with better fallback
         const tldr = await generateImprovedTLDR(content, headline, description);
         
         // Get high-quality image
@@ -465,7 +391,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} high-quality news articles with enhanced summaries`);
+    console.log(`Returning ${transformedNews.length} news articles with enhanced summaries`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),
