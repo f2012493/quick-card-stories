@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,13 +20,9 @@ interface VideoCardProps {
   news: NewsItem;
   isActive: boolean;
   index: number;
-  locationData?: {
-    city: string;
-    country: string;
-  };
 }
 
-const VideoCard = ({ news, isActive, index, locationData }: VideoCardProps) => {
+const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
 
   // Track time spent on this card
@@ -99,30 +94,19 @@ const VideoCard = ({ news, isActive, index, locationData }: VideoCardProps) => {
       
       {/* Content Overlay */}
       <div className="relative z-20 w-full h-full flex flex-col p-6 pointer-events-none">
-        {/* Header - Reduced top padding to fix spacing issue */}
-        <div className="flex items-center justify-between mb-4 pt-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 pt-safe">
           <div className="flex items-center space-x-3">
-            {/* Only show category if it's not "general" */}
-            {news.category && news.category.toLowerCase() !== 'general' && (
-              <div className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
-                news.category === 'Tech' ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' :
-                news.category === 'Politics' ? 'bg-red-500/30 text-red-300 border border-red-400/50' :
-                news.category === 'Business' ? 'bg-green-500/30 text-green-300 border border-green-400/50' :
-                news.category === 'Health' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50' :
-                'bg-gray-500/30 text-gray-300 border border-gray-400/50'
-              }`}>
-                {news.category}
-              </div>
-            )}
-            
-            {/* Location info */}
-            {locationData && (
-              <div className="bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-xs border border-white/20">
-                📍 {locationData.city}, {locationData.country}
-              </div>
-            )}
-            
-            {/* Time ago */}
+            <div className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
+              news.category === 'Tech' ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' :
+              news.category === 'Politics' ? 'bg-red-500/30 text-red-300 border border-red-400/50' :
+              news.category === 'Business' ? 'bg-green-500/30 text-green-300 border border-green-400/50' :
+              news.category === 'Health' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50' :
+              'bg-gray-500/30 text-gray-300 border border-gray-400/50'
+            }`}>
+              {news.category}
+            </div>
+            <span className="text-white/70 text-xs font-medium">{news.readTime}</span>
             {news.publishedAt && (
               <span className="text-white/70 text-xs">{formatPublishedDate(news.publishedAt)}</span>
             )}
@@ -137,7 +121,7 @@ const VideoCard = ({ news, isActive, index, locationData }: VideoCardProps) => {
           </h1>
 
           {/* TL;DR */}
-          <div className="mb-6">
+          <div className="mb-4">
             <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
               TL;DR
             </h2>
@@ -146,9 +130,16 @@ const VideoCard = ({ news, isActive, index, locationData }: VideoCardProps) => {
             </p>
           </div>
 
+          {/* Author info */}
+          {news.author && (
+            <p className="text-white/80 text-sm font-medium">
+              By {news.author}
+            </p>
+          )}
+
           {/* Read Full Article Button */}
           {news.sourceUrl && (
-            <div className="mb-6">
+            <div className="mt-4">
               <button
                 onClick={handleReadFullArticle}
                 className="flex items-center space-x-2 bg-blue-600/90 hover:bg-blue-700/90 text-white px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg"
@@ -182,6 +173,13 @@ const VideoCard = ({ news, isActive, index, locationData }: VideoCardProps) => {
         >
           <Share className="w-6 h-6 text-white" />
         </button>
+      </div>
+
+      {/* News indicator */}
+      <div className="absolute top-4 right-4 z-30">
+        <div className="bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-xs border border-white/20">
+          📰 News Story
+        </div>
       </div>
     </div>
   );

@@ -28,11 +28,6 @@ export const useNews = (options: UseNewsOptions = {}) => {
     queryKey: ['news', options],
     queryFn: async (): Promise<NewsItem[]> => {
       console.log('Fetching enhanced news with improved summaries:', options);
-      console.log('Location data being sent:', { 
-        country: options.country, 
-        city: options.city, 
-        region: options.region 
-      });
       
       try {
         const { data, error } = await supabase.functions.invoke('fetch-news', {
@@ -58,11 +53,6 @@ export const useNews = (options: UseNewsOptions = {}) => {
 
         const newsArray = data.news || [];
         console.log(`Successfully fetched ${newsArray.length} enhanced news articles for location: ${options.city}, ${options.country}`);
-        
-        // Debug: Log if we're getting location-specific results
-        if (options.country || options.city) {
-          console.log('Location-specific news request completed successfully');
-        }
         
         return newsArray;
       } catch (err) {

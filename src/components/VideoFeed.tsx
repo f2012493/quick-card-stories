@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import { useNews } from '@/hooks/useNews';
@@ -313,7 +314,6 @@ const VideoFeed = () => {
               news={news}
               isActive={index === currentIndex}
               index={index}
-              locationData={locationData}
             />
           </div>
         ))}
@@ -340,6 +340,13 @@ const VideoFeed = () => {
           )}
         </div>
       </div>
+
+      {/* Location indicator */}
+      {locationData && (
+        <div className="fixed top-4 left-4 z-50 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm border border-white/20">
+          📍 {locationData.city}, {locationData.country}
+        </div>
+      )}
 
       {/* Loading more indicator */}
       {isLoadingMore && (
