@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -65,8 +64,90 @@ const unwantedPhrases = [
   'situation as it updates',
   'news development involves',
   'continues to evolve',
-  'being closely monitored'
+  'being closely monitored',
+  'key development involving',
+  'situation involving',
+  'development in',
+  'notable development',
+  'significant development'
 ];
+
+const generateSmartFallback = (content: string, headline: string, description: string = ''): string => {
+  console.log(`Generating smart fallback for: "${headline}"`);
+  
+  // Combine all available content
+  const fullContent = `${description} ${content}`.trim();
+  
+  if (!fullContent || fullContent.length < 20) {
+    // Extract key information from headline if no content
+    return extractFromHeadline(headline);
+  }
+
+  // Clean content thoroughly
+  let cleaned = fullContent.toLowerCase();
+  unwantedPhrases.forEach(phrase => {
+    const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    cleaned = cleaned.replace(regex, '');
+  });
+
+  // Remove common filler words and phrases
+  cleaned = cleaned.replace(/\b(according to|reports suggest|sources say|it is reported|officials said|experts believe)\b/gi, '');
+  cleaned = cleaned.replace(/\b(in a statement|in an interview|during a press conference)\b/gi, '');
+  
+  // Split into sentences and find meaningful ones
+  const sentences = cleaned.split(/[.!?]+/).map(s => s.trim()).filter(sentence => {
+    return sentence.length > 15 && 
+           sentence.split(' ').length >= 5 &&
+           !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase())) &&
+           !sentence.match(/^\s*(the|this|that|it|there)\s+/i); // Avoid sentences starting with weak words
+  });
+
+  if (sentences.length > 0) {
+    // Take first meaningful sentence and enhance it
+    let summary = sentences[0].trim();
+    
+    // Capitalize first letter
+    summary = summary.charAt(0).toUpperCase() + summary.slice(1);
+    
+    // Limit to reasonable length
+    const words = summary.split(' ');
+    if (words.length > 45) {
+      summary = words.slice(0, 40).join(' ') + '...';
+    } else if (!summary.endsWith('.')) {
+      summary += '.';
+    }
+    
+    return summary;
+  }
+
+  // Last resort - extract from headline
+  return extractFromHeadline(headline);
+};
+
+const extractFromHeadline = (headline: string): string => {
+  // Clean the headline and make it more descriptive
+  let summary = headline.trim();
+  
+  // Remove quotes if they wrap the entire headline
+  if (summary.startsWith('"') && summary.endsWith('"')) {
+    summary = summary.slice(1, -1);
+  }
+  
+  // If headline is too short, keep as is
+  if (summary.split(' ').length <= 8) {
+    return summary + (summary.endsWith('.') ? '' : '.');
+  }
+  
+  // If headline is very long, truncate smartly
+  const words = summary.split(' ');
+  if (words.length > 15) {
+    // Try to find a natural break point
+    const firstPart = words.slice(0, 12).join(' ');
+    return firstPart + (firstPart.endsWith('.') ? '' : '...');
+  }
+  
+  return summary + (summary.endsWith('.') ? '' : '.');
+};
 
 const generateImprovedTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
   console.log(`Generating improved TL;DR for: "${headline}"`);
@@ -137,8 +218,8 @@ Requirements:
     }
   }
   
-  // Improved fallback - extract first meaningful sentence from content
-  return generateBetterFallback(fullContent, headline);
+  // Use improved fallback
+  return generateSmartFallback(fullContent, headline, description);
 };
 
 const generateBetterFallback = (content: string, headline: string): string => {
