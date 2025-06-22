@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -202,63 +201,122 @@ const generateBasicTLDR = (content: string, headline: string): string => {
 
 const generateVideoFromNews = async (headline: string, summary: string, category: string): Promise<string> => {
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      console.log('No OpenAI key available for video generation');
-      return getNewsRelevantVideo(headline, category);
-    }
-
-    // Generate a detailed video script based on the actual news
-    const prompt = `Create a 30-second vertical video script for this news story:
-
-HEADLINE: "${headline}"
-SUMMARY: "${summary}"
-CATEGORY: ${category}
-
-Create a detailed scene-by-scene breakdown focusing on:
-1. Key visual elements that represent this specific story
-2. Text overlays with the most important facts
-3. Visual metaphors and graphics that help explain the story
-4. Appropriate background music/sound style
-5. Make it engaging for mobile viewing (vertical format)
-
-Format as a structured video script with timestamps and visual descriptions.`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a professional video producer specializing in news content for social media. Create engaging, factual video scripts that help viewers understand the story quickly.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 300
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Generated detailed video script for:', headline.substring(0, 50) + '...');
-      
-      // For now, return a news-relevant video URL based on the category and content
-      return getNewsRelevantVideo(headline, category);
+    // Try to get a relevant YouTube video first
+    const youtubeVideo = await searchYouTubeVideo(headline, category);
+    if (youtubeVideo) {
+      return youtubeVideo;
     }
   } catch (error) {
-    console.error('AI video script generation failed:', error);
+    console.error('YouTube search failed:', error);
   }
   
   return getNewsRelevantVideo(headline, category);
+};
+
+const searchYouTubeVideo = async (headline: string, category: string): Promise<string | null> => {
+  const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
+  if (!youtubeApiKey) {
+    console.log('No YouTube API key available');
+    return null;
+  }
+
+  try {
+    // Create a search query from the headline
+    const searchQuery = createSearchQuery(headline, category);
+    
+    const response = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&videoDuration=short&order=relevance&publishedAfter=${getRecentDate()}&maxResults=5&key=${youtubeApiKey}`
+    );
+
+    if (!response.ok) {
+      console.error('YouTube API error:', response.status, response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    if (data.items && data.items.length > 0) {
+      // Filter for news-related videos and pick the most relevant one
+      const relevantVideo = findMostRelevantVideo(data.items, headline);
+      if (relevantVideo) {
+        const videoId = relevantVideo.id.videoId;
+        console.log(`Found relevant YouTube video for: ${headline.substring(0, 50)}...`);
+        return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1`;
+      }
+    }
+  } catch (error) {
+    console.error('YouTube search error:', error);
+  }
+  
+  return null;
+};
+
+const createSearchQuery = (headline: string, category: string): string => {
+  // Extract key terms from headline
+  const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'says', 'said'];
+  const words = headline.toLowerCase().split(' ').filter(word => 
+    word.length > 2 && !stopWords.includes(word)
+  );
+  
+  // Take the most important words (first 4-5 keywords)
+  const keyWords = words.slice(0, 5).join(' ');
+  
+  // Add category context for better results
+  const categoryContext = category.toLowerCase() === 'general' ? 'news' : `${category.toLowerCase()} news`;
+  
+  return `${keyWords} ${categoryContext}`;
+};
+
+const getRecentDate = (): string => {
+  // Get date from 7 days ago for recent content
+  const date = new Date();
+  date.setDate(date.getDate() - 7);
+  return date.toISOString();
+};
+
+const findMostRelevantVideo = (videos: any[], headline: string): any | null => {
+  const headlineWords = headline.toLowerCase().split(' ');
+  
+  let bestVideo = null;
+  let bestScore = 0;
+  
+  for (const video of videos) {
+    const title = video.snippet.title.toLowerCase();
+    const description = video.snippet.description.toLowerCase();
+    const channelTitle = video.snippet.channelTitle.toLowerCase();
+    
+    let score = 0;
+    
+    // Score based on title match
+    headlineWords.forEach(word => {
+      if (word.length > 3 && title.includes(word)) {
+        score += 3;
+      }
+      if (word.length > 3 && description.includes(word)) {
+        score += 1;
+      }
+    });
+    
+    // Prefer news channels
+    const newsChannels = ['cnn', 'bbc', 'reuters', 'ap news', 'news', 'breaking', 'today'];
+    if (newsChannels.some(channel => channelTitle.includes(channel))) {
+      score += 2;
+    }
+    
+    // Prefer videos with "news", "breaking", "latest" in title
+    const newsKeywords = ['news', 'breaking', 'latest', 'update', 'report'];
+    if (newsKeywords.some(keyword => title.includes(keyword))) {
+      score += 1;
+    }
+    
+    if (score > bestScore) {
+      bestScore = score;
+      bestVideo = video;
+    }
+  }
+  
+  // Only return if we have a decent match
+  return bestScore >= 3 ? bestVideo : null;
 };
 
 const getNewsRelevantVideo = (headline: string, category: string): string => {
