@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -97,15 +98,6 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-4 pt-safe">
           <div className="flex items-center space-x-3">
-            <div className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
-              news.category === 'Tech' ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' :
-              news.category === 'Politics' ? 'bg-red-500/30 text-red-300 border border-red-400/50' :
-              news.category === 'Business' ? 'bg-green-500/30 text-green-300 border border-green-400/50' :
-              news.category === 'Health' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/50' :
-              'bg-gray-500/30 text-gray-300 border border-gray-400/50'
-            }`}>
-              {news.category}
-            </div>
             <span className="text-white/70 text-xs font-medium">{news.readTime}</span>
             {news.publishedAt && (
               <span className="text-white/70 text-xs">{formatPublishedDate(news.publishedAt)}</span>
@@ -114,14 +106,14 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col justify-end">
+        <div className="flex-1 flex flex-col justify-end pb-32">
           {/* Headline */}
           <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4 drop-shadow-2xl">
             {news.headline}
           </h1>
 
           {/* TL;DR */}
-          <div className="mb-4">
+          <div className="mb-6">
             <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
               TL;DR
             </h2>
@@ -130,16 +122,9 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
             </p>
           </div>
 
-          {/* Author info */}
-          {news.author && (
-            <p className="text-white/80 text-sm font-medium">
-              By {news.author}
-            </p>
-          )}
-
           {/* Read Full Article Button */}
           {news.sourceUrl && (
-            <div className="mt-4">
+            <div>
               <button
                 onClick={handleReadFullArticle}
                 className="flex items-center space-x-2 bg-blue-600/90 hover:bg-blue-700/90 text-white px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg"
@@ -173,13 +158,6 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
         >
           <Share className="w-6 h-6 text-white" />
         </button>
-      </div>
-
-      {/* News indicator */}
-      <div className="absolute top-4 right-4 z-30">
-        <div className="bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-xs border border-white/20">
-          📰 News Story
-        </div>
       </div>
     </div>
   );
