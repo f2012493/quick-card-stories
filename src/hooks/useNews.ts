@@ -1,6 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useClusteredNews } from './useClusteredNews';
+import { supabase } from '@/integrations/supabase/client';
 
 interface NewsItem {
   id: string;
