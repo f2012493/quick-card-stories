@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -61,7 +60,11 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
   const handleReadFullArticle = () => {
     if (news.sourceUrl) {
-      window.open(news.sourceUrl, '_blank', 'noopener,noreferrer');
+      const newWindow = window.open(news.sourceUrl, '_blank');
+      if (!newWindow) {
+        // Fallback if popup is blocked
+        window.location.href = news.sourceUrl;
+      }
     } else {
       toast.error("Source URL not available");
     }
