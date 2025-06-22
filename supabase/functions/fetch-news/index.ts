@@ -303,84 +303,104 @@ const getHighQualityImage = async (originalUrl: string, headline: string): Promi
   return `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
 };
 
+// Map country names to API country codes
+const getCountryCode = (countryName: string): string => {
+  const countryMap: { [key: string]: string } = {
+    'India': 'in',
+    'United States': 'us',
+    'United Kingdom': 'gb',
+    'Canada': 'ca',
+    'Australia': 'au',
+    'Germany': 'de',
+    'France': 'fr',
+    'Japan': 'jp',
+    'China': 'cn',
+    'Brazil': 'br'
+  };
+  
+  return countryMap[countryName] || 'us';
+};
+
 const fetchNewsWithFallback = async (newsApiKey: string, newsDataApiKey: string, country: string, category: string): Promise<any[]> => {
   let allArticles: any[] = [];
+  const countryCode = getCountryCode(country);
   
-  // Multiple fallback strategies for different countries and regions
-  const strategies = [
-    // Strategy 1: Country-specific
-    {
-      newsApiCountry: country === 'India' ? 'in' : country === 'United States' ? 'us' : 'us',
-      newsDataCountry: country === 'India' ? 'in' : country === 'United States' ? 'us' : 'us'
-    },
-    // Strategy 2: Global/US fallback
-    {
-      newsApiCountry: 'us',
-      newsDataCountry: 'us'
-    },
-    // Strategy 3: No country filter (global)
-    {
-      newsApiCountry: null,
-      newsDataCountry: null
-    }
-  ];
-
-  for (const strategy of strategies) {
-    console.log(`Trying strategy: NewsAPI country=${strategy.newsApiCountry}, NewsData country=${strategy.newsDataCountry}`);
-    
-    // Try NewsAPI
+  console.log(`Fetching news for country: ${country} (code: ${countryCode})`);
+  
+  // Strategy 1: Try country-specific sources first
+  if (countryCode !== 'us') {
     try {
-      let newsApiUrl;
-      if (strategy.newsApiCountry) {
-        newsApiUrl = `https://newsapi.org/v2/top-headlines?country=${strategy.newsApiCountry}&category=${category}&pageSize=30&apiKey=${newsApiKey}`;
-      } else {
-        newsApiUrl = `https://newsapi.org/v2/everything?q=news&sortBy=publishedAt&pageSize=30&apiKey=${newsApiKey}`;
-      }
-      
-      console.log('Calling NewsAPI with URL:', newsApiUrl);
+      // Try NewsAPI with specific country
+      const newsApiUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=30&apiKey=${newsApiKey}`;
+      console.log(`Calling NewsAPI for ${country}:`, newsApiUrl);
       
       const newsApiResponse = await fetch(newsApiUrl);
       const newsApiData = await newsApiResponse.json();
       
       if (newsApiData.articles && newsApiData.articles.length > 0) {
-        console.log(`NewsAPI returned ${newsApiData.articles.length} articles`);
+        console.log(`NewsAPI returned ${newsApiData.articles.length} articles for ${country}`);
+        allArticles = allArticles.concat(newsApiData.articles);
+      } else {
+        console.log(`No articles from NewsAPI for ${country}`);
+      }
+      
+      // Try NewsData.io with specific country
+      const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${countryCode}&language=en&size=20&image=1`;
+      console.log(`Calling NewsData.io for ${country}:`, newsDataUrl);
+      
+      const newsDataResponse = await fetch(newsDataUrl);
+      const newsDataData = await newsDataResponse.json();
+      
+      if (newsDataData.results && newsDataData.results.length > 0) {
+        console.log(`NewsData.io returned ${newsDataData.results.length} articles for ${country}`);
+        allArticles = allArticles.concat(newsDataData.results);
+      } else {
+        console.log(`No articles from NewsData.io for ${country}`);
+      }
+      
+    } catch (error) {
+      console.error(`Error fetching news for ${country}:`, error);
+    }
+  }
+  
+  // Strategy 2: If we don't have enough articles, try US sources as fallback
+  if (allArticles.length < 10) {
+    console.log(`Only ${allArticles.length} articles found for ${country}, trying US fallback`);
+    
+    try {
+      const newsApiUrl = `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=30&apiKey=${newsApiKey}`;
+      console.log('Calling NewsAPI for US fallback:', newsApiUrl);
+      
+      const newsApiResponse = await fetch(newsApiUrl);
+      const newsApiData = await newsApiResponse.json();
+      
+      if (newsApiData.articles && newsApiData.articles.length > 0) {
+        console.log(`US NewsAPI returned ${newsApiData.articles.length} articles`);
         allArticles = allArticles.concat(newsApiData.articles);
       }
     } catch (error) {
-      console.error('NewsAPI failed:', error);
+      console.error('US NewsAPI failed:', error);
     }
 
-    // Try NewsData.io if we don't have enough articles
     if (allArticles.length < 15) {
       try {
-        let newsDataUrl;
-        if (strategy.newsDataCountry) {
-          newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${strategy.newsDataCountry}&language=en&size=20&image=1`;
-        } else {
-          newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&language=en&size=20&image=1`;
-        }
-        
-        console.log('Calling NewsData.io with URL:', newsDataUrl);
+        const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&language=en&size=20&image=1`;
+        console.log('Calling NewsData.io for global fallback');
         
         const newsDataResponse = await fetch(newsDataUrl);
         const newsDataData = await newsDataResponse.json();
         
         if (newsDataData.results && newsDataData.results.length > 0) {
-          console.log(`NewsData.io returned ${newsDataData.results.length} articles`);
+          console.log(`Global NewsData.io returned ${newsDataData.results.length} articles`);
           allArticles = allArticles.concat(newsDataData.results);
         }
       } catch (error) {
-        console.error('NewsData.io failed:', error);
+        console.error('Global NewsData.io failed:', error);
       }
-    }
-
-    // If we have enough articles, break out of the loop
-    if (allArticles.length >= 10) {
-      console.log(`Strategy successful: collected ${allArticles.length} articles`);
-      break;
     }
   }
 
+  console.log(`Total articles collected: ${allArticles.length}`);
   return allArticles;
 };
 
@@ -392,7 +412,7 @@ serve(async (req) => {
   try {
     const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
     
-    console.log('Fetching high-quality news without AI dependency:', {
+    console.log('Fetching location-specific news:', {
       country: country || 'Global',
       city: city || 'Unknown',
       region: region || 'Unknown',
@@ -403,7 +423,7 @@ serve(async (req) => {
     const newsApiKey = Deno.env.get('NEWS_API_KEY') || '0043c6873e3d42e7a36db1d1a840d818';
     const newsDataApiKey = Deno.env.get('NEWS_DATA_API_KEY') || 'pub_cb335a5f57774d94927cfdc70ae36cd6';
 
-    // Use the robust fetching strategy
+    // Use the improved fetching strategy with proper country handling
     const allArticles = await fetchNewsWithFallback(newsApiKey, newsDataApiKey, country || 'United States', category);
 
     if (allArticles.length === 0) {
@@ -469,7 +489,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} high-quality news articles with enhanced non-AI summaries`);
+    console.log(`Returning ${transformedNews.length} location-specific news articles for ${country}`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),
