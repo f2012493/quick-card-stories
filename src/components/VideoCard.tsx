@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Share, Heart } from 'lucide-react';
+import { Share, Heart, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { analyticsService } from '@/services/analyticsService';
 
@@ -41,8 +40,13 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
   const handleShare = () => {
     if (news.sourceUrl) {
-      navigator.clipboard.writeText(news.sourceUrl);
-      toast.success("📋 Link copied to clipboard!");
+      try {
+        navigator.clipboard.writeText(news.sourceUrl);
+        toast.success("📋 Link copied to clipboard!");
+      } catch (error) {
+        // Fallback for cases where clipboard access is restricted
+        toast.success("📱 Sharing feature coming soon!");
+      }
     } else {
       toast.success("📱 Sharing feature coming soon!");
     }
@@ -51,6 +55,14 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
   const handleLike = () => {
     setIsLiked(!isLiked);
     toast.success(isLiked ? "💔 Removed from favorites" : "❤️ Added to favorites");
+  };
+
+  const handleReadFullArticle = () => {
+    if (news.sourceUrl) {
+      window.open(news.sourceUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      toast.error("Source URL not available");
+    }
   };
 
   const formatPublishedDate = (dateString?: string) => {
@@ -123,6 +135,19 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
             <p className="text-white/80 text-sm font-medium">
               By {news.author}
             </p>
+          )}
+
+          {/* Read Full Article Button */}
+          {news.sourceUrl && (
+            <div className="mt-4">
+              <button
+                onClick={handleReadFullArticle}
+                className="flex items-center space-x-2 bg-blue-600/90 hover:bg-blue-700/90 text-white px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Read Full Article</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
