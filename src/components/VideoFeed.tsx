@@ -3,7 +3,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import { useNews } from '@/hooks/useNews';
 import { useLocation } from '@/hooks/useLocation';
+import { useTriggerNewsIngestion } from '@/hooks/useTriggerNewsIngestion';
 import { toast } from 'sonner';
+import { RefreshCw } from 'lucide-react';
 
 const VideoFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -18,6 +20,7 @@ const VideoFeed = () => {
   const animationFrameRef = useRef<number>();
 
   const { locationData, isLoading: locationLoading } = useLocation();
+  const triggerIngestion = useTriggerNewsIngestion();
 
   const { data: newsData = [], isLoading, error, isError, refetch } = useNews({
     category: 'general',
@@ -66,6 +69,18 @@ const VideoFeed = () => {
       toast.error('Failed to load more news');
     } finally {
       setIsLoadingMore(false);
+    }
+  };
+
+  const handleRefreshNews = async () => {
+    try {
+      await triggerIngestion.mutateAsync();
+      // Refetch news after ingestion
+      setTimeout(() => {
+        refetch();
+      }, 2000); // Give some time for the clustering to complete
+    } catch (error) {
+      console.error('Failed to refresh news:', error);
     }
   };
 
@@ -263,17 +278,27 @@ const VideoFeed = () => {
         <div className="text-white text-lg text-center">
           <p>No news available at the moment.</p>
           <p className="text-sm text-white/60 mt-2">
-            {isError ? `Error: ${error?.message}` : 'Please check your connection and try again.'}
+            {isError ? `Error: ${error?.message}` : 'Let\'s fetch some fresh news for you!'}
           </p>
           {locationData && (
-            <p className="text-sm text-blue-400 mt-2">📍 Searched for: {locationData.city}, {locationData.country}</p>
+            <p className="text-sm text-blue-400 mt-2">📍 {locationData.city}, {locationData.country}</p>
           )}
-          <button 
-            onClick={() => window.location.reload()} 
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Retry
-          </button>
+          <div className="flex gap-3 justify-center mt-6">
+            <button 
+              onClick={handleRefreshNews}
+              disabled={triggerIngestion.isPending}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-4 h-4 ${triggerIngestion.isPending ? 'animate-spin' : ''}`} />
+              {triggerIngestion.isPending ? 'Fetching News...' : 'Fetch Latest News'}
+            </button>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-6 py-3 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Reload Page
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -347,6 +372,18 @@ const VideoFeed = () => {
           📍 {locationData.city}, {locationData.country}
         </div>
       )}
+
+      {/* Manual refresh button */}
+      <div className="fixed top-4 right-4 z-50">
+        <button
+          onClick={handleRefreshNews}
+          disabled={triggerIngestion.isPending}
+          className="p-2 bg-black/30 backdrop-blur-sm rounded-full text-white/80 hover:text-white hover:bg-black/50 disabled:opacity-50 disabled:cursor-not-allowed border border-white/20"
+          title="Refresh news feed"
+        >
+          <RefreshCw className={`w-5 h-5 ${triggerIngestion.isPending ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
 
       {/* Loading more indicator */}
       {isLoadingMore && (

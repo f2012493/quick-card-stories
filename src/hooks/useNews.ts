@@ -62,7 +62,7 @@ export const useNews = (options: UseNewsOptions = {}) => {
         throw err;
       }
     },
-    enabled: !useNewBackend,
+    enabled: !useNewBackend || (useNewBackend && (!clusteredNewsQuery.data || clusteredNewsQuery.data.length === 0)),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
     retry: 3,
@@ -70,24 +70,35 @@ export const useNews = (options: UseNewsOptions = {}) => {
   });
 
   if (useNewBackend) {
-    // Transform clustered news to match the expected NewsItem format
-    const transformedData = clusteredNewsQuery.data?.map((cluster, index) => ({
-      id: cluster.id,
-      headline: cluster.title,
-      tldr: cluster.description || cluster.title,
-      quote: cluster.description || '',
-      author: 'News Team',
-      category: cluster.category || 'general',
-      imageUrl: cluster.representative_image_url || `https://images.unsplash.com/photo-${1504711434969 + index}?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
-      readTime: '2 min read',
-      publishedAt: cluster.latest_published_at,
-      sourceUrl: '' // Will be filled from representative article if needed
-    })) || [];
+    // If clustered news is available, use it
+    if (clusteredNewsQuery.data && clusteredNewsQuery.data.length > 0) {
+      // Transform clustered news to match the expected NewsItem format
+      const transformedData = clusteredNewsQuery.data.map((cluster, index) => ({
+        id: cluster.id,
+        headline: cluster.title,
+        tldr: cluster.description || cluster.title,
+        quote: cluster.description || '',
+        author: 'News Team',
+        category: cluster.category || 'general',
+        imageUrl: cluster.representative_image_url || `https://images.unsplash.com/photo-${1504711434969 + index}?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
+        readTime: '2 min read',
+        publishedAt: cluster.latest_published_at,
+        sourceUrl: '' // Will be filled from representative article if needed
+      })) || [];
 
-    return {
-      ...clusteredNewsQuery,
-      data: transformedData
-    };
+      return {
+        ...clusteredNewsQuery,
+        data: transformedData
+      };
+    }
+    
+    // If no clustered news, fall back to legacy system
+    if (legacyNewsQuery.data && legacyNewsQuery.data.length > 0) {
+      return legacyNewsQuery;
+    }
+    
+    // If both systems have no data, return the clustered query state
+    return clusteredNewsQuery;
   }
 
   return legacyNewsQuery;
