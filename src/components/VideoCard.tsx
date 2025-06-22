@@ -99,8 +99,8 @@ const VideoCard = ({ news, isActive, index, locationData }: VideoCardProps) => {
       
       {/* Content Overlay */}
       <div className="relative z-20 w-full h-full flex flex-col p-6 pointer-events-none">
-        {/* Header - Now contains location and time info */}
-        <div className="flex items-center justify-between mb-4 pt-16">
+        {/* Header - Reduced top padding to fix spacing issue */}
+        <div className="flex items-center justify-between mb-4 pt-8">
           <div className="flex items-center space-x-3">
             {/* Only show category if it's not "general" */}
             {news.category && news.category.toLowerCase() !== 'general' && (
