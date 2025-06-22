@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -261,6 +262,9 @@ Format as a structured video script with timestamps and visual descriptions.`;
 };
 
 const getNewsRelevantVideo = (headline: string, category: string): string => {
+  // Ensure category is a string and provide fallback
+  const safeCategory = (category && typeof category === 'string') ? category : 'general';
+  
   // Create more relevant video content based on news category and content
   const headlineLower = headline.toLowerCase();
   
@@ -310,10 +314,10 @@ const getNewsRelevantVideo = (headline: string, category: string): string => {
   }
   
   // Fallback to category-based selection
-  const videos = categoryVideos[category.toLowerCase()] || categoryVideos['tech'];
+  const videos = categoryVideos[safeCategory.toLowerCase()] || categoryVideos['tech'];
   const selectedVideo = videos[Math.floor(Math.random() * videos.length)];
   
-  console.log(`Selected category-relevant video for ${category} news: ${headline.substring(0, 30)}...`);
+  console.log(`Selected category-relevant video for ${safeCategory} news: ${headline.substring(0, 30)}...`);
   return selectedVideo;
 };
 
@@ -438,13 +442,13 @@ serve(async (req) => {
         const headline = article.title || article.headline || 'Breaking News';
         const content = article.description || article.content || article.snippet || '';
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
-        const category = article.category || category || 'General';
+        const articleCategory = article.category || category || 'General';
         
         // Generate enhanced TL;DR with AI
         const tldr = await generateImprovedTLDR(content, headline);
         
-        // Generate more relevant video for the news story
-        const videoUrl = await generateVideoFromNews(headline, tldr, category);
+        // Generate more relevant video for the news story - ensure category is string
+        const videoUrl = await generateVideoFromNews(headline, tldr, String(articleCategory));
         
         // Get high-quality image
         const imageUrl = await getHighQualityImage(originalImage, headline);
@@ -455,7 +459,7 @@ serve(async (req) => {
           tldr: tldr,
           quote: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
           author: article.author || article.source?.name || 'News Team',
-          category: category,
+          category: String(articleCategory),
           imageUrl: imageUrl,
           readTime: '30 sec video',
           publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
