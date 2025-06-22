@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import { useNews } from '@/hooks/useNews';
@@ -12,12 +11,14 @@ const VideoFeed = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [allNews, setAllNews] = useState<any[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasTriggeredAutoFetch, setHasTriggeredAutoFetch] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef(0);
   const lastYRef = useRef(0);
   const velocityRef = useRef(0);
   const lastTimeRef = useRef(0);
   const animationFrameRef = useRef<number>();
+  const autoRefreshTimeoutRef = useRef<NodeJS.Timeout>();
 
   const { locationData, isLoading: locationLoading } = useLocation();
   const triggerIngestion = useTriggerNewsIngestion();
@@ -29,6 +30,53 @@ const VideoFeed = () => {
     city: locationData?.city,
     region: locationData?.region
   });
+
+  // Auto-fetch news when no data is available
+  useEffect(() => {
+    const shouldAutoFetch = !isLoading && !locationLoading && newsData.length === 0 && !hasTriggeredAutoFetch && !triggerIngestion.isPending;
+    
+    if (shouldAutoFetch) {
+      console.log('Auto-triggering news ingestion - no news available');
+      setHasTriggeredAutoFetch(true);
+      triggerIngestion.mutateAsync()
+        .then(() => {
+          // Wait a bit for clustering to complete, then refetch
+          setTimeout(() => {
+            refetch();
+          }, 3000);
+        })
+        .catch((error) => {
+          console.error('Auto-fetch failed:', error);
+          setHasTriggeredAutoFetch(false); // Allow retry
+        });
+    }
+  }, [isLoading, locationLoading, newsData.length, hasTriggeredAutoFetch, triggerIngestion, refetch]);
+
+  // Set up auto-refresh every 5 minutes
+  useEffect(() => {
+    const setupAutoRefresh = () => {
+      if (autoRefreshTimeoutRef.current) {
+        clearTimeout(autoRefreshTimeoutRef.current);
+      }
+      
+      autoRefreshTimeoutRef.current = setTimeout(() => {
+        console.log('Auto-refreshing news feed...');
+        refetch();
+        setupAutoRefresh(); // Schedule next refresh
+      }, 5 * 60 * 1000); // 5 minutes
+    };
+
+    // Only start auto-refresh if we have news data
+    if (newsData.length > 0) {
+      setupAutoRefresh();
+    }
+
+    return () => {
+      if (autoRefreshTimeoutRef.current) {
+        clearTimeout(autoRefreshTimeoutRef.current);
+      }
+    };
+  }, [newsData.length, refetch]);
 
   // Initialize news data
   useEffect(() => {
@@ -91,7 +139,9 @@ const VideoFeed = () => {
     isError, 
     error: error?.message,
     location: locationData,
-    isLoadingMore
+    isLoadingMore,
+    hasTriggeredAutoFetch,
+    triggerIngestionPending: triggerIngestion.isPending
   });
 
   useEffect(() => {
@@ -259,12 +309,12 @@ const VideoFeed = () => {
     };
   }, [isDragging, handleMove, handleEnd]);
 
-  if (isLoading || locationLoading) {
+  if (isLoading || locationLoading || triggerIngestion.isPending) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Loading latest news...</p>
+          <p>{triggerIngestion.isPending ? 'Fetching latest news...' : 'Loading latest news...'}</p>
           {locationLoading && <p className="text-sm text-white/60 mt-2">Detecting your location...</p>}
           {locationData && <p className="text-sm text-blue-400 mt-2">📍 {locationData.city}, {locationData.country}</p>}
         </div>
@@ -278,7 +328,7 @@ const VideoFeed = () => {
         <div className="text-white text-lg text-center">
           <p>No news available at the moment.</p>
           <p className="text-sm text-white/60 mt-2">
-            {isError ? `Error: ${error?.message}` : 'Let\'s fetch some fresh news for you!'}
+            {isError ? `Error: ${error?.message}` : 'Fetching fresh news for you...'}
           </p>
           {locationData && (
             <p className="text-sm text-blue-400 mt-2">📍 {locationData.city}, {locationData.country}</p>
