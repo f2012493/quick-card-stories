@@ -61,7 +61,8 @@ const VideoCard = ({ news, isActive, index }: VideoCardProps) => {
 
   const handleReadFullArticle = () => {
     if (news.sourceUrl) {
-      window.open(news.sourceUrl, '_blank', 'noopener,noreferrer');
+      // Use location.href for better mobile compatibility
+      window.location.href = news.sourceUrl;
     } else {
       toast.error("Source URL not available");
     }
