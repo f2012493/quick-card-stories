@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -17,7 +18,6 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
-  videoUrl?: string;
 }
 
 const unwantedPhrases = [
@@ -199,200 +199,6 @@ const generateBasicTLDR = (content: string, headline: string): string => {
   return `Key development involving ${keyTerms.join(' ').toLowerCase()}.`;
 };
 
-const generateVideoFromNews = async (headline: string, summary: string, category: string): Promise<string> => {
-  try {
-    // Try to get a relevant YouTube video first
-    const youtubeVideo = await searchYouTubeVideo(headline, category);
-    if (youtubeVideo) {
-      return youtubeVideo;
-    }
-  } catch (error) {
-    console.error('YouTube search failed:', error);
-  }
-  
-  return getNewsRelevantVideo(headline, category);
-};
-
-const searchYouTubeVideo = async (headline: string, category: string): Promise<string | null> => {
-  const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
-  if (!youtubeApiKey) {
-    console.log('No YouTube API key available');
-    return null;
-  }
-
-  try {
-    // Create a search query from the headline
-    const searchQuery = createSearchQuery(headline, category);
-    
-    const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&videoDuration=short&order=relevance&publishedAfter=${getRecentDate()}&maxResults=5&key=${youtubeApiKey}`
-    );
-
-    if (!response.ok) {
-      console.error('YouTube API error:', response.status, response.statusText);
-      return null;
-    }
-
-    const data = await response.json();
-    
-    if (data.items && data.items.length > 0) {
-      // Filter for news-related videos and pick the most relevant one
-      const relevantVideo = findMostRelevantVideo(data.items, headline);
-      if (relevantVideo) {
-        const videoId = relevantVideo.id.videoId;
-        console.log(`Found relevant YouTube video for: ${headline.substring(0, 50)}...`);
-        return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1`;
-      }
-    }
-  } catch (error) {
-    console.error('YouTube search error:', error);
-  }
-  
-  return null;
-};
-
-const createSearchQuery = (headline: string, category: string): string => {
-  // Extract key terms from headline
-  const stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'says', 'said'];
-  const words = headline.toLowerCase().split(' ').filter(word => 
-    word.length > 2 && !stopWords.includes(word)
-  );
-  
-  // Take the most important words (first 4-5 keywords)
-  const keyWords = words.slice(0, 5).join(' ');
-  
-  // Add category context for better results
-  const categoryContext = category.toLowerCase() === 'general' ? 'news' : `${category.toLowerCase()} news`;
-  
-  return `${keyWords} ${categoryContext}`;
-};
-
-const getRecentDate = (): string => {
-  // Get date from 7 days ago for recent content
-  const date = new Date();
-  date.setDate(date.getDate() - 7);
-  return date.toISOString();
-};
-
-const findMostRelevantVideo = (videos: any[], headline: string): any | null => {
-  const headlineWords = headline.toLowerCase().split(' ');
-  
-  let bestVideo = null;
-  let bestScore = 0;
-  
-  for (const video of videos) {
-    const title = video.snippet.title.toLowerCase();
-    const description = video.snippet.description.toLowerCase();
-    const channelTitle = video.snippet.channelTitle.toLowerCase();
-    
-    let score = 0;
-    
-    // Score based on title match
-    headlineWords.forEach(word => {
-      if (word.length > 3 && title.includes(word)) {
-        score += 3;
-      }
-      if (word.length > 3 && description.includes(word)) {
-        score += 1;
-      }
-    });
-    
-    // Prefer news channels
-    const newsChannels = ['cnn', 'bbc', 'reuters', 'ap news', 'news', 'breaking', 'today'];
-    if (newsChannels.some(channel => channelTitle.includes(channel))) {
-      score += 2;
-    }
-    
-    // Prefer videos with "news", "breaking", "latest" in title
-    const newsKeywords = ['news', 'breaking', 'latest', 'update', 'report'];
-    if (newsKeywords.some(keyword => title.includes(keyword))) {
-      score += 1;
-    }
-    
-    if (score > bestScore) {
-      bestScore = score;
-      bestVideo = video;
-    }
-  }
-  
-  // Only return if we have a decent match
-  return bestScore >= 3 ? bestVideo : null;
-};
-
-const getNewsRelevantVideo = (headline: string, category: string): string => {
-  // Ensure category is a string and provide fallback
-  const safeCategory = (category && typeof category === 'string') ? category : 'general';
-  
-  // Create more relevant video content based on news category and content
-  const headlineLower = headline.toLowerCase();
-  
-  // Category-specific video mapping for more relevant content
-  const categoryVideos = {
-    'tech': [
-      'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // Tech demo
-      'https://www.youtube.com/embed/ScMzIvxBSi4?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // AI/Tech
-    ],
-    'politics': [
-      'https://www.youtube.com/embed/ZbZSe6N_BXs?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // Political
-      'https://www.youtube.com/embed/ePpPVE-GGJw?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // Government
-    ],
-    'business': [
-      'https://www.youtube.com/embed/mN3z3eSVG7A?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // Business
-      'https://www.youtube.com/embed/kJQP7kiw5Fk?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // Finance
-    ],
-    'health': [
-      'https://www.youtube.com/embed/LnkMSmLc6mM?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // Health
-      'https://www.youtube.com/embed/Ks-_Mh1QhMc?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // Medical
-    ],
-    'sports': [
-      'https://www.youtube.com/embed/L_jWHffIx5E?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // Sports
-      'https://www.youtube.com/embed/djV11Xbc914?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1', // Sports action
-    ]
-  };
-  
-  // Content-specific matching for more relevance
-  if (headlineLower.includes('ai') || headlineLower.includes('artificial intelligence')) {
-    return 'https://www.youtube.com/embed/ScMzIvxBSi4?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1';
-  }
-  
-  if (headlineLower.includes('election') || headlineLower.includes('vote')) {
-    return 'https://www.youtube.com/embed/ZbZSe6N_BXs?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1';
-  }
-  
-  if (headlineLower.includes('market') || headlineLower.includes('stock') || headlineLower.includes('economy')) {
-    return 'https://www.youtube.com/embed/mN3z3eSVG7A?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1';
-  }
-  
-  if (headlineLower.includes('health') || headlineLower.includes('medical') || headlineLower.includes('hospital')) {
-    return 'https://www.youtube.com/embed/LnkMSmLc6mM?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1';
-  }
-  
-  if (headlineLower.includes('match') || headlineLower.includes('game') || headlineLower.includes('tournament')) {
-    return 'https://www.youtube.com/embed/L_jWHffIx5E?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1';
-  }
-  
-  // Fallback to category-based selection
-  const videos = categoryVideos[safeCategory.toLowerCase()] || categoryVideos['tech'];
-  const selectedVideo = videos[Math.floor(Math.random() * videos.length)];
-  
-  console.log(`Selected category-relevant video for ${safeCategory} news: ${headline.substring(0, 30)}...`);
-  return selectedVideo;
-};
-
-const getPlaceholderVideo = (): string => {
-  // Return a placeholder video URL - in production you'd use actual video generation
-  const videoIds = [
-    'dQw4w9WgXcQ', // Sample video IDs for demo
-    'ScMzIvxBSi4',
-    'ZbZSe6N_BXs',
-    'ePpPVE-GGJw',
-    'mN3z3eSVG7A'
-  ];
-  
-  const randomId = videoIds[Math.floor(Math.random() * videoIds.length)];
-  return `https://www.youtube.com/embed/${randomId}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1`;
-};
-
 const searchForImages = async (query: string): Promise<string[]> => {
   try {
     const imageUrls = [
@@ -439,7 +245,7 @@ serve(async (req) => {
   try {
     const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
     
-    console.log('Fetching news with enhanced summarization and video generation:', {
+    console.log('Fetching news with enhanced summarization:', {
       country: country || 'Global',
       city: city || 'Unknown',
       region: region || 'Unknown',
@@ -494,7 +300,7 @@ serve(async (req) => {
       throw new Error('No articles found from any news source');
     }
 
-    // Transform articles to our format with enhanced summarization and video generation
+    // Transform articles to our format with enhanced summarization (no video generation)
     const transformedNews: NewsItem[] = await Promise.all(
       articles.slice(0, pageSize).map(async (article, index) => {
         const headline = article.title || article.headline || 'Breaking News';
@@ -504,9 +310,6 @@ serve(async (req) => {
         
         // Generate enhanced TL;DR with AI
         const tldr = await generateImprovedTLDR(content, headline);
-        
-        // Generate more relevant video for the news story - ensure category is string
-        const videoUrl = await generateVideoFromNews(headline, tldr, String(articleCategory));
         
         // Get high-quality image
         const imageUrl = await getHighQualityImage(originalImage, headline);
@@ -519,15 +322,14 @@ serve(async (req) => {
           author: article.author || article.source?.name || 'News Team',
           category: String(articleCategory),
           imageUrl: imageUrl,
-          readTime: '30 sec video',
+          readTime: '2 min read',
           publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
-          sourceUrl: article.url || article.link || '',
-          videoUrl: videoUrl
+          sourceUrl: article.url || article.link || ''
         };
       })
     );
 
-    console.log(`Returning ${transformedNews.length} news articles with enhanced summaries and videos`);
+    console.log(`Returning ${transformedNews.length} news articles with enhanced summaries`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),

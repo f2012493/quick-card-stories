@@ -20,103 +20,98 @@ interface RelatedNewsItem {
   publishedAt: string;
   summary: string;
   score: number;
-  cluster?: string;
+  perspective?: string;
 }
 
-interface StoryCluster {
+interface CoverageCluster {
   mainStory: RelatedNewsItem;
-  relatedArticles: RelatedNewsItem[];
-  clusterScore: number;
-  topics: string[];
+  perspectives: RelatedNewsItem[];
+  sources: string[];
+  coverage_score: number;
 }
 
-const extractSemanticKeywords = (headline: string, category: string): string[] => {
-  // Enhanced keyword extraction with semantic understanding
-  const commonWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'will', 'has', 'have', 'had', 'says', 'said', 'reports', 'news'];
-  
-  // Extract entities, actions, and significant terms
+const extractNewsEntities = (headline: string): string[] => {
+  // Extract key entities like people, places, organizations, events
   const words = headline.toLowerCase()
     .replace(/[^\w\s]/g, ' ')
     .split(/\s+/)
-    .filter(word => 
-      word.length > 2 && 
-      !commonWords.includes(word) &&
-      /^[a-zA-Z]+$/.test(word)
-    );
+    .filter(word => word.length > 2);
   
-  // Priority keywords based on category
-  const categoryKeywords = {
-    'tech': ['technology', 'ai', 'artificial', 'intelligence', 'software', 'digital', 'cyber', 'data'],
-    'politics': ['government', 'election', 'policy', 'parliament', 'minister', 'political', 'vote'],
-    'business': ['economy', 'market', 'financial', 'company', 'corporate', 'trade', 'economic'],
-    'health': ['medical', 'health', 'hospital', 'doctor', 'treatment', 'disease', 'vaccine'],
-    'sports': ['match', 'game', 'player', 'team', 'championship', 'tournament', 'score']
-  };
+  // Common stop words to remove
+  const stopWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'will', 'has', 'have', 'had', 'says', 'said', 'reports', 'news', 'after', 'over', 'from', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'under', 'again', 'further', 'then', 'once'];
   
-  const catWords = categoryKeywords[category.toLowerCase()] || [];
-  const priorityWords = words.filter(word => catWords.some(cat => word.includes(cat) || cat.includes(word)));
+  // Filter out stop words and prioritize important terms
+  const entities = words.filter(word => 
+    !stopWords.includes(word) && 
+    /^[a-zA-Z]+$/.test(word)
+  );
   
-  // Combine priority words with general keywords
-  const allKeywords = [...new Set([...priorityWords, ...words.slice(0, 6)])];
-  return allKeywords.slice(0, 8);
+  // Return top entities for search
+  return entities.slice(0, 5);
 };
 
-const calculateSourceAuthority = (source: string): number => {
-  // Authority scores for major news sources
-  const authorityMap: { [key: string]: number } = {
-    'BBC': 0.95, 'Reuters': 0.93, 'Associated Press': 0.92, 'CNN': 0.85,
-    'The Guardian': 0.88, 'The Times': 0.87, 'Washington Post': 0.86,
-    'New York Times': 0.89, 'Bloomberg': 0.84, 'Financial Times': 0.83,
-    'NPR': 0.82, 'Wall Street Journal': 0.85, 'ABC News': 0.80,
-    'CBS News': 0.79, 'NBC News': 0.78, 'Fox News': 0.75,
-    'Times of India': 0.77, 'The Hindu': 0.78, 'Indian Express': 0.76,
-    'NDTV': 0.74, 'Hindustan Times': 0.73
+const calculateSourceDiversity = (sources: string[]): number => {
+  // Prefer diverse source types (local, national, international, different political leanings)
+  const sourceTypes = new Set();
+  const knownSources = {
+    'BBC': 'international',
+    'CNN': 'national_us',
+    'Fox News': 'national_us_conservative',
+    'Reuters': 'international_wire',
+    'Associated Press': 'wire',
+    'The Guardian': 'international_liberal',
+    'Wall Street Journal': 'national_business',
+    'New York Times': 'national_liberal',
+    'Washington Post': 'national_liberal',
+    'Times of India': 'national_india',
+    'NDTV': 'national_india',
+    'The Hindu': 'national_india'
   };
   
-  const sourceLower = source.toLowerCase();
-  for (const [authorSource, score] of Object.entries(authorityMap)) {
-    if (sourceLower.includes(authorSource.toLowerCase())) {
-      return score;
-    }
+  sources.forEach(source => {
+    const sourceType = knownSources[source] || 'other';
+    sourceTypes.add(sourceType);
+  });
+  
+  return sourceTypes.size / Math.max(sources.length, 1);
+};
+
+const categorizeArticlePerspective = (headline: string, source: string, summary: string): string => {
+  const content = (headline + ' ' + summary).toLowerCase();
+  
+  // Identify different types of coverage perspectives
+  if (content.includes('analysis') || content.includes('opinion') || content.includes('editorial')) {
+    return 'analysis';
   }
-  return 0.5; // Default score for unknown sources
+  if (content.includes('breaking') || content.includes('developing') || content.includes('latest')) {
+    return 'breaking';
+  }
+  if (content.includes('investigation') || content.includes('exclusive') || content.includes('probe')) {
+    return 'investigation';
+  }
+  if (content.includes('reaction') || content.includes('response') || content.includes('statement')) {
+    return 'reaction';
+  }
+  if (content.includes('background') || content.includes('context') || content.includes('explainer')) {
+    return 'background';
+  }
+  
+  return 'standard';
 };
 
-const calculateFreshnessScore = (publishedAt: string): number => {
-  const published = new Date(publishedAt);
-  const now = new Date();
-  const hoursOld = (now.getTime() - published.getTime()) / (1000 * 60 * 60);
-  
-  if (hoursOld < 1) return 1.0;
-  if (hoursOld < 6) return 0.9;
-  if (hoursOld < 12) return 0.8;
-  if (hoursOld < 24) return 0.7;
-  if (hoursOld < 48) return 0.5;
-  return 0.3;
-};
-
-const calculateSemanticSimilarity = (headline1: string, headline2: string): number => {
-  const words1 = new Set(headline1.toLowerCase().split(/\s+/));
-  const words2 = new Set(headline2.toLowerCase().split(/\s+/));
-  
-  const intersection = new Set([...words1].filter(x => words2.has(x)));
-  const union = new Set([...words1, ...words2]);
-  
-  return intersection.size / union.size;
-};
-
-const searchRelatedNews = async (keywords: string[], category: string, originalHeadline: string): Promise<RelatedNewsItem[]> => {
+const searchFullCoverage = async (entities: string[], originalHeadline: string): Promise<RelatedNewsItem[]> => {
   const newsApiKey = Deno.env.get('NEWS_API_KEY') || '0043c6873e3d42e7a36db1d1a840d818';
   const newsDataApiKey = Deno.env.get('NEWS_DATA_API_KEY') || 'pub_cb335a5f57774d94927cfdc70ae36cd6';
   
-  const relatedArticles: RelatedNewsItem[] = [];
+  const allArticles: RelatedNewsItem[] = [];
   
   try {
-    // Search with primary keywords
-    const primaryQuery = keywords.slice(0, 3).join(' OR ');
-    const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(primaryQuery)}&sortBy=relevancy&pageSize=15&language=en&apiKey=${newsApiKey}`;
+    // Search with entity-based queries for full coverage
+    const searchQuery = entities.join(' AND ');
+    console.log('Searching for full coverage with query:', searchQuery);
     
-    console.log('Searching with enhanced semantic query:', primaryQuery);
+    // NewsAPI search for comprehensive coverage
+    const newsApiUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(searchQuery)}&sortBy=relevancy&pageSize=20&language=en&apiKey=${newsApiKey}&from=${getDateDaysAgo(3)}`;
     
     const response = await fetch(newsApiUrl);
     const data = await response.json();
@@ -124,50 +119,49 @@ const searchRelatedNews = async (keywords: string[], category: string, originalH
     if (data.articles && data.articles.length > 0) {
       data.articles.forEach((article: any) => {
         if (article.title && article.title !== originalHeadline) {
-          const freshnessScore = calculateFreshnessScore(article.publishedAt);
-          const authorityScore = calculateSourceAuthority(article.source?.name || 'Unknown');
-          const semanticSimilarity = calculateSemanticSimilarity(originalHeadline, article.title);
+          const perspective = categorizeArticlePerspective(article.title, article.source?.name || '', article.description || '');
+          const relevanceScore = calculateRelevanceScore(originalHeadline, article.title, entities);
           
-          // Weighted scoring: freshness (30%), authority (40%), similarity (30%)
-          const overallScore = (freshnessScore * 0.3) + (authorityScore * 0.4) + (semanticSimilarity * 0.3);
-          
-          relatedArticles.push({
-            headline: article.title,
-            source: article.source?.name || 'Unknown Source',
-            url: article.url,
-            publishedAt: article.publishedAt,
-            summary: article.description?.substring(0, 120) + '...' || 'No summary available',
-            score: overallScore
-          });
+          if (relevanceScore > 0.3) { // Only include relevant articles
+            allArticles.push({
+              headline: article.title,
+              source: article.source?.name || 'Unknown Source',
+              url: article.url,
+              publishedAt: article.publishedAt,
+              summary: article.description?.substring(0, 150) + '...' || 'No summary available',
+              score: relevanceScore,
+              perspective: perspective
+            });
+          }
         }
       });
     }
     
-    // Search NewsData.io for additional coverage if needed
-    if (relatedArticles.length < 8) {
+    // Additional search with NewsData.io for more diverse sources
+    if (allArticles.length < 10) {
       try {
-        const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&q=${encodeURIComponent(keywords[0])}&language=en&size=10`;
+        const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&q=${encodeURIComponent(entities[0])}&language=en&size=10`;
         
         const newsDataResponse = await fetch(newsDataUrl);
         const newsDataData = await newsDataResponse.json();
         
         if (newsDataData.results) {
           newsDataData.results.forEach((article: any) => {
-            if (article.title && article.title !== originalHeadline && relatedArticles.length < 12) {
-              const freshnessScore = calculateFreshnessScore(article.pubDate);
-              const authorityScore = calculateSourceAuthority(article.source_id || 'Unknown');
-              const semanticSimilarity = calculateSemanticSimilarity(originalHeadline, article.title);
+            if (article.title && article.title !== originalHeadline) {
+              const perspective = categorizeArticlePerspective(article.title, article.source_id || '', article.description || '');
+              const relevanceScore = calculateRelevanceScore(originalHeadline, article.title, entities);
               
-              const overallScore = (freshnessScore * 0.3) + (authorityScore * 0.4) + (semanticSimilarity * 0.3);
-              
-              relatedArticles.push({
-                headline: article.title,
-                source: article.source_id || 'News Source',
-                url: article.link,
-                publishedAt: article.pubDate,
-                summary: article.description?.substring(0, 120) + '...' || 'No summary available',
-                score: overallScore
-              });
+              if (relevanceScore > 0.3) {
+                allArticles.push({
+                  headline: article.title,
+                  source: article.source_id || 'News Source',
+                  url: article.link,
+                  publishedAt: article.pubDate,
+                  summary: article.description?.substring(0, 150) + '...' || 'No summary available',
+                  score: relevanceScore,
+                  perspective: perspective
+                });
+              }
             }
           });
         }
@@ -177,47 +171,93 @@ const searchRelatedNews = async (keywords: string[], category: string, originalH
     }
     
   } catch (error) {
-    console.error('Error in enhanced news search:', error);
+    console.error('Error in full coverage search:', error);
   }
   
-  return relatedArticles;
+  return allArticles;
 };
 
-const clusterStories = (articles: RelatedNewsItem[], originalHeadline: string): StoryCluster[] => {
-  const clusters: StoryCluster[] = [];
-  const processed = new Set<number>();
+const calculateRelevanceScore = (originalHeadline: string, articleHeadline: string, entities: string[]): number => {
+  const originalWords = new Set(originalHeadline.toLowerCase().split(/\s+/));
+  const articleWords = new Set(articleHeadline.toLowerCase().split(/\s+/));
   
-  articles.forEach((article, index) => {
-    if (processed.has(index)) return;
-    
-    const cluster: StoryCluster = {
-      mainStory: article,
-      relatedArticles: [],
-      clusterScore: article.score,
-      topics: extractSemanticKeywords(article.headline, '')
-    };
-    
-    // Find similar articles for this cluster
-    articles.forEach((otherArticle, otherIndex) => {
-      if (index !== otherIndex && !processed.has(otherIndex)) {
-        const similarity = calculateSemanticSimilarity(article.headline, otherArticle.headline);
-        
-        if (similarity > 0.3) { // Similarity threshold
-          cluster.relatedArticles.push(otherArticle);
-          cluster.clusterScore = Math.max(cluster.clusterScore, otherArticle.score);
-          processed.add(otherIndex);
-        }
-      }
-    });
-    
-    processed.add(index);
-    clusters.push(cluster);
+  // Calculate word overlap
+  const intersection = new Set([...originalWords].filter(x => articleWords.has(x)));
+  const wordOverlap = intersection.size / Math.max(originalWords.size, articleWords.size);
+  
+  // Calculate entity overlap
+  let entityOverlap = 0;
+  entities.forEach(entity => {
+    if (articleHeadline.toLowerCase().includes(entity)) {
+      entityOverlap += 1;
+    }
+  });
+  entityOverlap = entityOverlap / entities.length;
+  
+  // Combined score: 60% entity overlap, 40% word overlap
+  return (entityOverlap * 0.6) + (wordOverlap * 0.4);
+};
+
+const getDateDaysAgo = (days: number): string => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().split('T')[0];
+};
+
+const organizeCoverageByPerspective = (articles: RelatedNewsItem[]): CoverageCluster => {
+  // Group articles by perspective and source diversity
+  const perspectiveGroups: { [key: string]: RelatedNewsItem[] } = {};
+  const allSources = new Set<string>();
+  
+  articles.forEach(article => {
+    const perspective = article.perspective || 'standard';
+    if (!perspectiveGroups[perspective]) {
+      perspectiveGroups[perspective] = [];
+    }
+    perspectiveGroups[perspective].push(article);
+    allSources.add(article.source);
   });
   
-  // Sort clusters by score and return top clusters
-  return clusters
-    .sort((a, b) => b.clusterScore - a.clusterScore)
-    .slice(0, 5);
+  // Select diverse perspectives and sources
+  const selectedArticles: RelatedNewsItem[] = [];
+  const usedSources = new Set<string>();
+  
+  // Prioritize different perspectives
+  const perspectivePriority = ['breaking', 'analysis', 'investigation', 'reaction', 'background', 'standard'];
+  
+  perspectivePriority.forEach(perspective => {
+    if (perspectiveGroups[perspective]) {
+      // Sort by score and pick the best from each source
+      const sortedByScore = perspectiveGroups[perspective]
+        .sort((a, b) => b.score - a.score);
+      
+      sortedByScore.forEach(article => {
+        if (!usedSources.has(article.source) && selectedArticles.length < 8) {
+          selectedArticles.push(article);
+          usedSources.add(article.source);
+        }
+      });
+    }
+  });
+  
+  // If we still need more articles, add remaining high-scoring ones
+  if (selectedArticles.length < 8) {
+    const remaining = articles
+      .filter(article => !selectedArticles.includes(article))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8 - selectedArticles.length);
+    
+    selectedArticles.push(...remaining);
+  }
+  
+  const diversityScore = calculateSourceDiversity(Array.from(allSources));
+  
+  return {
+    mainStory: selectedArticles[0],
+    perspectives: selectedArticles.slice(1),
+    sources: Array.from(allSources),
+    coverage_score: diversityScore
+  };
 };
 
 serve(async (req) => {
@@ -226,44 +266,34 @@ serve(async (req) => {
   }
 
   try {
-    const { headline, category, keywords }: RelatedNewsRequest = await req.json();
+    const { headline, category }: RelatedNewsRequest = await req.json();
     
-    console.log('Fetching semantically clustered related news for:', headline);
+    console.log('Fetching full coverage for:', headline);
 
-    // Extract enhanced semantic keywords
-    const searchKeywords = keywords && keywords.length > 0 
-      ? keywords 
-      : extractSemanticKeywords(headline, category);
+    // Extract key entities from headline for comprehensive search
+    const entities = extractNewsEntities(headline);
+    console.log('Extracted entities:', entities);
     
-    // Search for related articles with enhanced scoring
-    const relatedArticles = await searchRelatedNews(searchKeywords, category, headline);
+    // Search for full coverage across multiple sources and perspectives
+    const coverageArticles = await searchFullCoverage(entities, headline);
     
-    // Cluster similar stories
-    const storyClusters = clusterStories(relatedArticles, headline);
+    // Organize by perspective and source diversity (Google News "Full Coverage" style)
+    const fullCoverage = organizeCoverageByPerspective(coverageArticles);
     
-    // Flatten clusters back to articles for display, maintaining diversity
-    const clusteredNews: RelatedNewsItem[] = [];
-    storyClusters.forEach(cluster => {
-      clusteredNews.push(cluster.mainStory);
-      // Add up to 1 related article per cluster for diversity
-      if (cluster.relatedArticles.length > 0) {
-        clusteredNews.push(cluster.relatedArticles[0]);
-      }
-    });
-    
-    console.log(`Clustered ${clusteredNews.length} articles into ${storyClusters.length} story groups`);
+    console.log(`Found full coverage: ${fullCoverage.perspectives.length + 1} articles from ${fullCoverage.sources.length} sources`);
 
     return new Response(
       JSON.stringify({
-        relatedNews: clusteredNews.slice(0, 8),
-        keywords: searchKeywords,
-        clusters: storyClusters.length
+        relatedNews: [fullCoverage.mainStory, ...fullCoverage.perspectives],
+        entities: entities,
+        sources: fullCoverage.sources.length,
+        coverage_quality: fullCoverage.coverage_score
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error in enhanced get-related-news function:', error);
+    console.error('Error in full coverage function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

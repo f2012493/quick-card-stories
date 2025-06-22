@@ -15,7 +15,6 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
-  videoUrl?: string;
 }
 
 interface NewsDetailPanelProps {
@@ -31,27 +30,29 @@ interface RelatedNewsItem {
   url: string;
   publishedAt: string;
   summary: string;
+  perspective?: string;
 }
 
 const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelProps) => {
   const [relatedNews, setRelatedNews] = useState<RelatedNewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [coverageStats, setCoverageStats] = useState<{ sources: number; entities: string[] }>({ sources: 0, entities: [] });
 
   useEffect(() => {
     if (isOpen && relatedNews.length === 0) {
-      fetchRelatedNews();
+      fetchFullCoverage();
     }
   }, [isOpen, news.id]);
 
-  const fetchRelatedNews = async () => {
+  const fetchFullCoverage = async () => {
     setIsLoading(true);
     try {
       // Call analytics tracking
       onAnalyze(news.id);
 
-      console.log('Fetching related news for:', news.headline);
+      console.log('Fetching full coverage for:', news.headline);
 
-      // Call our related news edge function
+      // Call our full coverage edge function
       const { data, error } = await supabase.functions.invoke('get-related-news', {
         body: {
           headline: news.headline,
@@ -60,32 +61,38 @@ const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelPr
       });
 
       if (error) {
-        console.error('Related news error:', error);
-        throw new Error('Failed to fetch related news');
+        console.error('Full coverage error:', error);
+        throw new Error('Failed to fetch full coverage');
       }
 
       if (data && data.relatedNews) {
         setRelatedNews(data.relatedNews);
+        setCoverageStats({
+          sources: data.sources || 0,
+          entities: data.entities || []
+        });
       }
     } catch (error) {
-      console.error('Failed to fetch related news:', error);
-      toast.error('Failed to load related news');
+      console.error('Failed to fetch full coverage:', error);
+      toast.error('Failed to load full coverage');
       
       // Fallback to mock data
       setRelatedNews([
         {
-          headline: 'Related story from another perspective',
+          headline: 'Related perspective from different outlet',
           source: 'News Source 1',
           url: '#',
           publishedAt: new Date().toISOString(),
-          summary: 'Additional context and information about this developing story...'
+          summary: 'Additional perspective and analysis from another news source...',
+          perspective: 'analysis'
         },
         {
-          headline: 'Expert analysis on similar developments',
+          headline: 'Breaking update on the same story',
           source: 'News Source 2', 
           url: '#',
           publishedAt: new Date().toISOString(),
-          summary: 'Industry experts weigh in on the implications of this news...'
+          summary: 'Latest developments and updates on this ongoing story...',
+          perspective: 'breaking'
         }
       ]);
     } finally {
@@ -111,13 +118,29 @@ const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelPr
     return `${Math.floor(diffInHours / 24)}d ago`;
   };
 
+  const getPerspectiveIcon = (perspective?: string) => {
+    switch (perspective) {
+      case 'breaking': return '🚨';
+      case 'analysis': return '📊';
+      case 'investigation': return '🔍';
+      case 'reaction': return '💬';
+      case 'background': return '📚';
+      default: return '📰';
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
       <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] overflow-hidden">
         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Related Coverage</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Full Coverage</h2>
+            {coverageStats.sources > 0 && (
+              <p className="text-sm text-gray-500">{coverageStats.sources} sources • Multiple perspectives</p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -147,19 +170,19 @@ const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelPr
             <p className="text-gray-600 text-sm">By {news.author}</p>
           </div>
 
-          {/* Related News Section */}
+          {/* Full Coverage Section */}
           <div className="p-4">
             <div className="flex items-center space-x-2 mb-4">
               <Globe className="w-5 h-5 text-blue-500" />
               <h4 className="text-lg font-semibold text-gray-900">
-                Related Coverage from Other Sources
+                Full Coverage from Multiple Sources
               </h4>
             </div>
 
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                <span className="ml-2 text-gray-600">Loading related news...</span>
+                <span className="ml-2 text-gray-600">Loading full coverage...</span>
               </div>
             ) : relatedNews.length > 0 ? (
               <div className="space-y-4">
@@ -170,17 +193,20 @@ const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelPr
                     onClick={() => handleSourceClick(article.url)}
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <h5 className="font-semibold text-gray-900 text-sm leading-tight flex-1 mr-2">
-                        {article.headline}
-                      </h5>
-                      <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <div className="flex items-start space-x-2 flex-1">
+                        <span className="text-lg">{getPerspectiveIcon(article.perspective)}</span>
+                        <h5 className="font-semibold text-gray-900 text-sm leading-tight flex-1">
+                          {article.headline}
+                        </h5>
+                      </div>
+                      <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
                     </div>
                     
-                    <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                    <p className="text-gray-600 text-sm mb-2 line-clamp-2 ml-6">
                       {article.summary}
                     </p>
                     
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center justify-between text-xs text-gray-500 ml-6">
                       <span className="font-medium">{article.source}</span>
                       <div className="flex items-center space-x-1">
                         <Clock className="w-3 h-3" />
@@ -193,7 +219,7 @@ const NewsDetailPanel = ({ news, isOpen, onClose, onAnalyze }: NewsDetailPanelPr
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <Globe className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                <p>No related coverage found</p>
+                <p>No additional coverage found</p>
               </div>
             )}
 
