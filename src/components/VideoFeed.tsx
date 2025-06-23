@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import { useNews } from '@/hooks/useNews';
@@ -31,7 +32,7 @@ const VideoFeed = () => {
     region: locationData?.region
   });
 
-  // Auto-fetch news when no data is available
+  // Auto-fetch news when no data is available (reduced wait time)
   useEffect(() => {
     const shouldAutoFetch = !isLoading && !locationLoading && newsData.length === 0 && !hasTriggeredAutoFetch && !triggerIngestion.isPending;
     
@@ -40,10 +41,10 @@ const VideoFeed = () => {
       setHasTriggeredAutoFetch(true);
       triggerIngestion.mutateAsync()
         .then(() => {
-          // Wait a bit for clustering to complete, then refetch
+          // Reduced wait time from 3000ms to 1500ms for faster response
           setTimeout(() => {
             refetch();
-          }, 3000);
+          }, 1500);
         })
         .catch((error) => {
           console.error('Auto-fetch failed:', error);
@@ -123,10 +124,10 @@ const VideoFeed = () => {
   const handleRefreshNews = async () => {
     try {
       await triggerIngestion.mutateAsync();
-      // Refetch news after ingestion
+      // Reduced refetch delay from 2000ms to 1000ms
       setTimeout(() => {
         refetch();
-      }, 2000); // Give some time for the clustering to complete
+      }, 1000);
     } catch (error) {
       console.error('Failed to refresh news:', error);
     }
@@ -389,6 +390,7 @@ const VideoFeed = () => {
               news={news}
               isActive={index === currentIndex}
               index={index}
+              allNews={allNews} // Pass all news for related articles
             />
           </div>
         ))}
