@@ -35,7 +35,8 @@ export const useTriggerNewsIngestion = () => {
       return { ingestData, clusterData };
     },
     onSuccess: () => {
-      toast.success('News feed updated successfully!');
+      // Removed success toast notification
+      console.log('News feed updated successfully');
     },
     onError: (error) => {
       console.error('Failed to update news feed:', error);
