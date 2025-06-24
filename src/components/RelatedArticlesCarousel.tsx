@@ -120,11 +120,11 @@ const RelatedArticlesCarousel = ({
     // Handle horizontal swipes for card navigation
     if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY)) {
       if (deltaX > 0) {
-        console.log('Swipe right detected - going to NEXT card');
-        handleNextCard(); // Swipe right = go to next card
+        console.log('Swipe right detected - going to PREVIOUS card');
+        handlePrevCard(); // Swipe right = go to previous card
       } else {
-        console.log('Swipe left detected - going to PREVIOUS card');
-        handlePrevCard(); // Swipe left = go to previous card
+        console.log('Swipe left detected - going to NEXT card');
+        handleNextCard(); // Swipe left = go to next card
       }
     }
   };
@@ -145,22 +145,25 @@ const RelatedArticlesCarousel = ({
           Card {currentCardIndex + 1} of 3
         </div>
         
-        <button
-          onClick={handleNextCard}
-          className="flex items-center space-x-2 text-white hover:text-blue-400 transition-colors"
-          disabled={currentCardIndex >= 2}
-        >
-          <span>Next</span>
-          <ChevronRight className="w-5 h-5" />
-        </button>
+        <div className="w-20"></div> {/* Spacer to balance the layout */}
       </div>
 
       {/* Card Content */}
       {cards[currentCardIndex].content}
 
+      {/* Center-right Next Button */}
+      {currentCardIndex < 2 && (
+        <button
+          onClick={handleNextCard}
+          className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-colors backdrop-blur-sm"
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+      )}
+
       {/* Touch handlers for swiping between cards */}
       <div
-        className="absolute inset-0 z-50 touch-manipulation"
+        className="absolute inset-0 z-40 touch-manipulation"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
