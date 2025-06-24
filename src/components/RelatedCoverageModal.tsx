@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { X, ExternalLink, Clock, ArrowRight } from 'lucide-react';
@@ -181,8 +180,8 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
 
         // Number/quantity matching with explicit string typing
         const numberPattern = /\d+/g;
-        const currentNumbers = (currentNews.headline + ' ' + currentNews.tldr).match(numberPattern) || [];
-        const articleNumbers = (article.headline + ' ' + article.tldr).match(numberPattern) || [];
+        const currentNumbers: string[] = (currentNews.headline + ' ' + currentNews.tldr).match(numberPattern) || [];
+        const articleNumbers: string[] = (article.headline + ' ' + article.tldr).match(numberPattern) || [];
         
         currentNumbers.forEach((num: string) => {
           if (articleNumbers.includes(num)) {
