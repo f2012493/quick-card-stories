@@ -72,6 +72,37 @@ const unwantedPhrases = [
   'significant development'
 ];
 
+const capitalizeFirstLetter = (text: string): string => {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+};
+
+const formatTLDR = (text: string): string => {
+  if (!text) return text;
+  
+  // Split into sentences
+  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
+  
+  // Capitalize each sentence properly
+  const formattedSentences = sentences.map(sentence => {
+    const words = sentence.split(' ');
+    // Capitalize first word and proper nouns
+    const formattedWords = words.map((word, index) => {
+      if (index === 0) {
+        return capitalizeFirstLetter(word);
+      }
+      // Keep certain words capitalized (proper nouns, acronyms)
+      if (word.match(/^[A-Z]{2,}$/) || word.match(/^[A-Z][a-z]*$/)) {
+        return word;
+      }
+      return word.toLowerCase();
+    });
+    return formattedWords.join(' ');
+  });
+  
+  return formattedSentences.join('. ') + (formattedSentences.length > 0 && !text.endsWith('.') ? '.' : '');
+};
+
 const generateSmartFallback = (content: string, headline: string, description: string = ''): string => {
   console.log(`Generating smart fallback for: "${headline}"`);
   
@@ -80,7 +111,7 @@ const generateSmartFallback = (content: string, headline: string, description: s
   
   if (!fullContent || fullContent.length < 20) {
     // Extract key information from headline if no content
-    return extractFromHeadline(headline);
+    return formatTLDR(extractFromHeadline(headline));
   }
 
   // Clean content thoroughly
@@ -106,9 +137,6 @@ const generateSmartFallback = (content: string, headline: string, description: s
     // Take first meaningful sentence and enhance it
     let summary = sentences[0].trim();
     
-    // Capitalize first letter
-    summary = summary.charAt(0).toUpperCase() + summary.slice(1);
-    
     // Limit to reasonable length
     const words = summary.split(' ');
     if (words.length > 45) {
@@ -117,11 +145,11 @@ const generateSmartFallback = (content: string, headline: string, description: s
       summary += '.';
     }
     
-    return summary;
+    return formatTLDR(summary);
   }
 
   // Last resort - extract from headline
-  return extractFromHeadline(headline);
+  return formatTLDR(extractFromHeadline(headline));
 };
 
 const extractFromHeadline = (headline: string): string => {
@@ -177,7 +205,8 @@ Requirements:
 - Focus on WHO, WHAT, WHEN, WHERE
 - Be specific about actual facts and numbers
 - Avoid generic phrases like "development" or "situation"
-- Start with the most important fact`;
+- Start with the most important fact
+- Use proper sentence capitalization`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -190,7 +219,7 @@ Requirements:
           messages: [
             {
               role: 'system',
-              content: 'You are a news summarization expert. Create precise, factual summaries that capture the essence of the story in minimal words. Never use generic phrases.'
+              content: 'You are a news summarization expert. Create precise, factual summaries that capture the essence of the story in minimal words. Never use generic phrases. Always use proper capitalization.'
             },
             {
               role: 'user',
@@ -208,7 +237,7 @@ Requirements:
         
         if (aiSummary.length > 10 && aiSummary.split(' ').length <= 65) {
           console.log(`AI-generated TL;DR: "${aiSummary}"`);
-          return aiSummary;
+          return formatTLDR(aiSummary);
         }
       } else {
         console.error('OpenAI API error:', await response.text());
@@ -226,7 +255,7 @@ const generateBetterFallback = (content: string, headline: string): string => {
   if (!content || content.length < 20) {
     // If we have no content, create a simple summary from headline
     const words = headline.split(' ').slice(0, 12);
-    return words.join(' ') + (words.length < headline.split(' ').length ? '...' : '');
+    return formatTLDR(words.join(' ') + (words.length < headline.split(' ').length ? '...' : ''));
   }
 
   // Clean content
@@ -249,15 +278,15 @@ const generateBetterFallback = (content: string, headline: string): string => {
     
     // Limit to about 40-50 words for the fallback
     if (words.length <= 50) {
-      return firstSentence + '.';
+      return formatTLDR(firstSentence + '.');
     } else {
-      return words.slice(0, 45).join(' ') + '...';
+      return formatTLDR(words.slice(0, 45).join(' ') + '...');
     }
   }
 
   // Last resort - use first part of content
   const words = cleaned.split(' ').slice(0, 30);
-  return words.join(' ') + (words.length === 30 ? '...' : '');
+  return formatTLDR(words.join(' ') + (words.length === 30 ? '...' : ''));
 };
 
 const searchForImages = async (query: string): Promise<string[]> => {
@@ -370,7 +399,7 @@ serve(async (req) => {
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         const articleCategory = article.category || category || 'General';
         
-        // Generate enhanced TL;DR with better fallback
+        // Generate enhanced TL;DR with better fallback and proper capitalization
         const tldr = await generateImprovedTLDR(content, headline, description);
         
         // Get high-quality image

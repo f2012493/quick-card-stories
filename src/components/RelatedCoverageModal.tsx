@@ -25,22 +25,53 @@ interface RelatedCoverageModalProps {
 }
 
 const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews }: RelatedCoverageModalProps) => {
-  // Find related articles by matching keywords in headlines and categories
+  // Enhanced related articles algorithm with better matching
   const getRelatedArticles = () => {
-    const currentWords = currentNews.headline.toLowerCase().split(' ').filter(word => 
-      word.length > 3 && !['the', 'and', 'for', 'with', 'from', 'this', 'that', 'will', 'have', 'been'].includes(word)
-    );
+    const currentWords = currentNews.headline.toLowerCase()
+      .split(' ')
+      .filter(word => 
+        word.length > 3 && 
+        !['the', 'and', 'for', 'with', 'from', 'this', 'that', 'will', 'have', 'been', 'said', 'says', 'also', 'what', 'when', 'where', 'they', 'their', 'them', 'than', 'then', 'there', 'these', 'those', 'were', 'are'].includes(word)
+      );
+
+    // Extract key entities and topics
+    const currentTLDRWords = currentNews.tldr.toLowerCase()
+      .split(' ')
+      .filter(word => 
+        word.length > 4 && 
+        !['the', 'and', 'for', 'with', 'from', 'this', 'that', 'will', 'have', 'been', 'said', 'says', 'also', 'what', 'when', 'where', 'they', 'their', 'them', 'than', 'then', 'there', 'these', 'those', 'were', 'are', 'according', 'reports', 'officials'].includes(word)
+      );
+
+    const allKeywords = [...new Set([...currentWords, ...currentTLDRWords])];
 
     const relatedArticles = allNews
       .filter(article => article.id !== currentNews.id)
       .map(article => {
         let score = 0;
-        const articleWords = article.headline.toLowerCase().split(' ');
+        const articleHeadline = article.headline.toLowerCase();
+        const articleTLDR = article.tldr.toLowerCase();
+        const combinedText = `${articleHeadline} ${articleTLDR}`;
         
-        // Check for matching keywords in headline
-        currentWords.forEach(word => {
-          if (articleWords.some(articleWord => articleWord.includes(word) || word.includes(articleWord))) {
+        // Check for exact keyword matches in headline (higher weight)
+        allKeywords.forEach(keyword => {
+          if (articleHeadline.includes(keyword)) {
+            score += 3;
+          }
+          if (articleTLDR.includes(keyword)) {
             score += 2;
+          }
+        });
+
+        // Check for partial matches and related terms
+        currentWords.forEach(word => {
+          if (word.length > 5) {
+            // Check for partial matches (for names, places, etc.)
+            const partialMatch = combinedText.split(' ').some(articleWord => 
+              articleWord.includes(word) || word.includes(articleWord)
+            );
+            if (partialMatch) {
+              score += 1;
+            }
           }
         });
         
@@ -48,12 +79,36 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews }: Related
         if (article.category === currentNews.category) {
           score += 1;
         }
+
+        // Bonus for similar time frame (within same day)
+        if (currentNews.publishedAt && article.publishedAt) {
+          const currentDate = new Date(currentNews.publishedAt);
+          const articleDate = new Date(article.publishedAt);
+          const timeDiff = Math.abs(currentDate.getTime() - articleDate.getTime());
+          const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+          
+          if (daysDiff < 1) {
+            score += 2; // Same day
+          } else if (daysDiff < 3) {
+            score += 1; // Within 3 days
+          }
+        }
+
+        // Check for named entities (capitalized words that might be proper nouns)
+        const currentEntities = currentNews.headline.match(/\b[A-Z][a-z]+\b/g) || [];
+        const articleEntities = article.headline.match(/\b[A-Z][a-z]+\b/g) || [];
         
+        currentEntities.forEach(entity => {
+          if (articleEntities.includes(entity)) {
+            score += 3; // High score for matching proper nouns
+          }
+        });
+
         return { ...article, relevanceScore: score };
       })
-      .filter(article => article.relevanceScore > 0)
+      .filter(article => article.relevanceScore > 2) // Higher threshold for better relevance
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, 5); // Limit to top 5 related articles
+      .slice(0, 8); // Increased to show more related articles
 
     return relatedArticles;
   };
@@ -117,7 +172,9 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews }: Related
           {/* Related Articles */}
           {relatedArticles.length > 0 ? (
             <div>
-              <h3 className="font-semibold text-gray-900 mb-4">Related Coverage ({relatedArticles.length})</h3>
+              <h3 className="font-semibold text-gray-900 mb-4">
+                Related Coverage ({relatedArticles.length} {relatedArticles.length === 1 ? 'article' : 'articles'})
+              </h3>
               <div className="space-y-4">
                 {relatedArticles.map((article) => (
                   <div key={article.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
@@ -143,6 +200,9 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews }: Related
                             {article.publishedAt && (
                               <span>{formatPublishedDate(article.publishedAt)}</span>
                             )}
+                            <span className="bg-gray-100 px-2 py-1 rounded text-xs">
+                              Match: {article.relevanceScore}
+                            </span>
                           </div>
                           {article.sourceUrl && (
                             <Button 
@@ -165,7 +225,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews }: Related
           ) : (
             <div className="text-center py-8 text-gray-500">
               <p>No related coverage found for this story.</p>
-              <p className="text-sm mt-2">Try checking back later for more articles on this topic.</p>
+              <p className="text-sm mt-2">This appears to be a unique or breaking news story.</p>
             </div>
           )}
         </div>

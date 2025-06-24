@@ -32,7 +32,7 @@ const VideoFeed = () => {
     region: locationData?.region
   });
 
-  // Auto-fetch news when no data is available (reduced wait time)
+  // Auto-fetch news when no data is available (reduced wait time significantly)
   useEffect(() => {
     const shouldAutoFetch = !isLoading && !locationLoading && newsData.length === 0 && !hasTriggeredAutoFetch && !triggerIngestion.isPending;
     
@@ -41,10 +41,10 @@ const VideoFeed = () => {
       setHasTriggeredAutoFetch(true);
       triggerIngestion.mutateAsync()
         .then(() => {
-          // Reduced wait time from 3000ms to 1500ms for faster response
+          // Reduced wait time from 1500ms to 500ms for faster response
           setTimeout(() => {
             refetch();
-          }, 1500);
+          }, 500);
         })
         .catch((error) => {
           console.error('Auto-fetch failed:', error);
@@ -53,7 +53,7 @@ const VideoFeed = () => {
     }
   }, [isLoading, locationLoading, newsData.length, hasTriggeredAutoFetch, triggerIngestion, refetch]);
 
-  // Set up auto-refresh every 5 minutes
+  // Set up auto-refresh every 3 minutes (reduced from 5 minutes)
   useEffect(() => {
     const setupAutoRefresh = () => {
       if (autoRefreshTimeoutRef.current) {
@@ -64,7 +64,7 @@ const VideoFeed = () => {
         console.log('Auto-refreshing news feed...');
         refetch();
         setupAutoRefresh(); // Schedule next refresh
-      }, 5 * 60 * 1000); // 5 minutes
+      }, 3 * 60 * 1000); // 3 minutes
     };
 
     // Only start auto-refresh if we have news data
@@ -124,10 +124,10 @@ const VideoFeed = () => {
   const handleRefreshNews = async () => {
     try {
       await triggerIngestion.mutateAsync();
-      // Reduced refetch delay from 2000ms to 1000ms
+      // Reduced refetch delay from 1000ms to 300ms
       setTimeout(() => {
         refetch();
-      }, 1000);
+      }, 300);
     } catch (error) {
       console.error('Failed to refresh news:', error);
     }
