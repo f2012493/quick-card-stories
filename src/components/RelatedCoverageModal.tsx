@@ -30,7 +30,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
   const getRelatedArticles = () => {
     // Extract key terms from headline and description
     const extractKeyTerms = (text: string): string[] => {
-      const excludeWords = ['the', 'and', 'for', 'with', 'from', 'this', 'that', 'will', 'have', 'been', 'said', 'says', 'also', 'what', 'when', 'where', 'they', 'their', 'them', 'than', 'then', 'there', 'these', 'those', 'were', 'are', 'could', 'would', 'should', 'might', 'must', 'shall', 'can', 'may', 'did', 'do', 'does', 'don', 'doesn', 'won', 'wouldn', 'isn', 'aren', 'wasn', 'weren', 'hasn', 'haven', 'hadn', 'shouldn', 'couldn', 'wouldn'];
+      const excludeWords: string[] = ['the', 'and', 'for', 'with', 'from', 'this', 'that', 'will', 'have', 'been', 'said', 'says', 'also', 'what', 'when', 'where', 'they', 'their', 'them', 'than', 'then', 'there', 'these', 'those', 'were', 'are', 'could', 'would', 'should', 'might', 'must', 'shall', 'can', 'may', 'did', 'do', 'does', 'don', 'doesn', 'won', 'wouldn', 'isn', 'aren', 'wasn', 'weren', 'hasn', 'haven', 'hadn', 'shouldn', 'couldn', 'wouldn'];
       
       const words = text.toLowerCase()
         .replace(/[^\w\s]/g, ' ')
@@ -44,13 +44,60 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
 
     // Extract named entities (capitalized words/phrases)
     const extractNamedEntities = (text: string): string[] => {
-      const excludeEntities = ['The', 'And', 'For', 'With', 'From', 'This', 'That', 'Will', 'Have', 'Been', 'Said', 'Says', 'Also', 'What', 'When', 'Where', 'They', 'Their', 'Them', 'Than', 'Then', 'There', 'These', 'Those', 'Were', 'Are'];
+      const excludeEntities: string[] = ['The', 'And', 'For', 'With', 'From', 'This', 'That', 'Will', 'Have', 'Been', 'Said', 'Says', 'Also', 'What', 'When', 'Where', 'They', 'Their', 'Them', 'Than', 'Then', 'There', 'These', 'Those', 'Were', 'Are'];
       
       const entities = text.match(/\b[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*\b/g) || [];
       return entities.filter((entity: string) => 
         entity.length > 2 && 
         !excludeEntities.includes(entity)
       );
+    };
+
+    // Enhanced semantic similarity with broader keyword matching
+    const findSemanticSimilarity = (text1: string, text2: string): number => {
+      let score = 0;
+      
+      // Industry/topic keywords with higher weights
+      const topicKeywords = {
+        politics: ['election', 'government', 'president', 'minister', 'parliament', 'congress', 'senate', 'vote', 'campaign', 'policy', 'law', 'legislation', 'democrat', 'republican', 'party', 'political'],
+        economy: ['economy', 'economic', 'market', 'stock', 'trade', 'business', 'financial', 'money', 'bank', 'investment', 'gdp', 'inflation', 'recession', 'growth'],
+        technology: ['tech', 'technology', 'ai', 'artificial intelligence', 'software', 'hardware', 'digital', 'cyber', 'internet', 'data', 'algorithm', 'startup', 'innovation'],
+        health: ['health', 'medical', 'hospital', 'doctor', 'patient', 'medicine', 'treatment', 'disease', 'covid', 'pandemic', 'vaccine', 'virus', 'healthcare'],
+        climate: ['climate', 'environment', 'green', 'renewable', 'carbon', 'emission', 'pollution', 'sustainability', 'weather', 'temperature', 'global warming'],
+        sports: ['sports', 'game', 'team', 'player', 'match', 'championship', 'league', 'tournament', 'season', 'score', 'win', 'defeat'],
+        international: ['international', 'global', 'world', 'country', 'nation', 'foreign', 'diplomatic', 'embassy', 'summit', 'treaty', 'alliance']
+      };
+
+      const text1Lower = text1.toLowerCase();
+      const text2Lower = text2.toLowerCase();
+
+      // Check for topic-based similarity
+      Object.values(topicKeywords).forEach((keywords: string[]) => {
+        const text1Matches = keywords.filter((keyword: string) => text1Lower.includes(keyword)).length;
+        const text2Matches = keywords.filter((keyword: string) => text2Lower.includes(keyword)).length;
+        
+        if (text1Matches > 0 && text2Matches > 0) {
+          score += Math.min(text1Matches, text2Matches) * 3;
+        }
+      });
+
+      // Geographic location matching
+      const locations = ['usa', 'america', 'china', 'europe', 'india', 'russia', 'japan', 'brazil', 'canada', 'australia', 'africa', 'asia', 'washington', 'beijing', 'moscow', 'london', 'paris', 'tokyo'];
+      locations.forEach((location: string) => {
+        if (text1Lower.includes(location) && text2Lower.includes(location)) {
+          score += 4;
+        }
+      });
+
+      // Company/organization matching
+      const organizations = ['microsoft', 'google', 'apple', 'amazon', 'facebook', 'meta', 'tesla', 'twitter', 'un', 'nato', 'who', 'fbi', 'cia', 'nasa'];
+      organizations.forEach((org: string) => {
+        if (text1Lower.includes(org) && text2Lower.includes(org)) {
+          score += 5;
+        }
+      });
+
+      return score;
     };
 
     const currentHeadlineTerms = extractKeyTerms(currentNews.headline);
@@ -68,24 +115,25 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
         const articleHeadline = article.headline.toLowerCase();
         const articleTldr = article.tldr.toLowerCase();
         const articleText = `${articleHeadline} ${articleTldr}`;
+        const currentText = `${currentNews.headline.toLowerCase()} ${currentNews.tldr.toLowerCase()}`;
         
         // Named entity matching (highest weight)
         const articleEntities = extractNamedEntities(article.headline + ' ' + article.tldr);
-        currentEntities.forEach(entity => {
+        currentEntities.forEach((entity: string) => {
           const entityLower = entity.toLowerCase();
-          const hasMatch = articleEntities.some(articleEntity => {
+          const hasMatch = articleEntities.some((articleEntity: string) => {
             const articleEntityLower = articleEntity.toLowerCase();
             return articleEntityLower === entityLower ||
                    articleEntityLower.includes(entityLower) ||
                    entityLower.includes(articleEntityLower);
           });
           if (hasMatch) {
-            score += 8; // Increased weight for entity matches
+            score += 8;
           }
         });
 
         // Exact keyword matches in headline (high weight)
-        allKeyTerms.forEach(term => {
+        allKeyTerms.forEach((term: string) => {
           if (articleHeadline.includes(term)) {
             score += 4;
           }
@@ -96,14 +144,14 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
 
         // Multi-word phrase matching
         const currentPhrases = currentNews.headline.toLowerCase().match(/\b\w+\s+\w+\b/g) || [];
-        currentPhrases.forEach(phrase => {
+        currentPhrases.forEach((phrase: string) => {
           if (articleText.includes(phrase)) {
             score += 5;
           }
         });
 
         // Substring matching for longer terms
-        allKeyTerms.forEach(term => {
+        allKeyTerms.forEach((term: string) => {
           if (term.length > 5) {
             const regex = new RegExp(term.substring(0, term.length - 1), 'i');
             if (regex.test(articleText)) {
@@ -113,21 +161,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
         });
 
         // Enhanced semantic similarity
-        const findCommonTopics = (text1: string, text2: string) => {
-          const topics = ['election', 'government', 'economy', 'technology', 'health', 'sports', 'business', 'politics', 'climate', 'education', 'finance', 'market', 'trade', 'security', 'covid', 'pandemic', 'vaccine', 'crisis', 'war', 'peace', 'agreement', 'deal', 'summit', 'conference', 'policy', 'law', 'court', 'judge', 'minister', 'president', 'minister', 'parliament', 'congress'];
-          let commonScore = 0;
-          topics.forEach(topic => {
-            if (text1.includes(topic) && text2.includes(topic)) {
-              commonScore += 3;
-            }
-          });
-          return commonScore;
-        };
-
-        score += findCommonTopics(
-          currentNews.headline.toLowerCase() + ' ' + currentNews.tldr.toLowerCase(),
-          articleText
-        );
+        score += findSemanticSimilarity(currentText, articleText);
 
         // Category bonus
         if (article.category === currentNews.category) {
@@ -140,9 +174,9 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
           const articleTime = new Date(article.publishedAt).getTime();
           const hoursDiff = Math.abs(currentTime - articleTime) / (1000 * 60 * 60);
           
-          if (hoursDiff < 6) score += 3;      // Same 6-hour window
-          else if (hoursDiff < 24) score += 2; // Same day
-          else if (hoursDiff < 72) score += 1; // Within 3 days
+          if (hoursDiff < 6) score += 3;
+          else if (hoursDiff < 24) score += 2;
+          else if (hoursDiff < 72) score += 1;
         }
 
         // Number/quantity matching
@@ -150,7 +184,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
         const currentNumbers = (currentNews.headline + ' ' + currentNews.tldr).match(numberPattern) || [];
         const articleNumbers = (article.headline + ' ' + article.tldr).match(numberPattern) || [];
         
-        currentNumbers.forEach(num => {
+        currentNumbers.forEach((num: string) => {
           if (articleNumbers.includes(num)) {
             score += 2;
           }
@@ -158,7 +192,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
 
         return { ...article, relevanceScore: score };
       })
-      .filter(article => article.relevanceScore >= 4) // Adjusted threshold
+      .filter(article => article.relevanceScore >= 3)
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, 8);
 
