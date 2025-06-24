@@ -36,7 +36,7 @@ const RelatedArticlesCarousel = ({
     if (currentCardIndex < 2) {
       const newIndex = currentCardIndex + 1;
       setCurrentCardIndex(newIndex);
-      console.log('Moving to card:', newIndex);
+      console.log('Moving to next card:', newIndex);
     }
   };
 
@@ -45,7 +45,7 @@ const RelatedArticlesCarousel = ({
     if (currentCardIndex > 0) {
       const newIndex = currentCardIndex - 1;
       setCurrentCardIndex(newIndex);
-      console.log('Moving to card:', newIndex);
+      console.log('Moving to previous card:', newIndex);
     } else {
       console.log('Going back to main story');
       onSwipeLeft();
@@ -103,6 +103,7 @@ const RelatedArticlesCarousel = ({
     const deltaY = touch.clientY - touchStart.y;
     
     console.log('Touch end on carousel, deltaX:', deltaX, 'deltaY:', deltaY);
+    console.log('Current card index:', currentCardIndex);
     
     // Reset touch start
     setTouchStart(null);
@@ -119,11 +120,11 @@ const RelatedArticlesCarousel = ({
     // Handle horizontal swipes for card navigation
     if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY)) {
       if (deltaX > 0) {
-        console.log('Swipe right detected - going to previous card');
-        handlePrevCard();
+        console.log('Swipe right detected - going to NEXT card');
+        handleNextCard(); // Swipe right = go to next card
       } else {
-        console.log('Swipe left detected - going to next card');
-        handleNextCard();
+        console.log('Swipe left detected - going to PREVIOUS card');
+        handlePrevCard(); // Swipe left = go to previous card
       }
     }
   };
@@ -143,6 +144,15 @@ const RelatedArticlesCarousel = ({
         <div className="text-white text-sm">
           Card {currentCardIndex + 1} of 3
         </div>
+        
+        <button
+          onClick={handleNextCard}
+          className="flex items-center space-x-2 text-white hover:text-blue-400 transition-colors"
+          disabled={currentCardIndex >= 2}
+        >
+          <span>Next</span>
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Card Content */}
