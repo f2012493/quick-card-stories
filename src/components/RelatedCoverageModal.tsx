@@ -29,23 +29,27 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
   // Enhanced related articles algorithm
   const getRelatedArticles = () => {
     // Extract key terms from headline and description
-    const extractKeyTerms = (text: string) => {
+    const extractKeyTerms = (text: string): string[] => {
+      const excludeWords = ['the', 'and', 'for', 'with', 'from', 'this', 'that', 'will', 'have', 'been', 'said', 'says', 'also', 'what', 'when', 'where', 'they', 'their', 'them', 'than', 'then', 'there', 'these', 'those', 'were', 'are', 'could', 'would', 'should', 'might', 'must', 'shall', 'can', 'may', 'did', 'do', 'does', 'don', 'doesn', 'won', 'wouldn', 'isn', 'aren', 'wasn', 'weren', 'hasn', 'haven', 'hadn', 'shouldn', 'couldn', 'wouldn'];
+      
       const words = text.toLowerCase()
         .replace(/[^\w\s]/g, ' ')
         .split(/\s+/)
-        .filter(word => 
+        .filter((word: string) => 
           word.length > 3 && 
-          !['the', 'and', 'for', 'with', 'from', 'this', 'that', 'will', 'have', 'been', 'said', 'says', 'also', 'what', 'when', 'where', 'they', 'their', 'them', 'than', 'then', 'there', 'these', 'those', 'were', 'are', 'could', 'would', 'should', 'might', 'must', 'shall', 'can', 'may', 'did', 'do', 'does', 'don', 'doesn', 'won', 'wouldn', 'isn', 'aren', 'wasn', 'weren', 'hasn', 'haven', 'hadn', 'shouldn', 'couldn', 'wouldn'].includes(word)
+          !excludeWords.includes(word)
         );
       return [...new Set(words)];
     };
 
     // Extract named entities (capitalized words/phrases)
-    const extractNamedEntities = (text: string) => {
+    const extractNamedEntities = (text: string): string[] => {
+      const excludeEntities = ['The', 'And', 'For', 'With', 'From', 'This', 'That', 'Will', 'Have', 'Been', 'Said', 'Says', 'Also', 'What', 'When', 'Where', 'They', 'Their', 'Them', 'Than', 'Then', 'There', 'These', 'Those', 'Were', 'Are'];
+      
       const entities = text.match(/\b[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*\b/g) || [];
-      return entities.filter(entity => 
+      return entities.filter((entity: string) => 
         entity.length > 2 && 
-        !['The', 'And', 'For', 'With', 'From', 'This', 'That', 'Will', 'Have', 'Been', 'Said', 'Says', 'Also', 'What', 'When', 'Where', 'They', 'Their', 'Them', 'Than', 'Then', 'There', 'These', 'Those', 'Were', 'Are'].includes(entity)
+        !excludeEntities.includes(entity)
       );
     };
 
@@ -56,6 +60,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
     // Combine all key terms
     const allKeyTerms = [...new Set([...currentHeadlineTerms, ...currentTldrTerms])];
 
+    // Create a more comprehensive search that includes partial matches
     const relatedArticles = allNews
       .filter(article => article.id !== currentNews.id)
       .map(article => {
@@ -67,22 +72,25 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
         // Named entity matching (highest weight)
         const articleEntities = extractNamedEntities(article.headline + ' ' + article.tldr);
         currentEntities.forEach(entity => {
-          if (articleEntities.some(articleEntity => 
-            articleEntity.toLowerCase() === entity.toLowerCase() ||
-            articleEntity.toLowerCase().includes(entity.toLowerCase()) ||
-            entity.toLowerCase().includes(articleEntity.toLowerCase())
-          )) {
-            score += 5; // Very high score for entity matches
+          const entityLower = entity.toLowerCase();
+          const hasMatch = articleEntities.some(articleEntity => {
+            const articleEntityLower = articleEntity.toLowerCase();
+            return articleEntityLower === entityLower ||
+                   articleEntityLower.includes(entityLower) ||
+                   entityLower.includes(articleEntityLower);
+          });
+          if (hasMatch) {
+            score += 8; // Increased weight for entity matches
           }
         });
 
         // Exact keyword matches in headline (high weight)
         allKeyTerms.forEach(term => {
           if (articleHeadline.includes(term)) {
-            score += 3;
+            score += 4;
           }
           if (articleTldr.includes(term)) {
-            score += 2;
+            score += 3;
           }
         });
 
@@ -90,13 +98,40 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
         const currentPhrases = currentNews.headline.toLowerCase().match(/\b\w+\s+\w+\b/g) || [];
         currentPhrases.forEach(phrase => {
           if (articleText.includes(phrase)) {
-            score += 4;
+            score += 5;
           }
         });
 
+        // Substring matching for longer terms
+        allKeyTerms.forEach(term => {
+          if (term.length > 5) {
+            const regex = new RegExp(term.substring(0, term.length - 1), 'i');
+            if (regex.test(articleText)) {
+              score += 2;
+            }
+          }
+        });
+
+        // Enhanced semantic similarity
+        const findCommonTopics = (text1: string, text2: string) => {
+          const topics = ['election', 'government', 'economy', 'technology', 'health', 'sports', 'business', 'politics', 'climate', 'education', 'finance', 'market', 'trade', 'security', 'covid', 'pandemic', 'vaccine', 'crisis', 'war', 'peace', 'agreement', 'deal', 'summit', 'conference', 'policy', 'law', 'court', 'judge', 'minister', 'president', 'minister', 'parliament', 'congress'];
+          let commonScore = 0;
+          topics.forEach(topic => {
+            if (text1.includes(topic) && text2.includes(topic)) {
+              commonScore += 3;
+            }
+          });
+          return commonScore;
+        };
+
+        score += findCommonTopics(
+          currentNews.headline.toLowerCase() + ' ' + currentNews.tldr.toLowerCase(),
+          articleText
+        );
+
         // Category bonus
         if (article.category === currentNews.category) {
-          score += 1;
+          score += 2;
         }
 
         // Time proximity bonus
@@ -110,7 +145,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
           else if (hoursDiff < 72) score += 1; // Within 3 days
         }
 
-        // Semantic similarity for numbers, dates, locations
+        // Number/quantity matching
         const numberPattern = /\d+/g;
         const currentNumbers = (currentNews.headline + ' ' + currentNews.tldr).match(numberPattern) || [];
         const articleNumbers = (article.headline + ' ' + article.tldr).match(numberPattern) || [];
@@ -123,7 +158,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
 
         return { ...article, relevanceScore: score };
       })
-      .filter(article => article.relevanceScore >= 3) // Minimum threshold
+      .filter(article => article.relevanceScore >= 4) // Adjusted threshold
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, 8);
 
@@ -176,25 +211,25 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
           </Button>
         </DialogHeader>
         
-        <div className="space-y-6 pt-4">
+        <div className="space-y-4 md:space-y-6 pt-4">
           {/* Current Article */}
-          <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
+          <div className="bg-blue-50 rounded-lg p-3 md:p-4 border-l-4 border-blue-500">
             <div className="flex items-start gap-3">
               <img 
                 src={currentNews.imageUrl} 
                 alt={currentNews.headline}
-                className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg flex-shrink-0"
+                className="w-12 h-12 md:w-20 md:h-20 object-cover rounded-lg flex-shrink-0"
               />
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 mb-2 text-sm md:text-base">Current Story</h3>
-                <p className="text-gray-700 text-sm mb-3 line-clamp-3">{currentNews.tldr}</p>
+                <h3 className="font-bold text-blue-900 mb-2 text-sm md:text-base">Current Story</h3>
+                <p className="text-gray-700 text-xs md:text-sm mb-3 line-clamp-3">{currentNews.tldr}</p>
                 <div className="flex flex-wrap gap-2">
                   {currentNews.sourceUrl && (
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={(e) => handleExternalLink(currentNews, e)}
-                      className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs"
+                      className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs h-7 px-2"
                     >
                       <ExternalLink className="w-3 h-3 mr-1" />
                       Source
@@ -208,64 +243,64 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
           {/* Related Articles */}
           {relatedArticles.length > 0 ? (
             <div>
-              <h3 className="font-semibold text-gray-900 mb-4 text-base md:text-lg">
+              <h3 className="font-bold text-gray-900 mb-3 md:mb-4 text-sm md:text-lg">
                 Related Coverage ({relatedArticles.length} {relatedArticles.length === 1 ? 'article' : 'articles'})
               </h3>
-              <div className="grid gap-4">
+              <div className="grid gap-3 md:gap-4">
                 {relatedArticles.map((article) => (
                   <div 
                     key={article.id} 
-                    className="border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer group"
+                    className="border rounded-lg p-3 md:p-4 hover:bg-gray-50 transition-colors cursor-pointer group"
                     onClick={() => handleArticleClick(article)}
                   >
-                    <div className="flex items-start gap-3 md:gap-4">
+                    <div className="flex items-start gap-2 md:gap-4">
                       <img 
                         src={article.imageUrl} 
                         alt={article.headline}
-                        className="w-16 h-16 md:w-24 md:h-20 object-cover rounded-lg flex-shrink-0"
+                        className="w-12 h-12 md:w-24 md:h-20 object-cover rounded-lg flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <h4 className="font-medium text-gray-900 line-clamp-2 text-sm md:text-base group-hover:text-blue-600 transition-colors">
+                          <h4 className="font-medium text-gray-900 line-clamp-2 text-xs md:text-base group-hover:text-blue-600 transition-colors">
                             {article.headline}
                           </h4>
-                          <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0 mt-1" />
+                          <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0 mt-1" />
                         </div>
-                        <p className="text-gray-600 text-xs md:text-sm mb-3 line-clamp-2">
+                        <p className="text-gray-600 text-xs mb-2 md:mb-3 line-clamp-2">
                           {article.tldr}
                         </p>
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs text-gray-500">
+                          <div className="flex flex-wrap items-center gap-1 md:gap-4 text-xs text-gray-500">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               {article.readTime}
                             </span>
                             {article.publishedAt && (
-                              <span>{formatPublishedDate(article.publishedAt)}</span>
+                              <span className="hidden md:inline">{formatPublishedDate(article.publishedAt)}</span>
                             )}
-                            <span className="bg-gray-100 px-2 py-1 rounded-full text-xs hidden md:inline">
-                              Relevance: {article.relevanceScore}
+                            <span className="bg-gray-100 px-1 md:px-2 py-1 rounded-full text-xs hidden md:inline">
+                              Match: {article.relevanceScore}
                             </span>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1 md:gap-2">
                             <Button 
                               variant="ghost" 
                               size="sm"
                               onClick={() => handleArticleClick(article)}
-                              className="text-blue-600 hover:bg-blue-50 text-xs px-2 py-1 h-auto"
+                              className="text-blue-600 hover:bg-blue-50 text-xs px-2 py-1 h-6 md:h-auto"
                             >
                               <ArrowRight className="w-3 h-3 mr-1" />
-                              View
+                              <span className="hidden md:inline">View</span>
                             </Button>
                             {article.sourceUrl && (
                               <Button 
                                 variant="outline" 
                                 size="sm"
                                 onClick={(e) => handleExternalLink(article, e)}
-                                className="text-gray-600 border-gray-300 hover:bg-gray-50 text-xs px-2 py-1 h-auto"
+                                className="text-gray-600 border-gray-300 hover:bg-gray-50 text-xs px-2 py-1 h-6 md:h-auto"
                               >
                                 <ExternalLink className="w-3 h-3 mr-1" />
-                                Source
+                                <span className="hidden md:inline">Source</span>
                               </Button>
                             )}
                           </div>
@@ -277,16 +312,16 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
               </div>
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-6 md:py-8 text-gray-500">
               <div className="mb-4">
-                <ExternalLink className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                <ExternalLink className="w-8 h-8 md:w-12 md:h-12 text-gray-300 mx-auto mb-2" />
               </div>
-              <p className="text-base font-medium">No related coverage found</p>
-              <p className="text-sm mt-2">This appears to be a unique or breaking news story.</p>
+              <p className="text-sm md:text-base font-medium">No related coverage found</p>
+              <p className="text-xs md:text-sm mt-2">This appears to be a unique or breaking news story.</p>
               {currentNews.sourceUrl && (
                 <Button 
                   variant="outline" 
-                  className="mt-4"
+                  className="mt-4 text-sm"
                   onClick={(e) => handleExternalLink(currentNews, e)}
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
