@@ -29,20 +29,23 @@ const RelatedArticlesCarousel = ({
   onSwipeLeft 
 }: RelatedArticlesCarouselProps) => {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
 
   const handleNextCard = () => {
     console.log('handleNextCard called, currentCardIndex:', currentCardIndex);
     if (currentCardIndex < 2) {
-      setCurrentCardIndex(currentCardIndex + 1);
-      console.log('Moving to card:', currentCardIndex + 1);
+      const newIndex = currentCardIndex + 1;
+      setCurrentCardIndex(newIndex);
+      console.log('Moving to card:', newIndex);
     }
   };
 
   const handlePrevCard = () => {
     console.log('handlePrevCard called, currentCardIndex:', currentCardIndex);
     if (currentCardIndex > 0) {
-      setCurrentCardIndex(currentCardIndex - 1);
-      console.log('Moving to card:', currentCardIndex - 1);
+      const newIndex = currentCardIndex - 1;
+      setCurrentCardIndex(newIndex);
+      console.log('Moving to card:', newIndex);
     } else {
       console.log('Going back to main story');
       onSwipeLeft();
@@ -76,6 +79,55 @@ const RelatedArticlesCarousel = ({
     }
   ];
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const touch = e.touches[0];
+    setTouchStart({ x: touch.clientX, y: touch.clientY });
+    console.log('Touch start on carousel, x:', touch.clientX, 'y:', touch.clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!touchStart) return;
+    
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStart.x;
+    const deltaY = touch.clientY - touchStart.y;
+    
+    console.log('Touch end on carousel, deltaX:', deltaX, 'deltaY:', deltaY);
+    
+    // Reset touch start
+    setTouchStart(null);
+    
+    // Check if it's more of a vertical swipe (scroll down = next story)
+    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 80) {
+      if (deltaY > 0) {
+        console.log('Vertical swipe down detected - going to next story');
+        onSwipeLeft();
+        return;
+      }
+    }
+    
+    // Handle horizontal swipes for card navigation
+    if (Math.abs(deltaX) > 80 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (deltaX > 0) {
+        console.log('Swipe right detected - going to previous card');
+        handlePrevCard();
+      } else {
+        console.log('Swipe left detected - going to next card');
+        handleNextCard();
+      }
+    }
+  };
+
   return (
     <div className="w-full h-full bg-black flex flex-col relative">
       {/* Header */}
@@ -98,47 +150,11 @@ const RelatedArticlesCarousel = ({
 
       {/* Touch handlers for swiping between cards */}
       <div
-        className="absolute inset-0 z-40 touch-manipulation"
-        onTouchStart={(e) => {
-          e.stopPropagation();
-          const touch = e.touches[0];
-          (e.currentTarget as any).startX = touch.clientX;
-          (e.currentTarget as any).startY = touch.clientY;
-          console.log('Touch start on carousel, startX:', touch.clientX, 'startY:', touch.clientY);
-        }}
-        onTouchMove={(e) => {
-          e.stopPropagation();
-        }}
-        onTouchEnd={(e) => {
-          e.stopPropagation();
-          const touch = e.changedTouches[0];
-          const startX = (e.currentTarget as any).startX || 0;
-          const startY = (e.currentTarget as any).startY || 0;
-          const deltaX = touch.clientX - startX;
-          const deltaY = touch.clientY - startY;
-          
-          console.log('Touch end on carousel, deltaX:', deltaX, 'deltaY:', deltaY);
-          
-          // Check if it's more of a vertical swipe (scroll down = next story)
-          if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 50) {
-            if (deltaY > 0) {
-              console.log('Vertical swipe down detected - going to next story');
-              onSwipeLeft();
-              return;
-            }
-          }
-          
-          // Handle horizontal swipes for card navigation
-          if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
-            if (deltaX > 0) {
-              console.log('Swipe right detected');
-              handlePrevCard();
-            } else if (deltaX < 0) {
-              console.log('Swipe left detected');
-              handleNextCard();
-            }
-          }
-        }}
+        className="absolute inset-0 z-50 touch-manipulation"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ touchAction: 'none' }}
       />
     </div>
   );
