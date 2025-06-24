@@ -74,33 +74,73 @@ const unwantedPhrases = [
 
 const capitalizeFirstLetter = (text: string): string => {
   if (!text) return text;
-  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+  return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
 const formatTLDR = (text: string): string => {
   if (!text) return text;
   
-  // Split into sentences
-  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
+  // Clean the text first
+  let cleanedText = text.trim();
   
-  // Capitalize each sentence properly
+  // Split into sentences properly
+  const sentences = cleanedText.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
+  
+  // Format each sentence with proper capitalization
   const formattedSentences = sentences.map(sentence => {
-    const words = sentence.split(' ');
-    // Capitalize first word and proper nouns
+    // Skip if empty
+    if (!sentence) return '';
+    
+    // Split into words
+    const words = sentence.split(/\s+/);
+    
+    // Capitalize each word appropriately
     const formattedWords = words.map((word, index) => {
+      if (!word) return word;
+      
+      // First word of sentence should always be capitalized
       if (index === 0) {
-        return capitalizeFirstLetter(word);
+        return capitalizeFirstLetter(word.toLowerCase());
       }
-      // Keep certain words capitalized (proper nouns, acronyms)
-      if (word.match(/^[A-Z]{2,}$/) || word.match(/^[A-Z][a-z]*$/)) {
+      
+      // Keep proper nouns, acronyms, and abbreviations capitalized
+      if (word.match(/^[A-Z]{2,}$/)) {
+        return word; // Acronyms like USA, AI, etc.
+      }
+      
+      // Keep names and proper nouns (words that start with capital and have lowercase letters)
+      if (word.match(/^[A-Z][a-z]+$/)) {
         return word;
       }
-      return word.toLowerCase();
+      
+      // Keep mixed case words (like iOS, iPhone, etc.)
+      if (word.match(/^[A-Z][a-z]*[A-Z]/)) {
+        return word;
+      }
+      
+      // Articles, prepositions, and conjunctions should be lowercase
+      const lowercaseWords = ['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'shall'];
+      
+      if (lowercaseWords.includes(word.toLowerCase())) {
+        return word.toLowerCase();
+      }
+      
+      // For other words, capitalize first letter only
+      return capitalizeFirstLetter(word.toLowerCase());
     });
+    
     return formattedWords.join(' ');
   });
   
-  return formattedSentences.join('. ') + (formattedSentences.length > 0 && !text.endsWith('.') ? '.' : '');
+  // Join sentences back together
+  let result = formattedSentences.join('. ');
+  
+  // Ensure proper ending punctuation
+  if (result && !result.match(/[.!?]$/)) {
+    result += '.';
+  }
+  
+  return result;
 };
 
 const generateSmartFallback = (content: string, headline: string, description: string = ''): string => {
@@ -206,7 +246,8 @@ Requirements:
 - Be specific about actual facts and numbers
 - Avoid generic phrases like "development" or "situation"
 - Start with the most important fact
-- Use proper sentence capitalization`;
+- Use proper sentence capitalization and grammar
+- Capitalize proper nouns, names, places, and organizations correctly`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -219,7 +260,7 @@ Requirements:
           messages: [
             {
               role: 'system',
-              content: 'You are a news summarization expert. Create precise, factual summaries that capture the essence of the story in minimal words. Never use generic phrases. Always use proper capitalization.'
+              content: 'You are a news summarization expert. Create precise, factual summaries that capture the essence of the story in minimal words. Never use generic phrases. Always use proper capitalization and grammar.'
             },
             {
               role: 'user',
