@@ -103,8 +103,10 @@ const RelatedArticlesCarousel = ({
           
           if (Math.abs(deltaX) > 50) {
             if (deltaX > 0) {
+              // Swiping right - go to previous card or back to main
               handlePrevCard();
-            } else if (deltaX < 0 && currentCardIndex < cards.length - 1) {
+            } else if (deltaX < 0) {
+              // Swiping left - go to next card
               handleNextCard();
             }
           }
