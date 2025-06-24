@@ -99,7 +99,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews }: Related
         const articleEntities = article.headline.match(/\b[A-Z][a-z]+\b/g) || [];
         
         currentEntities.forEach(entity => {
-          if (articleEntities.includes(entity)) {
+          if (articleEntities.some(articleEntity => articleEntity === entity)) {
             score += 3; // High score for matching proper nouns
           }
         });

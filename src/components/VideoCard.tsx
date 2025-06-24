@@ -42,7 +42,7 @@ const VideoCard = ({ news, isActive, index, allNews }: VideoCardProps) => {
     };
   }, [isActive, news.id, news.category]);
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleShare = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -58,7 +58,7 @@ const VideoCard = ({ news, isActive, index, allNews }: VideoCardProps) => {
     }
   };
 
-  const handleLike = (e: React.MouseEvent) => {
+  const handleLike = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -66,7 +66,7 @@ const VideoCard = ({ news, isActive, index, allNews }: VideoCardProps) => {
     toast.success(isLiked ? "💔 Removed from favorites" : "❤️ Added to favorites");
   };
 
-  const handleReadFullCoverage = (e: React.MouseEvent) => {
+  const handleReadFullCoverage = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
