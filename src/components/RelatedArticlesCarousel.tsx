@@ -72,7 +72,7 @@ const RelatedArticlesCarousel = ({
   ];
 
   return (
-    <div className="w-full h-full bg-black flex flex-col">
+    <div className="w-full h-full bg-black flex flex-col relative">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-800">
         <button
@@ -83,35 +83,7 @@ const RelatedArticlesCarousel = ({
           <span>{currentCardIndex === 0 ? 'Back' : 'Previous'}</span>
         </button>
         
-        <div className="flex items-center space-x-4">
-          <h2 className="text-white font-semibold text-lg">
-            {cards[currentCardIndex].title}
-          </h2>
-          
-          {/* Card indicators */}
-          <div className="flex space-x-1">
-            {cards.map((_, index) => (
-              <div
-                key={index}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  index === currentCardIndex ? 'bg-blue-400' : 'bg-gray-600'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {currentCardIndex < cards.length - 1 ? (
-          <button
-            onClick={handleNextCard}
-            className="flex items-center space-x-2 text-white hover:text-blue-400 transition-colors"
-          >
-            <span>Next</span>
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        ) : (
-          <div className="w-16" />
-        )}
+        <div className="flex-1" />
       </div>
 
       {/* Card Content */}
@@ -122,11 +94,11 @@ const RelatedArticlesCarousel = ({
         className="absolute inset-0 z-30 touch-manipulation"
         onTouchStart={(e) => {
           const touch = e.touches[0];
-          (e.target as any).startX = touch.clientX;
+          (e.currentTarget as any).startX = touch.clientX;
         }}
         onTouchEnd={(e) => {
           const touch = e.changedTouches[0];
-          const startX = (e.target as any).startX;
+          const startX = (e.currentTarget as any).startX;
           const deltaX = touch.clientX - startX;
           
           if (Math.abs(deltaX) > 50) {
