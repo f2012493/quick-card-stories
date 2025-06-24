@@ -1,7 +1,6 @@
 
 import { useQuery } from '@tanstack/react-query';
-import { useClusteredNews } from './useClusteredNews';
-import { supabase } from '@/integrations/supabase/client';
+import { newsService } from '@/services/newsService';
 
 interface NewsItem {
   id: string;
@@ -26,88 +25,48 @@ interface UseNewsOptions {
 }
 
 export const useNews = (options: UseNewsOptions = {}) => {
-  const useNewBackend = true;
-
-  const clusteredNewsQuery = useClusteredNews({
-    userId: options.userId,
-    location: {
-      country: options.country,
-      city: options.city,
-      region: options.region
-    }
-  });
-
-  const legacyNewsQuery = useQuery({
-    queryKey: ['news', options],
+  return useQuery({
+    queryKey: ['comprehensive-news', options],
     queryFn: async (): Promise<NewsItem[]> => {
-      console.log('Fetching news with legacy system:', options);
+      console.log('Fetching news from multiple sources...');
       
       try {
-        const { data, error } = await supabase.functions.invoke('fetch-news', {
-          body: options
-        });
-
-        if (error) {
-          console.error('Supabase function error:', error);
-          throw new Error(`Supabase function error: ${error.message}`);
-        }
-
-        const newsArray = data.news || [];
-        console.log(`Successfully fetched ${newsArray.length} news articles`);
+        const news = await newsService.fetchAllNews();
+        console.log(`Successfully fetched ${news.length} articles from various sources`);
         
-        return newsArray;
-      } catch (err) {
-        console.error('Error in legacy news hook:', err);
-        // Don't throw error - let the component handle fallbacks
-        return [];
+        // Cache the news locally
+        const cacheData = {
+          news,
+          timestamp: Date.now()
+        };
+        localStorage.setItem('quick-card-stories-cache', JSON.stringify(cacheData));
+        
+        return news;
+      } catch (error) {
+        console.error('Error fetching comprehensive news:', error);
+        
+        // Try to load from cache as fallback
+        try {
+          const cachedNews = localStorage.getItem('quick-card-stories-cache');
+          if (cachedNews) {
+            const parsed = JSON.parse(cachedNews);
+            if (parsed.news && parsed.news.length > 0) {
+              console.log('Using cached news as fallback');
+              return parsed.news;
+            }
+          }
+        } catch (cacheError) {
+          console.error('Failed to load cached news:', cacheError);
+        }
+        
+        // If everything fails, return curated news
+        console.log('Using curated fallback news');
+        return await newsService.fetchAllNews();
       }
     },
-    enabled: !useNewBackend || (useNewBackend && (!clusteredNewsQuery.data || clusteredNewsQuery.data.length === 0)),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: 1, // Reduce retries to fail faster
-    retryDelay: 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
-
-  if (useNewBackend) {
-    if (clusteredNewsQuery.data && clusteredNewsQuery.data.length > 0) {
-      const transformedData = clusteredNewsQuery.data.map((cluster, index) => ({
-        id: cluster.id,
-        headline: cluster.title,
-        tldr: cluster.description || cluster.title,
-        quote: cluster.description || '',
-        author: 'News Team',
-        category: cluster.category || 'general',
-        imageUrl: cluster.representative_image_url || `https://images.unsplash.com/photo-${1504711434969 + index}?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
-        readTime: '2 min read',
-        publishedAt: cluster.latest_published_at,
-        sourceUrl: ''
-      })) || [];
-
-      return {
-        ...clusteredNewsQuery,
-        data: transformedData
-      };
-    }
-    
-    if (legacyNewsQuery.data && legacyNewsQuery.data.length > 0) {
-      return legacyNewsQuery;
-    }
-    
-    // Return successful state even if no data - let component handle fallbacks
-    return {
-      ...clusteredNewsQuery,
-      data: [],
-      isError: false,
-      error: null
-    };
-  }
-
-  // For legacy mode, also return successful state on errors
-  return {
-    ...legacyNewsQuery,
-    data: legacyNewsQuery.data || [],
-    isError: false,
-    error: legacyNewsQuery.error
-  };
 };

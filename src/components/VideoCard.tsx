@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { analyticsService } from '@/services/analyticsService';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
+import BookmarkButton from './features/BookmarkButton';
+import ShareButton from './features/ShareButton';
+import ReadingSpeed from './features/ReadingSpeed';
 
 interface NewsItem {
   id: string;
@@ -22,9 +25,17 @@ interface VideoCardProps {
   index: number;
   allNews: NewsItem[];
   onNavigateToArticle: (articleId: string) => void;
+  readingSpeed?: number;
 }
 
-const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: VideoCardProps) => {
+const VideoCard = ({ 
+  news, 
+  isActive, 
+  index, 
+  allNews, 
+  onNavigateToArticle,
+  readingSpeed = 1 
+}: VideoCardProps) => {
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
 
   useEffect(() => {
@@ -58,7 +69,6 @@ const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: Vide
     setShowRelatedArticles(false);
   };
 
-  // Get related articles (excluding current one)
   const relatedArticles = allNews.filter(article => article.id !== news.id);
 
   return (
@@ -92,31 +102,49 @@ const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: Vide
               {news.publishedAt && (
                 <span className="text-white/70 text-xs">{formatPublishedDate(news.publishedAt)}</span>
               )}
+              <span className="text-blue-400 text-xs font-medium">{news.category}</span>
             </div>
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 flex flex-col justify-end pb-40 md:pb-32">
+          <div className="flex-1 flex flex-col justify-end pb-32 md:pb-24">
             {/* Headline */}
             <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4 drop-shadow-2xl">
               {news.headline}
             </h1>
 
             {/* TL;DR */}
-            <div className="mb-8">
+            <div className="mb-6">
               <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
                 TL;DR
               </h2>
-              <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium">
+              <p 
+                className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium"
+                style={{
+                  animationDuration: `${3 / readingSpeed}s`
+                }}
+              >
                 {news.tldr}
               </p>
             </div>
 
-            {/* Swipe Right Hint */}
+            {/* Author */}
             <div className="mb-4">
-              <div className="flex items-center space-x-2 text-white/70 text-sm">
-                <span>Swipe right for more coverage</span>
-                <span className="text-white/50">→</span>
+              <p className="text-white/60 text-sm">By {news.author}</p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pointer-events-auto">
+              <div className="flex items-center space-x-3">
+                <BookmarkButton article={news} />
+                <ShareButton article={news} />
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                <ReadingSpeed onSpeedChange={() => {}} />
+                <div className="text-white/70 text-sm">
+                  Swipe right for more →
+                </div>
               </div>
             </div>
           </div>
