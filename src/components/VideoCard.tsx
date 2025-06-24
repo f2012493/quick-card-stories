@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Share, Heart, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { analyticsService } from '@/services/analyticsService';
 import RelatedCoverageModal from './RelatedCoverageModal';
@@ -27,7 +27,6 @@ interface VideoCardProps {
 }
 
 const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: VideoCardProps) => {
-  const [isLiked, setIsLiked] = useState(false);
   const [showRelatedModal, setShowRelatedModal] = useState(false);
 
   useEffect(() => {
@@ -41,30 +40,6 @@ const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: Vide
       }
     };
   }, [isActive, news.id, news.category]);
-
-  const handleShare = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (news.sourceUrl) {
-      try {
-        navigator.clipboard.writeText(news.sourceUrl);
-        toast.success("📋 Link copied to clipboard!");
-      } catch (error) {
-        toast.success("📱 Sharing feature coming soon!");
-      }
-    } else {
-      toast.success("📱 Sharing feature coming soon!");
-    }
-  };
-
-  const handleLike = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setIsLiked(!isLiked);
-    toast.success(isLiked ? "💔 Removed from favorites" : "❤️ Added to favorites");
-  };
 
   const handleReadFullCoverage = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
@@ -143,33 +118,6 @@ const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: Vide
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Side Controls */}
-        <div className="absolute right-4 bottom-32 md:bottom-20 z-30 flex flex-col space-y-4">
-          {/* Like Button */}
-          <button
-            onClick={handleLike}
-            onTouchStart={handleLike}
-            className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg touch-manipulation select-none ${
-              isLiked 
-                ? 'bg-red-500/90 text-white scale-110' 
-                : 'bg-black/50 text-white hover:bg-black/70 active:bg-black/80'
-            }`}
-            style={{ touchAction: 'manipulation' }}
-          >
-            <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
-          </button>
-          
-          {/* Share Button */}
-          <button
-            onClick={handleShare}
-            onTouchStart={handleShare}
-            className="bg-black/50 hover:bg-black/70 active:bg-black/80 transition-all duration-200 p-3 rounded-full backdrop-blur-md pointer-events-auto shadow-lg touch-manipulation select-none"
-            style={{ touchAction: 'manipulation' }}
-          >
-            <Share className="w-6 h-6 text-white" />
-          </button>
         </div>
       </div>
 
