@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { X, ExternalLink, Clock, ArrowRight } from 'lucide-react';
@@ -26,6 +25,15 @@ interface RelatedCoverageModalProps {
 }
 
 const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigateToArticle }: RelatedCoverageModalProps) => {
+  // Handle close with proper event stopping
+  const handleClose = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    onClose();
+  };
+
   // Improved related articles algorithm with stricter matching
   const getRelatedArticles = () => {
     // Extract key terms with better filtering
@@ -215,7 +223,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
   const relatedArticles = getRelatedArticles();
 
   const handleArticleClick = (article: NewsItem) => {
-    onClose();
+    handleClose();
     onNavigateToArticle(article.id);
   };
 
@@ -245,7 +253,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-full max-h-full md:max-w-4xl md:max-h-[85vh] h-screen md:h-auto overflow-y-auto bg-white m-0 md:m-auto rounded-none md:rounded-lg">
         <DialogHeader className="flex flex-row items-start justify-between space-y-0 pb-4 border-b sticky top-0 bg-white z-10 px-4 md:px-6 pt-4 md:pt-0">
           <div className="flex-1 pr-4">
@@ -256,8 +264,8 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={onClose} 
-            className="h-10 w-10 md:h-8 md:w-8 p-0 flex-shrink-0 hover:bg-gray-100 rounded-full"
+            onClick={handleClose} 
+            className="h-10 w-10 md:h-8 md:w-8 p-0 flex-shrink-0 hover:bg-gray-100 rounded-full z-20"
           >
             <X className="h-5 w-5 md:h-4 md:w-4" />
           </Button>
