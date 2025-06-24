@@ -132,7 +132,7 @@ const RelatedArticlesCarousel = ({
   return (
     <div className="w-full h-full bg-black flex flex-col relative">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-800">
+      <div className="flex items-center justify-between p-4 border-b border-gray-800 relative z-50">
         <button
           onClick={handlePrevCard}
           className="flex items-center space-x-2 text-white hover:text-blue-400 transition-colors"
@@ -155,15 +155,15 @@ const RelatedArticlesCarousel = ({
       {currentCardIndex < 2 && (
         <button
           onClick={handleNextCard}
-          className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-colors backdrop-blur-sm"
+          className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-colors backdrop-blur-sm z-50"
         >
           <ChevronRight className="w-6 h-6" />
         </button>
       )}
 
-      {/* Touch handlers for swiping between cards */}
+      {/* Touch handlers for swiping between cards - highest z-index */}
       <div
-        className="absolute inset-0 z-40 touch-manipulation"
+        className="absolute inset-0 z-[60] touch-manipulation"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
