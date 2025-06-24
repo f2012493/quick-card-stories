@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { X, ExternalLink, Clock, ArrowRight } from 'lucide-react';
@@ -42,11 +41,41 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
     }
   };
 
+  // Extract bullet points from the story content
+  const extractBulletPoints = (story: NewsItem): string[] => {
+    const content = `${story.headline} ${story.tldr}`;
+    
+    // Split content into sentences and create meaningful bullet points
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 20);
+    
+    // Create bullet points from key information
+    const bulletPoints: string[] = [];
+    
+    // Add headline as first point if it's substantial
+    if (story.headline.length > 10) {
+      bulletPoints.push(story.headline);
+    }
+    
+    // Extract key facts from TLDR
+    const tldrSentences = story.tldr.split(/[.!?]+/)
+      .filter(s => s.trim().length > 15)
+      .slice(0, 3); // Limit to 3 key points
+    
+    tldrSentences.forEach(sentence => {
+      const cleanSentence = sentence.trim();
+      if (cleanSentence && !bulletPoints.some(point => point.includes(cleanSentence.substring(0, 20)))) {
+        bulletPoints.push(cleanSentence);
+      }
+    });
+    
+    return bulletPoints.slice(0, 4); // Maximum 4 bullet points
+  };
+
   // Improved related articles algorithm with stricter matching
   const getRelatedArticles = () => {
     // Extract key terms with better filtering
     const extractKeyTerms = (text: string): string[] => {
-      const excludeWords = ['the', 'and', 'for', 'with', 'from', 'this', 'that', 'will', 'have', 'been', 'said', 'says', 'also', 'what', 'when', 'where', 'they', 'their', 'them', 'than', 'then', 'there', 'these', 'those', 'were', 'are', 'could', 'would', 'should', 'might', 'must', 'shall', 'can', 'may', 'did', 'do', 'does', 'don', 'doesn', 'won', 'wouldn', 'isn', 'aren', 'wasn', 'weren', 'hasn', 'haven', 'hadn', 'shouldn', 'couldn', 'wouldn', 'after', 'before', 'during', 'while', 'since', 'until', 'about', 'above', 'below', 'over', 'under', 'between', 'among', 'through', 'across', 'around', 'near', 'far', 'here', 'there', 'up', 'down', 'out', 'off', 'away', 'back', 'home', 'today', 'tomorrow', 'yesterday', 'now', 'soon', 'later', 'early', 'late', 'first', 'last', 'next', 'previous', 'some', 'many', 'few', 'all', 'most', 'other', 'another', 'each', 'every', 'both', 'either', 'neither', 'such', 'same', 'different', 'new', 'old', 'good', 'bad', 'big', 'small', 'long', 'short', 'high', 'low', 'hard', 'easy', 'fast', 'slow', 'hot', 'cold', 'warm', 'cool', 'open', 'close', 'start', 'stop', 'begin', 'end', 'make', 'take', 'give', 'get', 'put', 'set', 'let', 'run', 'walk', 'come', 'go', 'see', 'look', 'find', 'know', 'think', 'feel', 'want', 'need', 'like', 'love', 'hate', 'hope', 'wish', 'try', 'use', 'work', 'play', 'live', 'die', 'kill', 'save', 'help', 'call', 'ask', 'tell', 'talk', 'speak', 'read', 'write', 'hear', 'listen', 'watch', 'show', 'turn', 'move', 'stop', 'wait', 'stay', 'leave', 'return', 'bring', 'carry', 'hold', 'keep', 'lose', 'win', 'buy', 'sell', 'pay', 'cost', 'spend', 'save', 'earn', 'own', 'share', 'break', 'fix', 'build', 'create', 'destroy', 'change', 'improve', 'grow', 'increase', 'decrease', 'add', 'remove', 'include', 'exclude', 'join', 'leave', 'enter', 'exit', 'arrive', 'depart', 'visit', 'meet', 'greet', 'welcome', 'goodbye', 'hello', 'thanks', 'please', 'sorry', 'excuse', 'pardon'];
+      const excludeWords = ['the', 'and', 'for', 'with', 'from', 'this', 'that', 'will', 'have', 'been', 'said', 'says', 'also', 'what', 'when', 'where', 'they', 'their', 'them', 'than', 'then', 'there', 'these', 'those', 'were', 'are', 'could', 'would', 'should', 'might', 'must', 'shall', 'can', 'may', 'did', 'do', 'does', 'don', 'doesn', 'won', 'wouldn', 'isn', 'aren', 'wasn', 'weren', 'hasn', 'haven', 'hadn', 'shouldn', 'couldn', 'wouldn', 'after', 'before', 'during', 'while', 'since', 'until', 'about', 'above', 'below', 'over', 'under', 'between', 'among', 'through', 'across', 'around', 'near', 'far', 'here', 'there', 'up', 'down', 'out', 'off', 'away', 'back', 'home', 'today', 'tomorrow', 'yesterday', 'now', 'soon', 'later', 'early', 'late', 'first', 'last', 'next', 'previous', 'some', 'many', 'few', 'all', 'most', 'other', 'another', 'each', 'every', 'both', 'either', 'neither', 'such', 'same', 'different', 'new', 'old', 'good', 'bad', 'big', 'small', 'long', 'short', 'hard', 'easy', 'fast', 'slow', 'hot', 'cold', 'warm', 'cool', 'open', 'close', 'start', 'stop', 'begin', 'end', 'make', 'take', 'give', 'get', 'put', 'set', 'let', 'run', 'walk', 'come', 'go', 'see', 'look', 'find', 'know', 'think', 'feel', 'want', 'need', 'like', 'love', 'hate', 'hope', 'wish', 'try', 'use', 'work', 'play', 'live', 'die', 'kill', 'save', 'help', 'call', 'ask', 'tell', 'talk', 'speak', 'read', 'write', 'hear', 'listen', 'watch', 'show', 'turn', 'move', 'stop', 'wait', 'stay', 'leave', 'return', 'bring', 'carry', 'hold', 'keep', 'lose', 'win', 'buy', 'sell', 'pay', 'cost', 'spend', 'save', 'earn', 'own', 'share', 'break', 'fix', 'build', 'create', 'destroy', 'change', 'improve', 'grow', 'increase', 'decrease', 'add', 'remove', 'include', 'exclude', 'join', 'leave', 'enter', 'exit', 'arrive', 'depart', 'visit', 'meet', 'greet', 'welcome', 'goodbye', 'hello', 'thanks', 'please', 'sorry', 'excuse', 'pardon'];
       
       const words = text.toLowerCase()
         .replace(/[^\w\s]/g, ' ')
@@ -229,6 +258,7 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
   };
 
   const relatedArticles = getRelatedArticles();
+  const currentStoryBullets = extractBulletPoints(currentNews);
 
   const handleArticleClick = (article: NewsItem) => {
     onClose();
@@ -286,32 +316,17 @@ const RelatedCoverageModal = ({ isOpen, onClose, currentNews, allNews, onNavigat
         </DialogHeader>
         
         <div className="space-y-4 md:space-y-6 p-4 md:p-6 pt-4">
-          {/* Current Article */}
+          {/* Current Story with Bullet Points */}
           <div className="bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
-            <div className="flex items-start gap-3">
-              <img 
-                src={currentNews.imageUrl} 
-                alt={currentNews.headline}
-                className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg flex-shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-blue-900 mb-2 text-base md:text-lg">Current Story</h3>
-                <p className="text-gray-700 text-sm md:text-base mb-3 line-clamp-3">{currentNews.tldr}</p>
-                <div className="flex flex-wrap gap-2">
-                  {currentNews.sourceUrl && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={(e) => handleExternalLink(currentNews, e)}
-                      className="text-blue-600 border-blue-600 hover:bg-blue-50 text-sm h-8 px-3"
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Source
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
+            <h3 className="font-bold text-blue-900 mb-3 text-base md:text-lg">Current Story</h3>
+            <ul className="space-y-2">
+              {currentStoryBullets.map((bullet, index) => (
+                <li key={index} className="flex items-start gap-3">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
+                  <p className="text-gray-700 text-sm md:text-base leading-relaxed">{bullet}</p>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Related Articles */}
