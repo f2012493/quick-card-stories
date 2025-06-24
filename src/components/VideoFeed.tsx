@@ -13,6 +13,7 @@ const VideoFeed = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasTriggeredAutoFetch, setHasTriggeredAutoFetch] = useState(false);
   const [showingCachedNews, setShowingCachedNews] = useState(false);
+  const [hasCachedNews, setHasCachedNews] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef(0);
   const lastYRef = useRef(0);
@@ -35,13 +36,14 @@ const VideoFeed = () => {
   // Load cached news immediately on mount
   useEffect(() => {
     const cachedNews = localStorage.getItem('quick-card-stories-cache');
-    if (cachedNews && allNews.length === 0) {
+    if (cachedNews) {
       try {
         const parsed = JSON.parse(cachedNews);
         if (parsed.news && parsed.news.length > 0) {
           console.log('Loading cached news immediately:', parsed.news.length, 'articles');
           setAllNews(parsed.news);
           setShowingCachedNews(true);
+          setHasCachedNews(true);
         }
       } catch (error) {
         console.error('Failed to parse cached news:', error);
@@ -49,7 +51,7 @@ const VideoFeed = () => {
     }
   }, []);
 
-  // Cache news when fresh data arrives
+  // Cache news when fresh data arrives and replace cached news
   useEffect(() => {
     if (newsData.length > 0) {
       const cacheData = {
@@ -61,31 +63,32 @@ const VideoFeed = () => {
       // Update with fresh news
       setAllNews(newsData);
       setShowingCachedNews(false);
+      setHasCachedNews(true);
       console.log('Updated with fresh news:', newsData.length, 'articles');
     }
   }, [newsData]);
 
-  // Auto-fetch news when no fresh data is available
+  // Auto-fetch news when no fresh data is available but only if we don't have cached news
   useEffect(() => {
-    const shouldAutoFetch = !isLoading && !locationLoading && newsData.length === 0 && !hasTriggeredAutoFetch && !triggerIngestion.isPending;
+    const shouldAutoFetch = !isLoading && !locationLoading && newsData.length === 0 && !hasTriggeredAutoFetch && !triggerIngestion.isPending && !hasCachedNews;
     
     if (shouldAutoFetch) {
-      console.log('Auto-triggering news ingestion - no fresh news available');
+      console.log('Auto-triggering news ingestion - no cached or fresh news available');
       setHasTriggeredAutoFetch(true);
       triggerIngestion.mutateAsync()
         .then(() => {
           setTimeout(() => {
             refetch();
-          }, 100); // Very quick refetch after ingestion
+          }, 100);
         })
         .catch((error) => {
           console.error('Auto-fetch failed:', error);
           setHasTriggeredAutoFetch(false);
         });
     }
-  }, [isLoading, locationLoading, newsData.length, hasTriggeredAutoFetch, triggerIngestion, refetch]);
+  }, [isLoading, locationLoading, newsData.length, hasTriggeredAutoFetch, triggerIngestion, refetch, hasCachedNews]);
 
-  // Set up auto-refresh every 2 minutes
+  // Set up auto-refresh every 2 minutes only if we have news
   useEffect(() => {
     const setupAutoRefresh = () => {
       if (autoRefreshTimeoutRef.current) {
@@ -115,10 +118,8 @@ const VideoFeed = () => {
     
     setIsLoadingMore(true);
     try {
-      // Refetch more news
       const { data: newNewsData } = await refetch();
       if (newNewsData && newNewsData.length > 0) {
-        // Filter out duplicates and add new news
         const uniqueNews = newNewsData.filter(
           newItem => !allNews.some(existingItem => existingItem.id === newItem.id)
         );
@@ -139,7 +140,6 @@ const VideoFeed = () => {
   const handleRefreshNews = async () => {
     try {
       await triggerIngestion.mutateAsync();
-      // Reduced refetch delay from 1000ms to 300ms
       setTimeout(() => {
         refetch();
       }, 300);
@@ -157,15 +157,20 @@ const VideoFeed = () => {
     location: locationData,
     isLoadingMore,
     hasTriggeredAutoFetch,
-    triggerIngestionPending: triggerIngestion.isPending
+    triggerIngestionPending: triggerIngestion.isPending,
+    showingCachedNews,
+    hasCachedNews
   });
 
   useEffect(() => {
     if (error) {
       console.error('News fetch error:', error);
-      toast.error('Failed to load news. Please try again.');
+      // Only show error toast if we don't have cached news to fall back on
+      if (!hasCachedNews) {
+        toast.error('Failed to load news. Please try again.');
+      }
     }
-  }, [error]);
+  }, [error, hasCachedNews]);
 
   const scrollToIndex = useCallback((index: number, smooth = true) => {
     if (containerRef.current) {
@@ -332,19 +337,7 @@ const VideoFeed = () => {
     }
   }, [allNews]);
 
-  console.log('VideoFeed state:', { 
-    allNewsLength: allNews.length, 
-    currentIndex,
-    isLoading, 
-    isError, 
-    error: error?.message,
-    location: locationData,
-    isLoadingMore,
-    hasTriggeredAutoFetch,
-    triggerIngestionPending: triggerIngestion.isPending,
-    showingCachedNews
-  });
-
+  // Show loading only if we're actually loading and have no cached news
   if (isLoading && allNews.length === 0) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
@@ -357,7 +350,8 @@ const VideoFeed = () => {
     );
   }
 
-  if (allNews.length === 0) {
+  // Only show "no news" if we have no cached news and are not loading
+  if (allNews.length === 0 && !isLoading) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
