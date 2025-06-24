@@ -52,32 +52,19 @@ const RelatedArticlesCarousel = ({
     }
   };
 
-  const cards = [
-    {
-      title: "Card 1",
-      content: (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-white text-xl">Empty Card 1</div>
-        </div>
-      )
-    },
-    {
-      title: "Card 2", 
-      content: (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-white text-xl">Empty Card 2</div>
-        </div>
-      )
-    },
-    {
-      title: "Card 3",
-      content: (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-white text-xl">Empty Card 3</div>
-        </div>
-      )
-    }
-  ];
+  // Get the first 3 related articles for the cards
+  const cardsData = relatedArticles.slice(0, 3);
+
+  const formatPublishedDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    return `${Math.floor(diffInHours / 24)}d ago`;
+  };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
@@ -129,6 +116,8 @@ const RelatedArticlesCarousel = ({
     }
   };
 
+  const currentCard = cardsData[currentCardIndex];
+
   return (
     <div className="w-full h-full bg-black flex flex-col relative">
       {/* Header */}
@@ -142,17 +131,74 @@ const RelatedArticlesCarousel = ({
         </button>
         
         <div className="text-white text-sm">
-          Card {currentCardIndex + 1} of 3
+          Card {currentCardIndex + 1} of {Math.min(cardsData.length, 3)}
         </div>
         
         <div className="w-20"></div> {/* Spacer to balance the layout */}
       </div>
 
       {/* Card Content */}
-      {cards[currentCardIndex].content}
+      {currentCard ? (
+        <div className="flex-1 relative">
+          {/* Article Image Background */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `url(${currentCard.imageUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'brightness(0.7) contrast(1.1) saturate(1.2)'
+            }}
+          />
+          
+          {/* Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/60" />
+          
+          {/* Content */}
+          <div className="relative z-20 w-full h-full flex flex-col justify-end p-6">
+            {/* Article Meta */}
+            <div className="flex items-center space-x-3 mb-4">
+              <span className="text-blue-400 text-xs font-semibold uppercase tracking-wider">
+                {currentCard.category}
+              </span>
+              <span className="text-white/70 text-xs">{currentCard.readTime}</span>
+              {currentCard.publishedAt && (
+                <span className="text-white/70 text-xs">{formatPublishedDate(currentCard.publishedAt)}</span>
+              )}
+            </div>
+
+            {/* Headline */}
+            <h2 className="text-white text-xl md:text-2xl font-bold leading-tight mb-4 drop-shadow-2xl">
+              {currentCard.headline}
+            </h2>
+
+            {/* TL;DR */}
+            <div className="mb-6">
+              <h3 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
+                TL;DR
+              </h3>
+              <p className="text-white/95 text-sm leading-relaxed drop-shadow-lg">
+                {currentCard.tldr}
+              </p>
+            </div>
+
+            {/* Read Full Article Button */}
+            <button
+              onClick={() => onNavigateToArticle(currentCard.id)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors self-start"
+            >
+              Read Full Article
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-white text-xl">No more related articles</div>
+        </div>
+      )}
 
       {/* Center-right Next Button */}
-      {currentCardIndex < 2 && (
+      {currentCardIndex < Math.min(cardsData.length - 1, 2) && (
         <button
           onClick={handleNextCard}
           className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-3 rounded-full transition-colors backdrop-blur-sm z-50"
