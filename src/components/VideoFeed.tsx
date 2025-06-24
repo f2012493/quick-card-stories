@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
 import ReadingProgress from './features/ReadingProgress';
 import CategoryFilter from './features/CategoryFilter';
-import PersonalizedRecommendations from './features/PersonalizedRecommendations';
 
 const VideoFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -316,15 +315,6 @@ const VideoFeed = () => {
         currentIndex={currentIndex}
         totalArticles={filteredNews.length}
       />
-
-      {/* Personalized Recommendations */}
-      {filteredNews[currentIndex] && (
-        <PersonalizedRecommendations
-          currentArticle={filteredNews[currentIndex]}
-          allArticles={allNews}
-          onNavigateToArticle={navigateToArticle}
-        />
-      )}
       
       {/* Progress indicator */}
       <div className="fixed right-2 top-1/2 transform -translate-y-1/2 z-50">
