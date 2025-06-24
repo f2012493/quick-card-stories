@@ -1,9 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { ExternalLink } from 'lucide-react';
-import { toast } from 'sonner';
 import { analyticsService } from '@/services/analyticsService';
-import RelatedCoverageModal from './RelatedCoverageModal';
+import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 
 interface NewsItem {
   id: string;
@@ -27,7 +25,7 @@ interface VideoCardProps {
 }
 
 const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: VideoCardProps) => {
-  const [showRelatedModal, setShowRelatedModal] = useState(false);
+  const [showRelatedArticles, setShowRelatedArticles] = useState(false);
 
   useEffect(() => {
     if (isActive) {
@@ -41,13 +39,6 @@ const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: Vide
     };
   }, [isActive, news.id, news.category]);
 
-  const handleReadFullCoverage = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setShowRelatedModal(true);
-  };
-
   const formatPublishedDate = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -59,9 +50,25 @@ const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: Vide
     return `${Math.floor(diffInHours / 24)}d ago`;
   };
 
+  const handleSwipeRight = () => {
+    setShowRelatedArticles(true);
+  };
+
+  const handleSwipeLeft = () => {
+    setShowRelatedArticles(false);
+  };
+
+  // Get related articles (excluding current one)
+  const relatedArticles = allNews.filter(article => article.id !== news.id);
+
   return (
-    <>
-      <div className="relative w-full h-screen flex items-center justify-center">
+    <div className="relative w-full h-screen flex items-center justify-center">
+      {/* Main Article View */}
+      <div 
+        className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
+          showRelatedArticles ? '-translate-x-full' : 'translate-x-0'
+        }`}
+      >
         {/* Image Background */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -105,31 +112,53 @@ const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: Vide
               </p>
             </div>
 
-            {/* Read Full Coverage Button */}
+            {/* Swipe Right Hint */}
             <div className="mb-4">
-              <button
-                onClick={handleReadFullCoverage}
-                onTouchStart={handleReadFullCoverage}
-                className="flex items-center space-x-2 bg-blue-600/90 hover:bg-blue-700/90 active:bg-blue-800/90 text-white px-6 py-3 rounded-full text-sm font-medium transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg touch-manipulation select-none"
-                style={{ touchAction: 'manipulation' }}
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Read Full Coverage</span>
-              </button>
+              <div className="flex items-center space-x-2 text-white/70 text-sm">
+                <span>Swipe right for more coverage</span>
+                <span className="text-white/50">→</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Related Coverage Modal */}
-      <RelatedCoverageModal 
-        isOpen={showRelatedModal}
-        onClose={() => setShowRelatedModal(false)}
-        currentNews={news}
-        allNews={allNews}
-        onNavigateToArticle={onNavigateToArticle}
+      {/* Related Articles Carousel */}
+      <div 
+        className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
+          showRelatedArticles ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <RelatedArticlesCarousel
+          currentNews={news}
+          relatedArticles={relatedArticles}
+          onNavigateToArticle={onNavigateToArticle}
+          onSwipeLeft={handleSwipeLeft}
+        />
+      </div>
+
+      {/* Touch handlers for swiping */}
+      <div
+        className="absolute inset-0 z-30 touch-manipulation"
+        onTouchStart={(e) => {
+          const touch = e.touches[0];
+          (e.target as any).startX = touch.clientX;
+        }}
+        onTouchEnd={(e) => {
+          const touch = e.changedTouches[0];
+          const startX = (e.target as any).startX;
+          const deltaX = touch.clientX - startX;
+          
+          if (Math.abs(deltaX) > 50) {
+            if (deltaX > 0 && showRelatedArticles) {
+              handleSwipeLeft();
+            } else if (deltaX < 0 && !showRelatedArticles) {
+              handleSwipeRight();
+            }
+          }
+        }}
       />
-    </>
+    </div>
   );
 };
 
