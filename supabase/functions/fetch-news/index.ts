@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -390,57 +389,29 @@ serve(async (req) => {
 
     let articles: any[] = [];
 
-    // Try NewsAPI first with country-specific news
-    if (country) {
-      try {
-        const countryCode = country === 'India' ? 'in' : 'us';
-        const newsApiUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
-        
-        console.log('Calling NewsAPI with URL:', newsApiUrl);
-        
-        const newsApiResponse = await fetch(newsApiUrl);
-        const newsApiData = await newsApiResponse.json();
-        
-        if (newsApiData.articles && newsApiData.articles.length > 0) {
-          console.log(`NewsAPI returned ${newsApiData.articles.length} articles for ${country}`);
-          articles = newsApiData.articles;
-        } else if (newsApiData.message) {
-          console.log('NewsAPI message:', newsApiData.message);
-        }
-      } catch (error) {
-        console.error('NewsAPI with country failed:', error);
+    // Try NewsAPI first
+    try {
+      const countryCode = country === 'India' ? 'in' : 'us';
+      const newsApiUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+      
+      console.log('Calling NewsAPI with URL:', newsApiUrl);
+      
+      const newsApiResponse = await fetch(newsApiUrl);
+      const newsApiData = await newsApiResponse.json();
+      
+      if (newsApiData.articles && newsApiData.articles.length > 0) {
+        console.log(`NewsAPI returned ${newsApiData.articles.length} articles`);
+        articles = newsApiData.articles;
       }
-    }
-
-    // If country-specific NewsAPI didn't work, try general US news
-    if (articles.length === 0) {
-      try {
-        const newsApiUrl = `https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
-        
-        console.log('Calling NewsAPI with general US news:', newsApiUrl);
-        
-        const newsApiResponse = await fetch(newsApiUrl);
-        const newsApiData = await newsApiResponse.json();
-        
-        if (newsApiData.articles && newsApiData.articles.length > 0) {
-          console.log(`NewsAPI returned ${newsApiData.articles.length} general articles`);
-          articles = newsApiData.articles;
-        }
-      } catch (error) {
-        console.error('General NewsAPI failed:', error);
-      }
+    } catch (error) {
+      console.error('NewsAPI failed:', error);
     }
 
     // If NewsAPI didn't provide enough articles, try NewsData.io
     if (articles.length < 5) {
       try {
-        let newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&language=en&size=10&image=1`;
-        
-        // Add country if specified and supported
-        if (country) {
-          const countryCode = country === 'India' ? 'in' : 'us';
-          newsDataUrl += `&country=${countryCode}`;
-        }
+        const countryCode = country === 'India' ? 'in' : 'us';
+        const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${countryCode}&language=en&size=10&image=1`;
         
         console.log('Calling NewsData.io with URL:', newsDataUrl);
         
@@ -450,35 +421,13 @@ serve(async (req) => {
         if (newsDataData.results && newsDataData.results.length > 0) {
           console.log(`NewsData.io returned ${newsDataData.results.length} articles`);
           articles = articles.concat(newsDataData.results.slice(0, 10));
-        } else if (newsDataData.message) {
-          console.log('NewsData.io message:', newsDataData.message);
         }
       } catch (error) {
         console.error('NewsData.io failed:', error);
       }
     }
 
-    // If still no articles, try NewsData.io without country restriction
     if (articles.length === 0) {
-      try {
-        const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&language=en&size=15&image=1`;
-        
-        console.log('Calling NewsData.io without country restriction:', newsDataUrl);
-        
-        const newsDataResponse = await fetch(newsDataUrl);
-        const newsDataData = await newsDataResponse.json();
-        
-        if (newsDataData.results && newsDataData.results.length > 0) {
-          console.log(`NewsData.io returned ${newsDataData.results.length} global articles`);
-          articles = newsDataData.results;
-        }
-      } catch (error) {
-        console.error('Global NewsData.io failed:', error);
-      }
-    }
-
-    if (articles.length === 0) {
-      console.error('No articles found from any news source');
       throw new Error('No articles found from any news source');
     }
 
