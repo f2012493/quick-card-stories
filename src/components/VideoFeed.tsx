@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import { useNews } from '@/hooks/useNews';
@@ -13,6 +12,7 @@ const VideoFeed = () => {
   const [allNews, setAllNews] = useState<any[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasTriggeredAutoFetch, setHasTriggeredAutoFetch] = useState(false);
+  const [showingCachedNews, setShowingCachedNews] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef(0);
   const lastYRef = useRef(0);
@@ -32,28 +32,60 @@ const VideoFeed = () => {
     region: locationData?.region
   });
 
-  // Auto-fetch news when no data is available (reduced wait time significantly)
+  // Load cached news immediately on mount
+  useEffect(() => {
+    const cachedNews = localStorage.getItem('quick-card-stories-cache');
+    if (cachedNews && allNews.length === 0) {
+      try {
+        const parsed = JSON.parse(cachedNews);
+        if (parsed.news && parsed.news.length > 0) {
+          console.log('Loading cached news immediately:', parsed.news.length, 'articles');
+          setAllNews(parsed.news);
+          setShowingCachedNews(true);
+        }
+      } catch (error) {
+        console.error('Failed to parse cached news:', error);
+      }
+    }
+  }, []);
+
+  // Cache news when fresh data arrives
+  useEffect(() => {
+    if (newsData.length > 0) {
+      const cacheData = {
+        news: newsData,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('quick-card-stories-cache', JSON.stringify(cacheData));
+      
+      // Update with fresh news
+      setAllNews(newsData);
+      setShowingCachedNews(false);
+      console.log('Updated with fresh news:', newsData.length, 'articles');
+    }
+  }, [newsData]);
+
+  // Auto-fetch news when no fresh data is available
   useEffect(() => {
     const shouldAutoFetch = !isLoading && !locationLoading && newsData.length === 0 && !hasTriggeredAutoFetch && !triggerIngestion.isPending;
     
     if (shouldAutoFetch) {
-      console.log('Auto-triggering news ingestion - no news available');
+      console.log('Auto-triggering news ingestion - no fresh news available');
       setHasTriggeredAutoFetch(true);
       triggerIngestion.mutateAsync()
         .then(() => {
-          // Reduced wait time from 1500ms to 500ms for faster response
           setTimeout(() => {
             refetch();
-          }, 500);
+          }, 100); // Very quick refetch after ingestion
         })
         .catch((error) => {
           console.error('Auto-fetch failed:', error);
-          setHasTriggeredAutoFetch(false); // Allow retry
+          setHasTriggeredAutoFetch(false);
         });
     }
   }, [isLoading, locationLoading, newsData.length, hasTriggeredAutoFetch, triggerIngestion, refetch]);
 
-  // Set up auto-refresh every 3 minutes (reduced from 5 minutes)
+  // Set up auto-refresh every 2 minutes
   useEffect(() => {
     const setupAutoRefresh = () => {
       if (autoRefreshTimeoutRef.current) {
@@ -63,12 +95,11 @@ const VideoFeed = () => {
       autoRefreshTimeoutRef.current = setTimeout(() => {
         console.log('Auto-refreshing news feed...');
         refetch();
-        setupAutoRefresh(); // Schedule next refresh
-      }, 3 * 60 * 1000); // 3 minutes
+        setupAutoRefresh();
+      }, 2 * 60 * 1000); // 2 minutes
     };
 
-    // Only start auto-refresh if we have news data
-    if (newsData.length > 0) {
+    if (allNews.length > 0) {
       setupAutoRefresh();
     }
 
@@ -77,23 +108,7 @@ const VideoFeed = () => {
         clearTimeout(autoRefreshTimeoutRef.current);
       }
     };
-  }, [newsData.length, refetch]);
-
-  // Initialize news data
-  useEffect(() => {
-    if (newsData.length > 0 && allNews.length === 0) {
-      setAllNews(newsData);
-    }
-  }, [newsData]);
-
-  // Load more news when approaching the end
-  useEffect(() => {
-    const shouldLoadMore = currentIndex >= allNews.length - 3 && !isLoadingMore && allNews.length > 0;
-    
-    if (shouldLoadMore) {
-      loadMoreNews();
-    }
-  }, [currentIndex, allNews.length, isLoadingMore]);
+  }, [allNews.length, refetch]);
 
   const loadMoreNews = async () => {
     if (isLoadingMore) return;
@@ -310,27 +325,44 @@ const VideoFeed = () => {
     };
   }, [isDragging, handleMove, handleEnd]);
 
-  if (isLoading || locationLoading || triggerIngestion.isPending) {
+  const navigateToArticle = useCallback((articleId: string) => {
+    const targetIndex = allNews.findIndex(news => news.id === articleId);
+    if (targetIndex !== -1) {
+      setCurrentIndex(targetIndex);
+    }
+  }, [allNews]);
+
+  console.log('VideoFeed state:', { 
+    allNewsLength: allNews.length, 
+    currentIndex,
+    isLoading, 
+    isError, 
+    error: error?.message,
+    location: locationData,
+    isLoadingMore,
+    hasTriggeredAutoFetch,
+    triggerIngestionPending: triggerIngestion.isPending,
+    showingCachedNews
+  });
+
+  if (isLoading && allNews.length === 0) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p>{triggerIngestion.isPending ? 'Fetching latest news...' : 'Loading latest news...'}</p>
-          {locationLoading && <p className="text-sm text-white/60 mt-2">Detecting your location...</p>}
+          <p>Loading news...</p>
           {locationData && <p className="text-sm text-blue-400 mt-2">📍 {locationData.city}, {locationData.country}</p>}
         </div>
       </div>
     );
   }
 
-  if (isError || allNews.length === 0) {
+  if (allNews.length === 0) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
           <p>No news available at the moment.</p>
-          <p className="text-sm text-white/60 mt-2">
-            {isError ? `Error: ${error?.message}` : 'Fetching fresh news for you...'}
-          </p>
+          <p className="text-sm text-white/60 mt-2">Fetching fresh news for you...</p>
           {locationData && (
             <p className="text-sm text-blue-400 mt-2">📍 {locationData.city}, {locationData.country}</p>
           )}
@@ -342,12 +374,6 @@ const VideoFeed = () => {
             >
               <RefreshCw className={`w-4 h-4 ${triggerIngestion.isPending ? 'animate-spin' : ''}`} />
               {triggerIngestion.isPending ? 'Fetching News...' : 'Fetch Latest News'}
-            </button>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-6 py-3 bg-gray-600 text-white rounded hover:bg-gray-700"
-            >
-              Reload Page
             </button>
           </div>
         </div>
@@ -390,7 +416,8 @@ const VideoFeed = () => {
               news={news}
               isActive={index === currentIndex}
               index={index}
-              allNews={allNews} // Pass all news for related articles
+              allNews={allNews}
+              onNavigateToArticle={navigateToArticle}
             />
           </div>
         ))}
@@ -418,10 +445,11 @@ const VideoFeed = () => {
         </div>
       </div>
 
-      {/* Location indicator */}
+      {/* Location and status indicators */}
       {locationData && (
         <div className="fixed top-4 left-4 z-50 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm border border-white/20">
           📍 {locationData.city}, {locationData.country}
+          {showingCachedNews && <span className="ml-2 text-orange-400">• Cached</span>}
         </div>
       )}
 

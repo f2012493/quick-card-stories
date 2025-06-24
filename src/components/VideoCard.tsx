@@ -23,13 +23,13 @@ interface VideoCardProps {
   isActive: boolean;
   index: number;
   allNews: NewsItem[];
+  onNavigateToArticle: (articleId: string) => void;
 }
 
-const VideoCard = ({ news, isActive, index, allNews }: VideoCardProps) => {
+const VideoCard = ({ news, isActive, index, allNews, onNavigateToArticle }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [showRelatedModal, setShowRelatedModal] = useState(false);
 
-  // Track time spent on this card
   useEffect(() => {
     if (isActive) {
       analyticsService.startTracking(news.id, news.category);
@@ -134,7 +134,7 @@ const VideoCard = ({ news, isActive, index, allNews }: VideoCardProps) => {
             <div className="mb-4">
               <button
                 onClick={handleReadFullCoverage}
-                onTouchEnd={handleReadFullCoverage}
+                onTouchStart={handleReadFullCoverage}
                 className="flex items-center space-x-2 bg-blue-600/90 hover:bg-blue-700/90 active:bg-blue-800/90 text-white px-6 py-3 rounded-full text-sm font-medium transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg touch-manipulation select-none"
                 style={{ touchAction: 'manipulation' }}
               >
@@ -150,7 +150,7 @@ const VideoCard = ({ news, isActive, index, allNews }: VideoCardProps) => {
           {/* Like Button */}
           <button
             onClick={handleLike}
-            onTouchEnd={handleLike}
+            onTouchStart={handleLike}
             className={`p-3 rounded-full transition-all duration-200 pointer-events-auto backdrop-blur-md shadow-lg touch-manipulation select-none ${
               isLiked 
                 ? 'bg-red-500/90 text-white scale-110' 
@@ -164,7 +164,7 @@ const VideoCard = ({ news, isActive, index, allNews }: VideoCardProps) => {
           {/* Share Button */}
           <button
             onClick={handleShare}
-            onTouchEnd={handleShare}
+            onTouchStart={handleShare}
             className="bg-black/50 hover:bg-black/70 active:bg-black/80 transition-all duration-200 p-3 rounded-full backdrop-blur-md pointer-events-auto shadow-lg touch-manipulation select-none"
             style={{ touchAction: 'manipulation' }}
           >
@@ -179,6 +179,7 @@ const VideoCard = ({ news, isActive, index, allNews }: VideoCardProps) => {
         onClose={() => setShowRelatedModal(false)}
         currentNews={news}
         allNews={allNews}
+        onNavigateToArticle={onNavigateToArticle}
       />
     </>
   );
