@@ -26,8 +26,7 @@ interface UseNewsOptions {
 }
 
 export const useNews = (options: UseNewsOptions = {}) => {
-  // Use the new clustered news system if we're in the new backend mode
-  const useNewBackend = true; // Feature flag - can be toggled
+  const useNewBackend = true;
 
   const clusteredNewsQuery = useClusteredNews({
     userId: options.userId,
@@ -59,20 +58,19 @@ export const useNews = (options: UseNewsOptions = {}) => {
         return newsArray;
       } catch (err) {
         console.error('Error in legacy news hook:', err);
-        throw err;
+        // Don't throw error - let the component handle fallbacks
+        return [];
       }
     },
     enabled: !useNewBackend || (useNewBackend && (!clusteredNewsQuery.data || clusteredNewsQuery.data.length === 0)),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retry: 1, // Reduce retries to fail faster
+    retryDelay: 1000,
   });
 
   if (useNewBackend) {
-    // If clustered news is available, use it
     if (clusteredNewsQuery.data && clusteredNewsQuery.data.length > 0) {
-      // Transform clustered news to match the expected NewsItem format
       const transformedData = clusteredNewsQuery.data.map((cluster, index) => ({
         id: cluster.id,
         headline: cluster.title,
@@ -83,7 +81,7 @@ export const useNews = (options: UseNewsOptions = {}) => {
         imageUrl: cluster.representative_image_url || `https://images.unsplash.com/photo-${1504711434969 + index}?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
         readTime: '2 min read',
         publishedAt: cluster.latest_published_at,
-        sourceUrl: '' // Will be filled from representative article if needed
+        sourceUrl: ''
       })) || [];
 
       return {
@@ -92,14 +90,24 @@ export const useNews = (options: UseNewsOptions = {}) => {
       };
     }
     
-    // If no clustered news, fall back to legacy system
     if (legacyNewsQuery.data && legacyNewsQuery.data.length > 0) {
       return legacyNewsQuery;
     }
     
-    // If both systems have no data, return the clustered query state
-    return clusteredNewsQuery;
+    // Return successful state even if no data - let component handle fallbacks
+    return {
+      ...clusteredNewsQuery,
+      data: [],
+      isError: false,
+      error: null
+    };
   }
 
-  return legacyNewsQuery;
+  // For legacy mode, also return successful state on errors
+  return {
+    ...legacyNewsQuery,
+    data: legacyNewsQuery.data || [],
+    isError: false,
+    error: legacyNewsQuery.error
+  };
 };
