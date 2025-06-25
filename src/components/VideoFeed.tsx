@@ -5,7 +5,6 @@ import { useLocation } from '@/hooks/useLocation';
 import { useTriggerNewsIngestion } from '@/hooks/useTriggerNewsIngestion';
 import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
-import ReadingProgress from './features/ReadingProgress';
 import CategoryFilter from './features/CategoryFilter';
 
 const VideoFeed = () => {
@@ -309,12 +308,6 @@ const VideoFeed = () => {
           onCategoryChange={setSelectedCategory}
         />
       )}
-
-      {/* Reading Progress */}
-      <ReadingProgress
-        currentIndex={currentIndex}
-        totalArticles={filteredNews.length}
-      />
       
       {/* Progress indicator */}
       <div className="fixed right-2 top-1/2 transform -translate-y-1/2 z-50">
