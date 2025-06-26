@@ -2,9 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { analyticsService } from '@/services/analyticsService';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
-import BookmarkButton from './features/BookmarkButton';
-import ShareButton from './features/ShareButton';
-import ReadingSpeed from './features/ReadingSpeed';
 
 interface NewsItem {
   id: string;
@@ -131,21 +128,6 @@ const VideoCard = ({
             {/* Author */}
             <div className="mb-4">
               <p className="text-white/60 text-sm">By {news.author}</p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between pointer-events-auto">
-              <div className="flex items-center space-x-3">
-                <BookmarkButton article={news} />
-                <ShareButton article={news} />
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <ReadingSpeed onSpeedChange={() => {}} />
-                <div className="text-white/70 text-sm">
-                  Swipe right for more →
-                </div>
-              </div>
             </div>
           </div>
         </div>
