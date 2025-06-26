@@ -32,7 +32,7 @@ export class AdService {
       if (!document.querySelector('script[src*="pagead2.googlesyndication.com"]')) {
         const script = document.createElement('script');
         script.async = true;
-        script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID';
+        script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6962771066686971';
         script.crossOrigin = 'anonymous';
         document.head.appendChild(script);
       }
@@ -65,7 +65,7 @@ export class AdService {
         link: "#",
         revenue: 25, // Estimated CPM in cents
         category: 'display',
-        adUnitId: 'ca-app-pub-YOUR_PUBLISHER_ID/AD_UNIT_ID_1'
+        adUnitId: 'ca-app-pub-6962771066686971/AD_UNIT_ID_1'
       },
       {
         id: 'adsense_display_002',
@@ -76,7 +76,7 @@ export class AdService {
         link: "#",
         revenue: 45,
         category: 'premium',
-        adUnitId: 'ca-app-pub-YOUR_PUBLISHER_ID/AD_UNIT_ID_2'
+        adUnitId: 'ca-app-pub-6962771066686971/AD_UNIT_ID_2'
       },
       {
         id: 'adsense_display_003',
@@ -87,7 +87,7 @@ export class AdService {
         link: "#",
         revenue: 15,
         category: 'subscription',
-        adUnitId: 'ca-app-pub-YOUR_PUBLISHER_ID/AD_UNIT_ID_3'
+        adUnitId: 'ca-app-pub-6962771066686971/AD_UNIT_ID_3'
       }
     ];
 
