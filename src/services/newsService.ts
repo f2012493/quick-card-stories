@@ -21,6 +21,7 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
+  whyItMatters?: string;
   location?: string;
   relevanceScore?: number;
 }
@@ -65,7 +66,7 @@ class NewsService {
   }
 
   async fetchAllNews(location?: LocationData): Promise<NewsItem[]> {
-    console.log('Fetching news for location:', location);
+    console.log('Fetching fresh news for location:', location);
     
     const allNews: NewsItem[] = [];
     const promises = this.sources.map(source => 
@@ -89,8 +90,17 @@ class NewsService {
       return this.getCuratedFallbackNews(location);
     }
 
+    // Filter out articles older than 24 hours for freshness
+    const freshNews = allNews.filter(article => {
+      if (!article.publishedAt) return true;
+      const publishedTime = new Date(article.publishedAt).getTime();
+      const now = new Date().getTime();
+      const hoursDiff = (now - publishedTime) / (1000 * 60 * 60);
+      return hoursDiff <= 24; // Only articles from last 24 hours
+    });
+
     // Score articles based on location relevance
-    const scoredNews = this.scoreNewsByLocation(allNews, location);
+    const scoredNews = this.scoreNewsByLocation(freshNews, location);
     
     // Sort by relevance score and recency
     scoredNews.sort((a, b) => {
@@ -146,15 +156,16 @@ class NewsService {
     const ageInHours = (now - published) / (1000 * 60 * 60);
     
     // Recent articles get higher scores
-    if (ageInHours < 2) return 1.0;
+    if (ageInHours < 1) return 1.0;
+    if (ageInHours < 3) return 0.9;
     if (ageInHours < 6) return 0.8;
-    if (ageInHours < 24) return 0.6;
-    if (ageInHours < 48) return 0.4;
+    if (ageInHours < 12) return 0.6;
+    if (ageInHours < 24) return 0.4;
     return 0.2;
   }
 
   private async fetchFromGuardian(location?: LocationData): Promise<NewsItem[]> {
-    let url = 'https://content.guardianapis.com/search?api-key=test&show-fields=thumbnail,trailText&page-size=10';
+    let url = 'https://content.guardianapis.com/search?api-key=test&show-fields=thumbnail,trailText&page-size=10&order-by=newest';
     
     // Add location-based search terms
     if (location?.country) {
@@ -187,7 +198,7 @@ class NewsService {
   }
 
   private async fetchFromNewsAPI(location?: LocationData): Promise<NewsItem[]> {
-    let url = 'https://newsapi.org/v2/top-headlines?pageSize=10&apiKey=demo';
+    let url = 'https://newsapi.org/v2/top-headlines?pageSize=10&apiKey=demo&sortBy=publishedAt';
     
     // Use country code for more relevant results
     if (location?.countryCode) {
@@ -224,23 +235,25 @@ class NewsService {
   private async fetchLocalNews(location?: LocationData): Promise<NewsItem[]> {
     if (!location || !location.city) return [];
     
-    // Generate location-specific curated news
+    // Generate location-specific curated news with current timestamps
     return this.generateLocationSpecificNews(location);
   }
 
   private generateLocationSpecificNews(location: LocationData): NewsItem[] {
+    const now = new Date();
+    
     const locationNews = [
       {
         id: `local-${Date.now()}-1`,
-        headline: `Local Innovation Hub Opens in ${location.city}`,
+        headline: `Innovation Hub Opens in ${location.city}`,
         tldr: `A new technology and innovation center has opened in ${location.city}, bringing together startups, established companies, and educational institutions to foster collaboration and economic growth.`,
         quote: `This hub will create hundreds of jobs and position ${location.city} as a leader in innovation.`,
         author: `${location.city} Business Journal`,
         category: 'Local Business',
         imageUrl: this.getPlaceholderImage(0),
         readTime: '3 min read',
-        publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: '',
+        publishedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+        sourceUrl: `https://example.com/local-news-${location.city?.toLowerCase().replace(/\s+/g, '-')}-innovation-hub`,
         location: location.city,
         relevanceScore: 0.9
       },
@@ -253,8 +266,8 @@ class NewsService {
         category: 'Environment',
         imageUrl: this.getPlaceholderImage(1),
         readTime: '4 min read',
-        publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: '',
+        publishedAt: new Date(now.getTime() - 4 * 60 * 60 * 1000).toISOString(),
+        sourceUrl: `https://example.com/local-news-${location.region?.toLowerCase().replace(/\s+/g, '-')}-energy`,
         location: location.region,
         relevanceScore: 0.8
       }
@@ -381,6 +394,8 @@ class NewsService {
   }
 
   private getCuratedFallbackNews(location?: LocationData): NewsItem[] {
+    const now = new Date();
+    
     const baseNews = [
       {
         id: 'curated-1',
@@ -391,8 +406,8 @@ class NewsService {
         category: 'Technology',
         imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=600&fit=crop&crop=entropy&auto=format&q=80',
         readTime: '3 min read',
-        publishedAt: new Date().toISOString(),
-        sourceUrl: ''
+        publishedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(),
+        sourceUrl: 'https://example.com/tech-summit-ai-innovations'
       },
       {
         id: 'curated-2',
@@ -403,8 +418,8 @@ class NewsService {
         category: 'Environment',
         imageUrl: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=800&h=600&fit=crop&crop=entropy&auto=format&q=80',
         readTime: '4 min read',
-        publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: ''
+        publishedAt: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(),
+        sourceUrl: 'https://example.com/climate-renewable-energy'
       },
       {
         id: 'curated-3',
@@ -415,8 +430,8 @@ class NewsService {
         category: 'Health',
         imageUrl: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=600&fit=crop&crop=entropy&auto=format&q=80',
         readTime: '5 min read',
-        publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: ''
+        publishedAt: new Date(now.getTime() - 5 * 60 * 60 * 1000).toISOString(),
+        sourceUrl: 'https://example.com/medical-research-breakthrough'
       }
     ];
 
@@ -431,8 +446,8 @@ class NewsService {
         category: 'Local News',
         imageUrl: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800&h=600&fit=crop&crop=entropy&auto=format&q=80',
         readTime: '3 min read',
-        publishedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: '',
+        publishedAt: new Date(now.getTime() - 30 * 60 * 1000).toISOString(),
+        sourceUrl: `https://example.com/local-news-${location.city?.toLowerCase().replace(/\s+/g, '-')}-development`,
         location: location.city,
         relevanceScore: 0.9
       });

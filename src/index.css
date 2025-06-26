@@ -83,13 +83,13 @@
   }
 }
 
-/* Enhanced mobile safe area handling */
+/* Enhanced mobile safe area handling with bottom navigation spacing */
 @supports (padding: max(0px)) {
   .safe-area-inset {
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
     padding-top: max(16px, env(safe-area-inset-top));
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    padding-bottom: max(80px, env(safe-area-inset-bottom) + 80px); /* Extra space for navigation */
   }
   
   .pt-safe {
@@ -97,8 +97,17 @@
   }
   
   .pb-safe {
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-bottom: max(80px, env(safe-area-inset-bottom) + 80px); /* Safe area + nav height */
   }
+  
+  .pb-nav-safe {
+    padding-bottom: max(80px, env(safe-area-inset-bottom) + 80px); /* Specific for navigation overlap */
+  }
+}
+
+/* Navigation safe area */
+.nav-safe-area {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Hide scrollbars completely */
@@ -182,6 +191,11 @@ p, h1, h2, h3, h4, h5, h6, span {
   .text-shadow-mobile {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
   }
+  
+  /* Specific mobile spacing for content above navigation */
+  .mobile-content-spacing {
+    padding-bottom: 100px; /* Space for fixed navigation */
+  }
 }
 
 /* Enhanced backdrop blur support */
@@ -206,4 +220,18 @@ p, h1, h2, h3, h4, h5, h6, span {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200px 100%;
   animation: shimmer 1.5s infinite;
+}
+
+/* Fresher content indicators */
+.fresh-content {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }

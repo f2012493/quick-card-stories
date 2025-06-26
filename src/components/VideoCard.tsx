@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { analyticsService } from '@/services/analyticsService';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 
@@ -93,7 +94,7 @@ const VideoCard = ({
         {/* Gradient Overlay - Enhanced for mobile */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
         
-        {/* Content Overlay - Mobile Optimized */}
+        {/* Content Overlay - Mobile Optimized with safe bottom spacing */}
         <div className="relative z-20 w-full h-full flex flex-col justify-between p-4 safe-area-inset">
           {/* Header - Mobile Optimized */}
           <div className="flex items-center justify-between pt-2 flex-shrink-0">
@@ -108,8 +109,8 @@ const VideoCard = ({
             </div>
           </div>
 
-          {/* Main Content Area - Mobile Optimized */}
-          <div className="flex-1 flex flex-col justify-end pb-24 space-y-4">
+          {/* Main Content Area - Mobile Optimized with proper bottom spacing */}
+          <div className="flex-1 flex flex-col justify-end pb-32 space-y-4">
             {/* Headline - Mobile Typography */}
             <h1 className="text-white text-xl sm:text-2xl md:text-3xl font-bold leading-tight drop-shadow-2xl">
               {news.headline}
@@ -146,15 +147,29 @@ const VideoCard = ({
               </div>
             )}
 
-            {/* Author - Mobile Optimized */}
-            <div className="text-center">
-              <p className="text-white/60 text-xs">By {news.author}</p>
-            </div>
+            {/* Source Link - New Addition */}
+            {news.sourceUrl && (
+              <div className="flex items-center justify-between bg-black/20 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+                <div>
+                  <p className="text-white/60 text-xs mb-1">Source</p>
+                  <p className="text-white/95 text-sm font-medium">By {news.author}</p>
+                </div>
+                <a
+                  href={news.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <span className="text-xs">Verify</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            )}
           </div>
 
-          {/* CTA Button - Mobile Optimized */}
+          {/* CTA Button - Mobile Optimized with safe bottom spacing */}
           {onCreateExplainer && (
-            <div className="flex-shrink-0 pb-4">
+            <div className="flex-shrink-0 pb-20">
               <button
                 onClick={onCreateExplainer}
                 className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all transform active:scale-95 text-sm sm:text-base"

@@ -88,8 +88,8 @@ export const useNews = (options: UseNewsOptions = {}) => {
         return await newsService.fetchAllNews(locationData);
       }
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes for fresher news
+    gcTime: 15 * 60 * 1000, // 15 minutes
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
