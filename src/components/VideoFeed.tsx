@@ -7,6 +7,7 @@ import { useTriggerNewsIngestion } from '@/hooks/useTriggerNewsIngestion';
 import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
 import CategoryFilter from './features/CategoryFilter';
+import RevenueDashboard from './RevenueDashboard';
 
 const VideoFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -372,6 +373,9 @@ const VideoFeed = () => {
           <RefreshCw className={`w-5 h-5 ${triggerIngestion.isPending ? 'animate-spin' : ''}`} />
         </button>
       </div>
+
+      {/* Revenue Dashboard */}
+      <RevenueDashboard />
     </div>
   );
 };
