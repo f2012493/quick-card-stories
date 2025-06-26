@@ -14,6 +14,7 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
+  whyItMatters?: string;
 }
 
 interface VideoCardProps {
@@ -23,6 +24,7 @@ interface VideoCardProps {
   allNews: NewsItem[];
   onNavigateToArticle: (articleId: string) => void;
   readingSpeed?: number;
+  onCreateExplainer?: () => void;
 }
 
 const VideoCard = ({ 
@@ -31,7 +33,8 @@ const VideoCard = ({
   index, 
   allNews, 
   onNavigateToArticle,
-  readingSpeed = 1 
+  readingSpeed = 1,
+  onCreateExplainer
 }: VideoCardProps) => {
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
 
@@ -88,7 +91,7 @@ const VideoCard = ({
         />
         
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-black/50" />
         
         {/* Content Overlay */}
         <div className="relative z-20 w-full h-full flex flex-col p-6 pointer-events-none">
@@ -125,10 +128,45 @@ const VideoCard = ({
               </p>
             </div>
 
+            {/* Why It Matters Section */}
+            {news.whyItMatters && (
+              <div className="mb-6">
+                <h2 className="text-green-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
+                  Why This Matters
+                </h2>
+                <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium">
+                  {news.whyItMatters}
+                </p>
+              </div>
+            )}
+
+            {/* Quote/Stat */}
+            {news.quote && (
+              <div className="mb-6">
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border-l-4 border-blue-400">
+                  <p className="text-white/95 text-sm italic">
+                    "{news.quote}"
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Author */}
-            <div className="mb-4">
+            <div className="mb-6">
               <p className="text-white/60 text-sm">By {news.author}</p>
             </div>
+
+            {/* CTA Button */}
+            {onCreateExplainer && (
+              <div className="pointer-events-auto">
+                <button
+                  onClick={onCreateExplainer}
+                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all transform hover:scale-105"
+                >
+                  Create Your Own Explainer
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

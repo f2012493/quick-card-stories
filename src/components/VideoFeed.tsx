@@ -9,7 +9,11 @@ import { RefreshCw } from 'lucide-react';
 import CategoryFilter from './features/CategoryFilter';
 import RevenueDashboard from './RevenueDashboard';
 
-const VideoFeed = () => {
+interface VideoFeedProps {
+  onCreateExplainer?: () => void;
+}
+
+const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [allNews, setAllNews] = useState<any[]>([]);
@@ -36,12 +40,36 @@ const VideoFeed = () => {
     region: locationData?.region
   });
 
+  // Transform news data to include "Why It Matters" for explainer format
+  const transformNewsToExplainers = (newsItems: any[]) => {
+    return newsItems.map(item => ({
+      ...item,
+      whyItMatters: item.whyItMatters || generateWhyItMatters(item.tldr, item.category)
+    }));
+  };
+
+  const generateWhyItMatters = (tldr: string, category: string) => {
+    // Simple logic to generate "Why It Matters" based on category
+    const matters = {
+      'technology': 'This innovation could reshape how we interact with technology and transform entire industries.',
+      'health': 'Understanding this development is crucial for making informed decisions about your health and wellbeing.',
+      'politics': 'These political changes will directly impact policy decisions that affect your daily life.',
+      'business': 'This business shift signals broader economic trends that could influence markets and job opportunities.',
+      'science': 'This scientific breakthrough advances our understanding and opens new possibilities for future innovations.',
+      'sports': 'This development showcases human achievement and influences the future of competitive sports.'
+    };
+    
+    return matters[category.toLowerCase() as keyof typeof matters] || 
+           'This story highlights important developments that help us understand our changing world.';
+  };
+
   // Initialize with fresh news
   useEffect(() => {
     if (newsData.length > 0) {
-      setAllNews(newsData);
+      const transformedNews = transformNewsToExplainers(newsData);
+      setAllNews(transformedNews);
       setIsInitialLoad(false);
-      console.log('Fresh news loaded:', newsData.length, 'articles');
+      console.log('Fresh explainers loaded:', transformedNews.length, 'articles');
     }
   }, [newsData]);
 
@@ -257,7 +285,7 @@ const VideoFeed = () => {
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Loading fresh news from multiple sources...</p>
+          <p>Loading daily explainers...</p>
           {locationData && <p className="text-sm text-blue-400 mt-2">📍 {locationData.city}, {locationData.country}</p>}
         </div>
       </div>
@@ -268,12 +296,12 @@ const VideoFeed = () => {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
-          <p>No articles found for the selected category.</p>
+          <p>No explainers found for the selected category.</p>
           <button
             onClick={() => setSelectedCategory(null)}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
-            Show All Articles
+            Show All Explainers
           </button>
         </div>
       </div>
@@ -319,6 +347,7 @@ const VideoFeed = () => {
                 allNews={filteredNews}
                 onNavigateToArticle={navigateToArticle}
                 readingSpeed={readingSpeed}
+                onCreateExplainer={onCreateExplainer}
               />
             ) : (
               <Advertisement index={item.data.adIndex} />
@@ -368,7 +397,7 @@ const VideoFeed = () => {
           onClick={handleRefreshNews}
           disabled={triggerIngestion.isPending}
           className="p-2 bg-black/30 backdrop-blur-sm rounded-full text-white/80 hover:text-white hover:bg-black/50 disabled:opacity-50 disabled:cursor-not-allowed border border-white/20"
-          title="Refresh news feed"
+          title="Refresh explainers feed"
         >
           <RefreshCw className={`w-5 h-5 ${triggerIngestion.isPending ? 'animate-spin' : ''}`} />
         </button>
