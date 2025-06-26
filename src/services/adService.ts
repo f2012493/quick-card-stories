@@ -65,7 +65,7 @@ export class AdService {
         link: "#",
         revenue: 25, // Estimated CPM in cents
         category: 'display',
-        adUnitId: 'ca-app-pub-6962771066686971/AD_UNIT_ID_1'
+        adUnitId: 'ca-app-pub-6962771066686971/5939742256'
       },
       {
         id: 'adsense_display_002',
@@ -76,7 +76,7 @@ export class AdService {
         link: "#",
         revenue: 45,
         category: 'premium',
-        adUnitId: 'ca-app-pub-6962771066686971/AD_UNIT_ID_2'
+        adUnitId: 'ca-app-pub-6962771066686971/1932214485'
       },
       {
         id: 'adsense_display_003',
@@ -87,7 +87,7 @@ export class AdService {
         link: "#",
         revenue: 15,
         category: 'subscription',
-        adUnitId: 'ca-app-pub-6962771066686971/AD_UNIT_ID_3'
+        adUnitId: 'ca-app-pub-6962771066686971/7061252239'
       }
     ];
 
