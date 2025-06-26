@@ -86,88 +86,83 @@ const VideoCard = ({
             backgroundImage: `url(${news.imageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'brightness(0.8) contrast(1.1) saturate(1.2)'
+            filter: 'brightness(0.7) contrast(1.1) saturate(1.2)'
           }}
         />
         
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-black/50" />
+        {/* Gradient Overlay - Enhanced for mobile */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
         
-        {/* Content Overlay */}
-        <div className="relative z-20 w-full h-full flex flex-col p-6 pointer-events-none">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4 pt-safe">
-            <div className="flex items-center space-x-3">
-              <span className="text-white/70 text-xs font-medium">{news.readTime}</span>
+        {/* Content Overlay - Mobile Optimized */}
+        <div className="relative z-20 w-full h-full flex flex-col justify-between p-4 safe-area-inset">
+          {/* Header - Mobile Optimized */}
+          <div className="flex items-center justify-between pt-2 flex-shrink-0">
+            <div className="flex items-center space-x-2 text-xs">
+              <span className="bg-blue-500/80 text-white px-2 py-1 rounded-full font-medium">
+                {news.category}
+              </span>
+              <span className="text-white/80">{news.readTime}</span>
               {news.publishedAt && (
-                <span className="text-white/70 text-xs">{formatPublishedDate(news.publishedAt)}</span>
+                <span className="text-white/70">{formatPublishedDate(news.publishedAt)}</span>
               )}
-              <span className="text-blue-400 text-xs font-medium">{news.category}</span>
             </div>
           </div>
 
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col justify-end pb-32 md:pb-24">
-            {/* Headline */}
-            <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4 drop-shadow-2xl">
+          {/* Main Content Area - Mobile Optimized */}
+          <div className="flex-1 flex flex-col justify-end pb-24 space-y-4">
+            {/* Headline - Mobile Typography */}
+            <h1 className="text-white text-xl sm:text-2xl md:text-3xl font-bold leading-tight drop-shadow-2xl">
               {news.headline}
             </h1>
 
-            {/* TL;DR */}
-            <div className="mb-6">
-              <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
+            {/* TL;DR - Mobile Optimized */}
+            <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 border-l-4 border-blue-400">
+              <h2 className="text-blue-400 text-xs font-semibold mb-2 uppercase tracking-wider">
                 TL;DR
               </h2>
-              <p 
-                className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium"
-                style={{
-                  animationDuration: `${3 / readingSpeed}s`
-                }}
-              >
+              <p className="text-white/95 text-sm leading-relaxed font-medium">
                 {news.tldr}
               </p>
             </div>
 
-            {/* Why It Matters Section */}
+            {/* Why It Matters Section - Mobile Optimized */}
             {news.whyItMatters && (
-              <div className="mb-6">
-                <h2 className="text-green-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
+              <div className="bg-black/30 backdrop-blur-sm rounded-lg p-3 border-l-4 border-green-400">
+                <h2 className="text-green-400 text-xs font-semibold mb-2 uppercase tracking-wider">
                   Why This Matters
                 </h2>
-                <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium">
+                <p className="text-white/95 text-sm leading-relaxed font-medium">
                   {news.whyItMatters}
                 </p>
               </div>
             )}
 
-            {/* Quote/Stat */}
+            {/* Quote/Stat - Mobile Optimized */}
             {news.quote && (
-              <div className="mb-6">
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border-l-4 border-blue-400">
-                  <p className="text-white/95 text-sm italic">
-                    "{news.quote}"
-                  </p>
-                </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 border border-white/20">
+                <p className="text-white/95 text-sm italic">
+                  "{news.quote}"
+                </p>
               </div>
             )}
 
-            {/* Author */}
-            <div className="mb-6">
-              <p className="text-white/60 text-sm">By {news.author}</p>
+            {/* Author - Mobile Optimized */}
+            <div className="text-center">
+              <p className="text-white/60 text-xs">By {news.author}</p>
             </div>
-
-            {/* CTA Button */}
-            {onCreateExplainer && (
-              <div className="pointer-events-auto">
-                <button
-                  onClick={onCreateExplainer}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all transform hover:scale-105"
-                >
-                  Create Your Own Explainer
-                </button>
-              </div>
-            )}
           </div>
+
+          {/* CTA Button - Mobile Optimized */}
+          {onCreateExplainer && (
+            <div className="flex-shrink-0 pb-4">
+              <button
+                onClick={onCreateExplainer}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all transform active:scale-95 text-sm sm:text-base"
+              >
+                Create Your Own Explainer
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
