@@ -1,3 +1,4 @@
+
 interface NewsSource {
   name: string;
   fetch: (location?: LocationData) => Promise<any[]>;
@@ -178,7 +179,7 @@ class NewsService {
       
       const data = await response.json();
       
-      return data.response.results.map((article: any, index: number) => ({
+      return data.response.results.map((article: any, index: number): NewsItem => ({
         id: `guardian-${article.id}`,
         headline: article.webTitle,
         tldr: article.fields?.trailText || this.generateTldr(article.webTitle),
@@ -213,7 +214,7 @@ class NewsService {
       
       const data = await response.json();
       
-      return (data.articles || []).map((article: any, index: number) => ({
+      return (data.articles || []).map((article: any, index: number): NewsItem => ({
         id: `newsapi-${Date.now()}-${index}`,
         headline: article.title,
         tldr: article.description || this.generateTldr(article.title),
@@ -396,7 +397,7 @@ class NewsService {
   private getCuratedFallbackNews(location?: LocationData): NewsItem[] {
     const now = new Date();
     
-    const baseNews = [
+    const baseNews: NewsItem[] = [
       {
         id: 'curated-1',
         headline: 'Global Technology Summit Highlights AI Innovations',
