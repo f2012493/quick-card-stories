@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Eye, MousePointer, TrendingUp } from 'lucide-react';
+import { DollarSign, Eye, MousePointer, TrendingUp, Settings } from 'lucide-react';
 import { adService } from '@/services/adService';
+import { useUserRole } from '@/hooks/useUserRole';
 
 const RevenueDashboard = () => {
+  const { isAdmin, isLoading: roleLoading } = useUserRole();
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [todayRevenue, setTodayRevenue] = useState(0);
   const [impressions, setImpressions] = useState(0);
@@ -13,6 +15,8 @@ const RevenueDashboard = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    if (!isAdmin) return;
+
     const updateStats = () => {
       setTotalRevenue(adService.getTotalRevenue());
       setTodayRevenue(adService.getTodayRevenue());
@@ -24,21 +28,26 @@ const RevenueDashboard = () => {
     const interval = setInterval(updateStats, 5000); // Update every 5 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isAdmin]);
 
   const formatCurrency = (cents: number) => {
     return `$${(cents / 100).toFixed(2)}`;
   };
 
+  // Don't render anything if not admin or still loading
+  if (roleLoading || !isAdmin) {
+    return null;
+  }
+
   return (
     <>
-      {/* Toggle Button */}
+      {/* Admin Toggle Button */}
       <button
         onClick={() => setIsVisible(!isVisible)}
-        className="fixed bottom-4 left-4 z-50 bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-lg transition-colors"
-        title="Revenue Dashboard"
+        className="fixed bottom-4 left-4 z-50 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition-colors"
+        title="Admin Revenue Dashboard"
       >
-        <DollarSign className="w-5 h-5" />
+        <Settings className="w-5 h-5" />
       </button>
 
       {/* Dashboard Modal */}
@@ -49,7 +58,7 @@ const RevenueDashboard = () => {
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <DollarSign className="w-5 h-5 text-green-600" />
-                  Ad Revenue Dashboard
+                  Admin Revenue Dashboard
                 </span>
                 <button
                   onClick={() => setIsVisible(false)}
@@ -58,12 +67,15 @@ const RevenueDashboard = () => {
                   ✕
                 </button>
               </CardTitle>
+              <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
+                Admin Only - Not visible to users
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Total Revenue */}
               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                 <div>
-                  <p className="text-sm text-gray-600">Total Revenue</p>
+                  <p className="text-sm text-gray-600">Total AdSense Revenue</p>
                   <p className="text-2xl font-bold text-green-600">
                     {formatCurrency(totalRevenue)}
                   </p>
@@ -86,7 +98,7 @@ const RevenueDashboard = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-gray-50 rounded-lg text-center">
                   <Eye className="w-5 h-5 text-gray-600 mx-auto mb-1" />
-                  <p className="text-sm text-gray-600">Impressions</p>
+                  <p className="text-sm text-gray-600">Ad Impressions</p>
                   <p className="text-lg font-semibold">{impressions.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg text-center">
@@ -109,6 +121,12 @@ const RevenueDashboard = () => {
                 <Badge variant={clickThroughRate > 2 ? "default" : "secondary"}>
                   {clickThroughRate > 2 ? "High Performance" : "Building Momentum"}
                 </Badge>
+              </div>
+
+              {/* AdSense Integration Status */}
+              <div className="p-3 bg-blue-50 rounded-lg text-center">
+                <p className="text-sm text-blue-600 font-medium">AdSense Integration Active</p>
+                <p className="text-xs text-gray-600 mt-1">Real-time revenue tracking enabled</p>
               </div>
             </CardContent>
           </Card>
