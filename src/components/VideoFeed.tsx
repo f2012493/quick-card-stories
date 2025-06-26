@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
+import Advertisement from './Advertisement';
 import { useNews } from '@/hooks/useNews';
 import { useLocation } from '@/hooks/useLocation';
 import { useTriggerNewsIngestion } from '@/hooks/useTriggerNewsIngestion';
@@ -55,6 +56,25 @@ const VideoFeed = () => {
       setFilteredNews(allNews);
     }
   }, [allNews, selectedCategory]);
+
+  // Create combined content array with ads inserted every 8 news items
+  const createContentArray = useCallback(() => {
+    const contentArray: Array<{ type: 'news' | 'ad', data: any, originalIndex?: number }> = [];
+    let adIndex = 0;
+    
+    filteredNews.forEach((newsItem, index) => {
+      contentArray.push({ type: 'news', data: newsItem, originalIndex: index });
+      
+      // Insert ad after every 8 news items
+      if ((index + 1) % 8 === 0) {
+        contentArray.push({ type: 'ad', data: { adIndex: adIndex++ } });
+      }
+    });
+    
+    return contentArray;
+  }, [filteredNews]);
+
+  const contentArray = createContentArray();
 
   // Get unique categories
   const categories = Array.from(new Set(allNews.map(article => article.category)));
@@ -172,19 +192,19 @@ const VideoFeed = () => {
     if (now - (handleWheel as any).lastWheelTime < 100) return;
     (handleWheel as any).lastWheelTime = now;
     
-    if (e.deltaY > 0 && currentIndex < filteredNews.length - 1) {
+    if (e.deltaY > 0 && currentIndex < contentArray.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else if (e.deltaY < 0 && currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
     }
-  }, [currentIndex, filteredNews.length]);
+  }, [currentIndex, contentArray.length]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp' && currentIndex > 0) {
         e.preventDefault();
         setCurrentIndex(prev => prev - 1);
-      } else if (e.key === 'ArrowDown' && currentIndex < filteredNews.length - 1) {
+      } else if (e.key === 'ArrowDown' && currentIndex < contentArray.length - 1) {
         e.preventDefault();
         setCurrentIndex(prev => prev + 1);
       }
@@ -192,7 +212,7 @@ const VideoFeed = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, filteredNews.length]);
+  }, [currentIndex, contentArray.length]);
 
   useEffect(() => {
     scrollToIndex(currentIndex, true);
@@ -223,11 +243,13 @@ const VideoFeed = () => {
   }, [isDragging, handleMove, handleEnd]);
 
   const navigateToArticle = useCallback((articleId: string) => {
-    const targetIndex = filteredNews.findIndex(news => news.id === articleId);
+    const targetIndex = contentArray.findIndex(item => 
+      item.type === 'news' && item.data.id === articleId
+    );
     if (targetIndex !== -1) {
       setCurrentIndex(targetIndex);
     }
-  }, [filteredNews]);
+  }, [contentArray]);
 
   if (isInitialLoad && isLoading) {
     return (
@@ -241,7 +263,7 @@ const VideoFeed = () => {
     );
   }
 
-  if (filteredNews.length === 0) {
+  if (contentArray.length === 0) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
@@ -275,9 +297,9 @@ const VideoFeed = () => {
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
       >
-        {filteredNews.map((news, index) => (
+        {contentArray.map((item, index) => (
           <div
-            key={news.id}
+            key={item.type === 'news' ? item.data.id : `ad-${item.data.adIndex}`}
             className="w-full h-screen snap-start snap-always flex-shrink-0"
             style={{
               transform: `translateY(${(index - currentIndex) * 100}vh)`,
@@ -288,14 +310,18 @@ const VideoFeed = () => {
               right: 0
             }}
           >
-            <VideoCard
-              news={news}
-              isActive={index === currentIndex}
-              index={index}
-              allNews={filteredNews}
-              onNavigateToArticle={navigateToArticle}
-              readingSpeed={readingSpeed}
-            />
+            {item.type === 'news' ? (
+              <VideoCard
+                news={item.data}
+                isActive={index === currentIndex}
+                index={index}
+                allNews={filteredNews}
+                onNavigateToArticle={navigateToArticle}
+                readingSpeed={readingSpeed}
+              />
+            ) : (
+              <Advertisement index={item.data.adIndex} />
+            )}
           </div>
         ))}
       </div>
@@ -312,7 +338,7 @@ const VideoFeed = () => {
       {/* Progress indicator */}
       <div className="fixed right-2 top-1/2 transform -translate-y-1/2 z-50">
         <div className="flex flex-col space-y-1">
-          {filteredNews.slice(Math.max(0, currentIndex - 2), currentIndex + 3).map((_, relativeIndex) => {
+          {contentArray.slice(Math.max(0, currentIndex - 2), currentIndex + 3).map((_, relativeIndex) => {
             const actualIndex = Math.max(0, currentIndex - 2) + relativeIndex;
             return (
               <div
