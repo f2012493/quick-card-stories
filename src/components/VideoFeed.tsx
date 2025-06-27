@@ -9,11 +9,7 @@ import { RefreshCw } from 'lucide-react';
 import CategoryFilter from './features/CategoryFilter';
 import RevenueDashboard from './RevenueDashboard';
 
-interface VideoFeedProps {
-  onCreateExplainer?: () => void;
-}
-
-const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
+const VideoFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [allNews, setAllNews] = useState<any[]>([]);
@@ -35,20 +31,17 @@ const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
   const { data: newsData = [], isLoading, error } = useNews({
     category: 'general',
     pageSize: 20,
-    location: locationData ? {
-      country: locationData.country,
-      city: locationData.city,
-      region: locationData.region,
-      countryCode: locationData.countryCode
-    } : undefined
+    country: locationData?.country,
+    city: locationData?.city,
+    region: locationData?.region
   });
 
-  // Initialize with location-aware news
+  // Initialize with fresh news
   useEffect(() => {
     if (newsData.length > 0) {
-      console.log('Location-aware explainers loaded:', newsData.length, 'articles');
       setAllNews(newsData);
       setIsInitialLoad(false);
+      console.log('Fresh news loaded:', newsData.length, 'articles');
     }
   }, [newsData]);
 
@@ -89,9 +82,9 @@ const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
 
   const handleRefreshNews = async () => {
     try {
-      console.log('Triggering location-aware news refresh...');
+      console.log('Triggering news refresh...');
       await triggerIngestion.mutateAsync();
-      toast.success('News refresh initiated for your location');
+      toast.success('News refresh initiated');
     } catch (error) {
       console.error('Failed to refresh news:', error);
       toast.error('Failed to refresh news');
@@ -152,12 +145,12 @@ const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
       if (totalDelta > 0 || velocity > minVelocity) {
         newIndex = Math.max(0, currentIndex - 1);
       } else if (totalDelta < 0 || velocity < -minVelocity) {
-        newIndex = Math.min(contentArray.length - 1, currentIndex + 1);
+        newIndex = Math.min(filteredNews.length - 1, currentIndex + 1);
       }
     }
     
     setCurrentIndex(newIndex);
-  }, [isDragging, currentIndex, contentArray.length]);
+  }, [isDragging, currentIndex, filteredNews.length]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
@@ -259,20 +252,13 @@ const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
     }
   }, [contentArray]);
 
-  if (isInitialLoad && (isLoading || locationLoading)) {
+  if (isInitialLoad && isLoading) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
-        <div className="text-white text-center px-4">
+        <div className="text-white text-lg text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-lg mb-2">Loading smart explainers...</p>
-          {locationData && (
-            <p className="text-sm text-blue-400">
-              📍 Curating news for {locationData.city}, {locationData.country}
-            </p>
-          )}
-          {locationLoading && (
-            <p className="text-xs text-white/60 mt-2">Detecting your location...</p>
-          )}
+          <p>Loading fresh news from multiple sources...</p>
+          {locationData && <p className="text-sm text-blue-400 mt-2">📍 {locationData.city}, {locationData.country}</p>}
         </div>
       </div>
     );
@@ -281,13 +267,13 @@ const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
   if (contentArray.length === 0) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
-        <div className="text-white text-center px-4">
-          <p className="text-lg mb-4">No explainers found for the selected category.</p>
+        <div className="text-white text-lg text-center">
+          <p>No articles found for the selected category.</p>
           <button
             onClick={() => setSelectedCategory(null)}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
-            Show All Explainers
+            Show All Articles
           </button>
         </div>
       </div>
@@ -333,7 +319,6 @@ const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
                 allNews={filteredNews}
                 onNavigateToArticle={navigateToArticle}
                 readingSpeed={readingSpeed}
-                onCreateExplainer={onCreateExplainer}
               />
             ) : (
               <Advertisement index={item.data.adIndex} />
@@ -342,18 +327,16 @@ const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
         ))}
       </div>
       
-      {/* Category Filter - Mobile Optimized */}
+      {/* Category Filter */}
       {categories.length > 1 && (
-        <div className="fixed top-16 left-0 right-0 z-40 px-2">
-          <CategoryFilter
-            categories={categories}
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
-          />
-        </div>
+        <CategoryFilter
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+        />
       )}
       
-      {/* Progress indicator - Mobile Optimized */}
+      {/* Progress indicator */}
       <div className="fixed right-2 top-1/2 transform -translate-y-1/2 z-50">
         <div className="flex flex-col space-y-1">
           {contentArray.slice(Math.max(0, currentIndex - 2), currentIndex + 3).map((_, relativeIndex) => {
@@ -361,7 +344,7 @@ const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
             return (
               <div
                 key={actualIndex}
-                className={`w-1 h-8 sm:w-0.5 sm:h-6 rounded-full transition-all duration-300 ${
+                className={`w-0.5 h-6 rounded-full transition-all duration-300 ${
                   actualIndex === currentIndex 
                     ? 'bg-white shadow-lg shadow-white/30' 
                     : 'bg-white/30'
@@ -372,22 +355,22 @@ const VideoFeed = ({ onCreateExplainer }: VideoFeedProps) => {
         </div>
       </div>
 
-      {/* Location indicator - Mobile Optimized */}
+      {/* Location indicator */}
       {locationData && (
-        <div className="fixed top-20 left-2 z-50 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5 text-white/90 text-xs border border-white/20">
+        <div className="fixed top-4 left-4 z-50 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm border border-white/20">
           📍 {locationData.city}, {locationData.country}
         </div>
       )}
 
-      {/* Manual refresh button - Mobile Optimized */}
-      <div className="fixed top-20 right-2 z-50">
+      {/* Manual refresh button */}
+      <div className="fixed top-4 right-4 z-50">
         <button
           onClick={handleRefreshNews}
           disabled={triggerIngestion.isPending}
-          className="p-2.5 bg-black/40 backdrop-blur-sm rounded-full text-white/90 hover:text-white hover:bg-black/60 disabled:opacity-50 disabled:cursor-not-allowed border border-white/20 active:scale-95 transition-all"
-          title="Refresh location-based explainers"
+          className="p-2 bg-black/30 backdrop-blur-sm rounded-full text-white/80 hover:text-white hover:bg-black/50 disabled:opacity-50 disabled:cursor-not-allowed border border-white/20"
+          title="Refresh news feed"
         >
-          <RefreshCw className={`w-4 h-4 ${triggerIngestion.isPending ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-5 h-5 ${triggerIngestion.isPending ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
