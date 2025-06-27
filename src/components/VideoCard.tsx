@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { analyticsService } from '@/services/analyticsService';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
+import { Badge } from '@/components/ui/badge';
 
 interface NewsItem {
   id: string;
@@ -14,6 +14,9 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
+  trustScore?: number;
+  localRelevance?: number;
+  contextualInsights?: string[];
 }
 
 interface VideoCardProps {
@@ -34,6 +37,7 @@ const VideoCard = ({
   readingSpeed = 1 
 }: VideoCardProps) => {
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
     if (isActive) {
@@ -68,6 +72,16 @@ const VideoCard = ({
 
   const relatedArticles = allNews.filter(article => article.id !== news.id);
 
+  const getTrustIndicator = (trustScore?: number) => {
+    if (!trustScore) return null;
+    if (trustScore >= 0.9) return { label: 'Highly Trusted', color: 'bg-green-500' };
+    if (trustScore >= 0.8) return { label: 'Trusted', color: 'bg-blue-500' };
+    if (trustScore >= 0.7) return { label: 'Reliable', color: 'bg-yellow-500' };
+    return { label: 'Verify', color: 'bg-orange-500' };
+  };
+
+  const trustInfo = getTrustIndicator(news.trustScore);
+
   return (
     <div className="relative w-full h-screen flex items-center justify-center">
       {/* Main Article View */}
@@ -100,6 +114,11 @@ const VideoCard = ({
                 <span className="text-white/70 text-xs">{formatPublishedDate(news.publishedAt)}</span>
               )}
               <span className="text-blue-400 text-xs font-medium">{news.category}</span>
+              {trustInfo && (
+                <Badge className={`${trustInfo.color} text-white text-xs px-2 py-1`}>
+                  {trustInfo.label}
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -125,9 +144,33 @@ const VideoCard = ({
               </p>
             </div>
 
+            {/* Contextual Insights */}
+            {news.contextualInsights && news.contextualInsights.length > 0 && (
+              <div className="mb-6">
+                <button
+                  onClick={() => setShowInsights(!showInsights)}
+                  className="text-yellow-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg pointer-events-auto"
+                >
+                  Why This Matters {showInsights ? '▼' : '▶'}
+                </button>
+                {showInsights && (
+                  <div className="space-y-2">
+                    {news.contextualInsights.map((insight, index) => (
+                      <p key={index} className="text-white/90 text-sm leading-relaxed drop-shadow-lg bg-black/20 p-3 rounded-md">
+                        • {insight}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Author */}
             <div className="mb-4">
               <p className="text-white/60 text-sm">By {news.author}</p>
+              {(news.localRelevance || 0) > 0.7 && (
+                <p className="text-green-400 text-xs mt-1">📍 High local relevance</p>
+              )}
             </div>
           </div>
         </div>

@@ -1,4 +1,3 @@
-
 interface NewsSource {
   name: string;
   fetch: () => Promise<any[]>;
@@ -15,10 +14,20 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
+  trustScore?: number;
+  localRelevance?: number;
+  contextualInsights?: string[];
 }
 
 class NewsService {
   private sources: NewsSource[] = [];
+  private trustedSources = new Map([
+    ['Guardian', 0.9],
+    ['BBC News', 0.95],
+    ['Reuters', 0.92],
+    ['CNN', 0.8],
+    ['NewsAPI', 0.7]
+  ]);
 
   constructor() {
     this.initializeSources();
@@ -54,12 +63,6 @@ class NewsService {
       name: 'CNN',
       fetch: () => this.fetchFromCNN()
     });
-
-    // Hacker News API (free)
-    this.sources.push({
-      name: 'HackerNews',
-      fetch: () => this.fetchFromHackerNews()
-    });
   }
 
   async fetchAllNews(): Promise<NewsItem[]> {
@@ -85,8 +88,17 @@ class NewsService {
       return this.getCuratedFallbackNews();
     }
 
-    // Shuffle and limit to 20 articles
-    return this.shuffleArray(allNews).slice(0, 20);
+    // Sort by trust score and local relevance, then shuffle within groups
+    const sortedNews = allNews.sort((a, b) => {
+      const aTrust = a.trustScore || 0.5;
+      const bTrust = b.trustScore || 0.5;
+      const aRelevance = a.localRelevance || 0.5;
+      const bRelevance = b.localRelevance || 0.5;
+      
+      return (bTrust + bRelevance) - (aTrust + aRelevance);
+    });
+
+    return this.shuffleArray(sortedNews).slice(0, 20);
   }
 
   private async fetchFromGuardian(): Promise<NewsItem[]> {
@@ -98,7 +110,7 @@ class NewsService {
     
     const data = await response.json();
     
-    return data.response.results.map((article: any, index: number) => ({
+    return data.response.results.map((article: any, index: number): NewsItem => ({
       id: `guardian-${article.id}`,
       headline: article.webTitle,
       tldr: article.fields?.trailText || this.generateTldr(article.webTitle),
@@ -108,12 +120,14 @@ class NewsService {
       imageUrl: article.fields?.thumbnail || this.getPlaceholderImage(index),
       readTime: '3 min read',
       publishedAt: article.webPublicationDate,
-      sourceUrl: article.webUrl
+      sourceUrl: article.webUrl,
+      trustScore: this.trustedSources.get('Guardian') || 0.8,
+      localRelevance: this.calculateLocalRelevance(article.webTitle, article.fields?.trailText || ''),
+      contextualInsights: this.generateContextualInsights(article.webTitle, article.fields?.trailText || '')
     }));
   }
 
   private async fetchFromNewsAPI(): Promise<NewsItem[]> {
-    // Using free tier endpoints that don't require API key for top headlines
     const response = await fetch(
       'https://newsapi.org/v2/top-headlines?country=us&pageSize=10&apiKey=demo'
     );
@@ -122,7 +136,7 @@ class NewsService {
     
     const data = await response.json();
     
-    return (data.articles || []).map((article: any, index: number) => ({
+    return (data.articles || []).map((article: any, index: number): NewsItem => ({
       id: `newsapi-${Date.now()}-${index}`,
       headline: article.title,
       tldr: article.description || this.generateTldr(article.title),
@@ -132,7 +146,10 @@ class NewsService {
       imageUrl: article.urlToImage || this.getPlaceholderImage(index),
       readTime: '2 min read',
       publishedAt: article.publishedAt,
-      sourceUrl: article.url
+      sourceUrl: article.url,
+      trustScore: this.trustedSources.get('NewsAPI') || 0.7,
+      localRelevance: this.calculateLocalRelevance(article.title, article.description || ''),
+      contextualInsights: this.generateContextualInsights(article.title, article.description || '')
     }));
   }
 
@@ -169,43 +186,13 @@ class NewsService {
     }
   }
 
-  private async fetchFromHackerNews(): Promise<NewsItem[]> {
-    try {
-      const topStoriesResponse = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
-      const topStories = await topStoriesResponse.json();
-      
-      const stories = await Promise.all(
-        topStories.slice(0, 10).map(async (id: number) => {
-          const storyResponse = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
-          return storyResponse.json();
-        })
-      );
-
-      return stories.filter(story => story && story.title).map((story, index) => ({
-        id: `hn-${story.id}`,
-        headline: story.title,
-        tldr: this.generateTldr(story.title),
-        quote: `${story.score} points • ${story.descendants || 0} comments`,
-        author: story.by || 'HN User',
-        category: 'Technology',
-        imageUrl: this.getPlaceholderImage(index + 100),
-        readTime: '2 min read',
-        publishedAt: new Date(story.time * 1000).toISOString(),
-        sourceUrl: story.url || `https://news.ycombinator.com/item?id=${story.id}`
-      }));
-    } catch (error) {
-      console.warn('Hacker News API failed:', error);
-      return [];
-    }
-  }
-
   private parseRSSFeed(xmlText: string, sourceName: string, sourcePrefix: string): NewsItem[] {
     try {
       const parser = new DOMParser();
       const doc = parser.parseFromString(xmlText, 'text/xml');
       const items = doc.querySelectorAll('item');
       
-      return Array.from(items).slice(0, 8).map((item, index) => {
+      return Array.from(items).slice(0, 8).map((item, index): NewsItem => {
         const title = item.querySelector('title')?.textContent || 'News Update';
         const description = item.querySelector('description')?.textContent || '';
         const pubDate = item.querySelector('pubDate')?.textContent || '';
@@ -221,7 +208,10 @@ class NewsService {
           imageUrl: this.getPlaceholderImage(index + 50),
           readTime: '3 min read',
           publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-          sourceUrl: link
+          sourceUrl: link,
+          trustScore: this.trustedSources.get(sourceName) || 0.8,
+          localRelevance: this.calculateLocalRelevance(title, description),
+          contextualInsights: this.generateContextualInsights(title, description)
         };
       });
     } catch (error) {
@@ -230,10 +220,47 @@ class NewsService {
     }
   }
 
+  private calculateLocalRelevance(title: string, description: string): number {
+    const content = `${title} ${description}`.toLowerCase();
+    let relevanceScore = 0.5;
+
+    // Check for location-specific keywords
+    const locationKeywords = ['local', 'city', 'state', 'community', 'region', 'municipal', 'county'];
+    const politicalKeywords = ['election', 'vote', 'policy', 'government', 'council', 'mayor'];
+    const economicKeywords = ['economy', 'business', 'jobs', 'employment', 'market', 'trade'];
+    const socialKeywords = ['education', 'health', 'housing', 'transport', 'infrastructure'];
+
+    if (locationKeywords.some(keyword => content.includes(keyword))) relevanceScore += 0.3;
+    if (politicalKeywords.some(keyword => content.includes(keyword))) relevanceScore += 0.2;
+    if (economicKeywords.some(keyword => content.includes(keyword))) relevanceScore += 0.2;
+    if (socialKeywords.some(keyword => content.includes(keyword))) relevanceScore += 0.2;
+
+    return Math.min(1, relevanceScore);
+  }
+
+  private generateContextualInsights(title: string, description: string): string[] {
+    const insights: string[] = [];
+    const content = `${title} ${description}`.toLowerCase();
+
+    if (content.includes('economy') || content.includes('market')) {
+      insights.push('Economic implications for local businesses and employment');
+    }
+    if (content.includes('policy') || content.includes('government')) {
+      insights.push('Potential impact on local governance and citizen services');
+    }
+    if (content.includes('technology') || content.includes('innovation')) {
+      insights.push('Technology trends affecting daily life and work');
+    }
+    if (content.includes('climate') || content.includes('environment')) {
+      insights.push('Environmental considerations for community planning');
+    }
+
+    return insights;
+  }
+
   private cleanDescription(description: string): string {
     if (!description) return '';
     
-    // Remove HTML tags and extra whitespace
     return description
       .replace(/<[^>]*>/g, '')
       .replace(/&[^;]+;/g, ' ')
@@ -278,7 +305,10 @@ class NewsService {
         imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
         readTime: '3 min read',
         publishedAt: new Date().toISOString(),
-        sourceUrl: ''
+        sourceUrl: '',
+        trustScore: 0.8,
+        localRelevance: 0.6,
+        contextualInsights: ['Technology trends affecting daily life and work']
       },
       {
         id: 'curated-2',
@@ -290,7 +320,10 @@ class NewsService {
         imageUrl: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
         readTime: '4 min read',
         publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: ''
+        sourceUrl: '',
+        trustScore: 0.85,
+        localRelevance: 0.8,
+        contextualInsights: ['Environmental considerations for community planning']
       },
       {
         id: 'curated-3',
@@ -302,7 +335,10 @@ class NewsService {
         imageUrl: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
         readTime: '5 min read',
         publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: ''
+        sourceUrl: '',
+        trustScore: 0.9,
+        localRelevance: 0.7,
+        contextualInsights: ['Economic implications for local businesses and employment']
       }
     ];
   }

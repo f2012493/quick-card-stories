@@ -17,6 +17,9 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
+  trustScore?: number;
+  localRelevance?: number;
+  contextualInsights?: string[];
 }
 
 const unwantedPhrases = [
@@ -80,62 +83,46 @@ const capitalizeFirstLetter = (text: string): string => {
 const formatTLDR = (text: string): string => {
   if (!text) return text;
   
-  // Clean the text first
   let cleanedText = text.trim();
-  
-  // Split into sentences properly
   const sentences = cleanedText.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
   
-  // Format each sentence with proper capitalization
   const formattedSentences = sentences.map(sentence => {
-    // Skip if empty
     if (!sentence) return '';
     
-    // Split into words
     const words = sentence.split(/\s+/);
-    
-    // Capitalize each word appropriately
     const formattedWords = words.map((word, index) => {
       if (!word) return word;
       
-      // First word of sentence should always be capitalized
       if (index === 0) {
         return capitalizeFirstLetter(word.toLowerCase());
       }
       
-      // Keep proper nouns, acronyms, and abbreviations capitalized
       if (word.match(/^[A-Z]{2,}$/)) {
-        return word; // Acronyms like USA, AI, etc.
+        return word;
       }
       
-      // Keep names and proper nouns (words that start with capital and have lowercase letters)
       if (word.match(/^[A-Z][a-z]+$/)) {
         return word;
       }
       
-      // Keep mixed case words (like iOS, iPhone, etc.)
       if (word.match(/^[A-Z][a-z]*[A-Z]/)) {
         return word;
       }
       
-      // Articles, prepositions, and conjunctions should be lowercase
       const lowercaseWords = ['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'shall'];
       
       if (lowercaseWords.includes(word.toLowerCase())) {
         return word.toLowerCase();
       }
       
-      // For other words, capitalize first letter only
       return capitalizeFirstLetter(word.toLowerCase());
     });
     
     return formattedWords.join(' ');
   });
   
-  // Join sentences back together
   let result = formattedSentences.join('. ');
   
-  // Ensure proper ending punctuation
   if (result && !result.match(/[.!?]$/)) {
     result += '.';
   }
@@ -146,38 +133,31 @@ const formatTLDR = (text: string): string => {
 const generateSmartFallback = (content: string, headline: string, description: string = ''): string => {
   console.log(`Generating smart fallback for: "${headline}"`);
   
-  // Combine all available content
   const fullContent = `${description} ${content}`.trim();
   
   if (!fullContent || fullContent.length < 20) {
-    // Extract key information from headline if no content
     return formatTLDR(extractFromHeadline(headline));
   }
 
-  // Clean content thoroughly
   let cleaned = fullContent.toLowerCase();
   unwantedPhrases.forEach(phrase => {
     const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     cleaned = cleaned.replace(regex, '');
   });
 
-  // Remove common filler words and phrases
   cleaned = cleaned.replace(/\b(according to|reports suggest|sources say|it is reported|officials said|experts believe)\b/gi, '');
   cleaned = cleaned.replace(/\b(in a statement|in an interview|during a press conference)\b/gi, '');
   
-  // Split into sentences and find meaningful ones
   const sentences = cleaned.split(/[.!?]+/).map(s => s.trim()).filter(sentence => {
     return sentence.length > 15 && 
            sentence.split(' ').length >= 5 &&
            !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase())) &&
-           !sentence.match(/^\s*(the|this|that|it|there)\s+/i); // Avoid sentences starting with weak words
+           !sentence.match(/^\s*(the|this|that|it|there)\s+/i);
   });
 
   if (sentences.length > 0) {
-    // Take first meaningful sentence and enhance it
     let summary = sentences[0].trim();
     
-    // Limit to reasonable length
     const words = summary.split(' ');
     if (words.length > 45) {
       summary = words.slice(0, 40).join(' ') + '...';
@@ -188,28 +168,22 @@ const generateSmartFallback = (content: string, headline: string, description: s
     return formatTLDR(summary);
   }
 
-  // Last resort - extract from headline
   return formatTLDR(extractFromHeadline(headline));
 };
 
 const extractFromHeadline = (headline: string): string => {
-  // Clean the headline and make it more descriptive
   let summary = headline.trim();
   
-  // Remove quotes if they wrap the entire headline
   if (summary.startsWith('"') && summary.endsWith('"')) {
     summary = summary.slice(1, -1);
   }
   
-  // If headline is too short, keep as is
   if (summary.split(' ').length <= 8) {
     return summary + (summary.endsWith('.') ? '' : '.');
   }
   
-  // If headline is very long, truncate smartly
   const words = summary.split(' ');
   if (words.length > 15) {
-    // Try to find a natural break point
     const firstPart = words.slice(0, 12).join(' ');
     return firstPart + (firstPart.endsWith('.') ? '' : '...');
   }
@@ -217,37 +191,45 @@ const extractFromHeadline = (headline: string): string => {
   return summary + (summary.endsWith('.') ? '' : '.');
 };
 
-const generateImprovedTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
-  console.log(`Generating improved TL;DR for: "${headline}"`);
+const generateInsightfulAnalysis = async (content: string, headline: string, description: string = '', location?: string): Promise<{ tldr: string; insights: string[] }> => {
+  console.log(`Generating insightful analysis for: "${headline}"`);
   
   const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
   
-  // Combine all available content for better context
   const fullContent = `${description} ${content}`.trim();
   
   if (openAIApiKey && fullContent.length > 20) {
     try {
-      // Clean the content first
       let cleanContent = fullContent;
       unwantedPhrases.forEach(phrase => {
         const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
         cleanContent = cleanContent.replace(regex, '');
       });
 
-      const prompt = `Create a clear, factual summary in exactly 2-3 sentences (maximum 60 words) for this news story:
+      const locationContext = location ? `considering the local context of ${location}` : '';
+
+      const prompt = `You are a news analyst focused on making complex events understandable. Analyze this news story and provide:
+
+1. A clear, factual summary (2-3 sentences, max 60 words)
+2. 2-3 contextual insights explaining WHY this matters and what it means for people's lives
 
 HEADLINE: ${headline}
-CONTENT: ${cleanContent.substring(0, 500)}
+CONTENT: ${cleanContent.substring(0, 800)}
+${locationContext}
 
 Requirements:
-- 2-3 complete sentences only
-- Maximum 60 words total
-- Focus on WHO, WHAT, WHEN, WHERE
-- Be specific about actual facts and numbers
-- Avoid generic phrases like "development" or "situation"
-- Start with the most important fact
-- Use proper sentence capitalization and grammar
-- Capitalize proper nouns, names, places, and organizations correctly`;
+- Summary: Focus on WHO, WHAT, WHEN, WHERE with specific facts
+- Insights: Explain the deeper significance, implications, and connections to broader trends
+- Be specific about actual impact on people's daily lives
+- Avoid generic phrases like "situation" or "development"
+- Use proper capitalization and grammar
+
+Format your response as:
+SUMMARY: [your 2-3 sentence summary]
+INSIGHTS:
+- [insight 1]
+- [insight 2]
+- [insight 3]`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -260,74 +242,116 @@ Requirements:
           messages: [
             {
               role: 'system',
-              content: 'You are a news summarization expert. Create precise, factual summaries that capture the essence of the story in minimal words. Never use generic phrases. Always use proper capitalization and grammar.'
+              content: 'You are an expert news analyst who helps people understand the deeper meaning behind current events. Focus on clarity, context, and real-world implications.'
             },
             {
               role: 'user',
               content: prompt
             }
           ],
-          temperature: 0.2,
-          max_tokens: 80
+          temperature: 0.3,
+          max_tokens: 200
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const aiSummary = data.choices[0].message.content.trim();
+        const analysis = data.choices[0].message.content.trim();
         
-        if (aiSummary.length > 10 && aiSummary.split(' ').length <= 65) {
-          console.log(`AI-generated TL;DR: "${aiSummary}"`);
-          return formatTLDR(aiSummary);
+        const summaryMatch = analysis.match(/SUMMARY:\s*(.+?)(?=INSIGHTS:|$)/s);
+        const insightsMatch = analysis.match(/INSIGHTS:\s*(.+)/s);
+        
+        let tldr = '';
+        let insights: string[] = [];
+        
+        if (summaryMatch) {
+          tldr = summaryMatch[1].trim();
+        }
+        
+        if (insightsMatch) {
+          insights = insightsMatch[1]
+            .split('\n')
+            .map(line => line.replace(/^-\s*/, '').trim())
+            .filter(line => line.length > 10);
+        }
+        
+        if (tldr.length > 10 && insights.length > 0) {
+          console.log(`AI-generated analysis - TL;DR: "${tldr}", Insights: ${insights.length}`);
+          return { tldr, insights };
         }
       } else {
         console.error('OpenAI API error:', await response.text());
       }
     } catch (error) {
-      console.error('AI summarization failed:', error);
+      console.error('AI analysis failed:', error);
     }
   }
   
-  // Use improved fallback
-  return generateSmartFallback(fullContent, headline, description);
+  // Fallback analysis
+  return {
+    tldr: generateSmartFallback(fullContent, headline, description),
+    insights: generateBasicInsights(headline, fullContent)
+  };
 };
 
-const generateBetterFallback = (content: string, headline: string): string => {
-  if (!content || content.length < 20) {
-    // If we have no content, create a simple summary from headline
-    const words = headline.split(' ').slice(0, 12);
-    return formatTLDR(words.join(' ') + (words.length < headline.split(' ').length ? '...' : ''));
+const generateBasicInsights = (headline: string, content: string): string[] => {
+  const insights: string[] = [];
+  const text = `${headline} ${content}`.toLowerCase();
+  
+  if (text.includes('economy') || text.includes('market') || text.includes('job') || text.includes('business')) {
+    insights.push('Economic implications may affect local employment and business opportunities');
+  }
+  
+  if (text.includes('policy') || text.includes('government') || text.includes('law') || text.includes('regulation')) {
+    insights.push('Policy changes could impact citizen services and community governance');
+  }
+  
+  if (text.includes('technology') || text.includes('digital') || text.includes('ai') || text.includes('innovation')) {
+    insights.push('Technology developments may reshape how we work and interact daily');
+  }
+  
+  if (text.includes('climate') || text.includes('environment') || text.includes('energy') || text.includes('green')) {
+    insights.push('Environmental factors influence long-term community planning and lifestyle');
+  }
+  
+  if (text.includes('health') || text.includes('medical') || text.includes('hospital') || text.includes('disease')) {
+    insights.push('Health developments affect community wellbeing and healthcare access');
+  }
+  
+  return insights.slice(0, 3);
+};
+
+const calculateTrustScore = (sourceName: string): number => {
+  const trustScores: { [key: string]: number } = {
+    'Guardian': 0.9,
+    'BBC': 0.95,
+    'Reuters': 0.92,
+    'CNN': 0.8,
+    'Associated Press': 0.93,
+    'NPR': 0.88,
+    'Wall Street Journal': 0.87,
+    'New York Times': 0.85
+  };
+  
+  return trustScores[sourceName] || 0.7;
+};
+
+const calculateLocalRelevance = (title: string, description: string, location?: string): number => {
+  const content = `${title} ${description}`.toLowerCase();
+  let relevanceScore = 0.5;
+
+  const locationKeywords = ['local', 'city', 'state', 'community', 'region', 'municipal', 'county'];
+  const impactKeywords = ['economy', 'jobs', 'school', 'transport', 'housing', 'health', 'safety'];
+  
+  if (locationKeywords.some(keyword => content.includes(keyword))) relevanceScore += 0.3;
+  if (impactKeywords.some(keyword => content.includes(keyword))) relevanceScore += 0.2;
+  
+  if (location) {
+    const locationParts = location.toLowerCase().split(',').map(part => part.trim());
+    if (locationParts.some(part => content.includes(part))) relevanceScore += 0.4;
   }
 
-  // Clean content
-  let cleaned = content.trim();
-  unwantedPhrases.forEach(phrase => {
-    const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    cleaned = cleaned.replace(regex, '');
-  });
-
-  // Extract first meaningful sentences
-  const sentences = cleaned.split(/[.!?]+/).map(s => s.trim()).filter(sentence => {
-    return sentence.length > 20 && 
-           sentence.split(' ').length >= 4 &&
-           !unwantedPhrases.some(phrase => sentence.toLowerCase().includes(phrase.toLowerCase()));
-  });
-
-  if (sentences.length > 0) {
-    const firstSentence = sentences[0];
-    const words = firstSentence.split(' ');
-    
-    // Limit to about 40-50 words for the fallback
-    if (words.length <= 50) {
-      return formatTLDR(firstSentence + '.');
-    } else {
-      return formatTLDR(words.slice(0, 45).join(' ') + '...');
-    }
-  }
-
-  // Last resort - use first part of content
-  const words = cleaned.split(' ').slice(0, 30);
-  return formatTLDR(words.join(' ') + (words.length === 30 ? '...' : ''));
+  return Math.min(1, relevanceScore);
 };
 
 const searchForImages = async (query: string): Promise<string[]> => {
@@ -376,7 +400,7 @@ serve(async (req) => {
   try {
     const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
     
-    console.log('Fetching news with enhanced summarization:', {
+    console.log('Fetching news with enhanced analysis:', {
       country: country || 'Global',
       city: city || 'Unknown',
       region: region || 'Unknown',
@@ -431,7 +455,9 @@ serve(async (req) => {
       throw new Error('No articles found from any news source');
     }
 
-    // Transform articles to our format with enhanced summarization
+    const locationString = city && country ? `${city}, ${country}` : country || '';
+
+    // Transform articles with enhanced analysis
     const transformedNews: NewsItem[] = await Promise.all(
       articles.slice(0, pageSize).map(async (article, index) => {
         const headline = article.title || article.headline || 'Breaking News';
@@ -439,9 +465,10 @@ serve(async (req) => {
         const description = article.description || '';
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         const articleCategory = article.category || category || 'General';
+        const sourceName = article.source?.name || 'News Source';
         
-        // Generate enhanced TL;DR with better fallback and proper capitalization
-        const tldr = await generateImprovedTLDR(content, headline, description);
+        // Generate enhanced analysis with insights
+        const analysis = await generateInsightfulAnalysis(content, headline, description, locationString);
         
         // Get high-quality image
         const imageUrl = await getHighQualityImage(originalImage, headline);
@@ -449,19 +476,22 @@ serve(async (req) => {
         return {
           id: `news-${Date.now()}-${index}`,
           headline: headline,
-          tldr: tldr,
+          tldr: analysis.tldr,
           quote: (description || content).substring(0, 200) + ((description || content).length > 200 ? '...' : ''),
-          author: article.author || article.source?.name || 'News Team',
+          author: article.author || sourceName,
           category: String(articleCategory),
           imageUrl: imageUrl,
           readTime: '2 min read',
           publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
-          sourceUrl: article.url || article.link || ''
+          sourceUrl: article.url || article.link || '',
+          trustScore: calculateTrustScore(sourceName),
+          localRelevance: calculateLocalRelevance(headline, description, locationString),
+          contextualInsights: analysis.insights
         };
       })
     );
 
-    console.log(`Returning ${transformedNews.length} news articles with enhanced summaries`);
+    console.log(`Returning ${transformedNews.length} news articles with enhanced analysis`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),
