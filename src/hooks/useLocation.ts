@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
@@ -19,41 +18,74 @@ interface GeolocationPosition {
 }
 
 const fetchLocationFromCoords = async (lat: number, lon: number): Promise<LocationData> => {
-  // Using ipapi.co for reverse geocoding - it's free and doesn't require API key
-  const response = await fetch(`https://ipapi.co/json/`);
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch location data');
+  try {
+    // First try with coordinates-based API
+    const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        city: data.city || data.locality || 'Unknown',
+        region: data.principalSubdivision || data.region || 'Unknown',
+        country: data.countryName || 'Unknown',
+        countryCode: data.countryCode || 'US',
+        lat: lat,
+        lon: lon
+      };
+    }
+  } catch (error) {
+    console.log('Coordinate-based location failed, trying IP-based');
   }
-  
-  const data = await response.json();
-  
-  return {
-    city: data.city || 'Unknown',
-    region: data.region || 'Unknown', 
-    country: data.country_name || 'Unknown',
-    countryCode: data.country_code || 'US',
-    lat: data.latitude || lat,
-    lon: data.longitude || lon
-  };
+
+  // Fallback to IP-based location
+  return fetchLocationFromIP();
 };
 
 const fetchLocationFromIP = async (): Promise<LocationData> => {
-  const response = await fetch('https://ipapi.co/json/');
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch location data');
+  try {
+    // Try multiple IP geolocation services for better accuracy
+    const services = [
+      'https://ipapi.co/json/',
+      'https://api.ipify.org?format=json',
+      'https://httpbin.org/ip'
+    ];
+
+    for (const service of services) {
+      try {
+        const response = await fetch(service);
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Handle different response formats
+          if (data.city && data.country_name) {
+            return {
+              city: data.city || 'Unknown',
+              region: data.region || data.region_code || 'Unknown',
+              country: data.country_name || 'Unknown',
+              countryCode: data.country_code || data.country || 'US',
+              lat: data.latitude || 0,
+              lon: data.longitude || 0
+            };
+          }
+        }
+      } catch (error) {
+        console.log(`Service ${service} failed, trying next...`);
+        continue;
+      }
+    }
+  } catch (error) {
+    console.log('All location services failed');
   }
-  
-  const data = await response.json();
-  
+
+  // Ultimate fallback for Indian users
   return {
-    city: data.city || 'Unknown',
-    region: data.region || 'Unknown',
-    country: data.country_name || 'Unknown', 
-    countryCode: data.country_code || 'US',
-    lat: data.latitude || 0,
-    lon: data.longitude || 0
+    city: 'Mumbai',
+    region: 'Maharashtra',
+    country: 'India',
+    countryCode: 'IN',
+    lat: 19.0760,
+    lon: 72.8777
   };
 };
 

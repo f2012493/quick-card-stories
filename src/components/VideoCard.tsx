@@ -129,26 +129,27 @@ const VideoCard = ({
               </p>
             </div>
 
-            {/* Contextual Insights */}
-            {news.contextualInsights && news.contextualInsights.length > 0 && (
-              <div className="mb-6">
-                <button
-                  onClick={() => setShowInsights(!showInsights)}
-                  className="text-yellow-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg pointer-events-auto"
-                >
-                  Why This Matters {showInsights ? '▼' : '▶'}
-                </button>
-                {showInsights && (
-                  <div className="space-y-2">
-                    {news.contextualInsights.map((insight, index) => (
-                      <p key={index} className="text-white/90 text-sm leading-relaxed drop-shadow-lg bg-black/20 p-3 rounded-md">
-                        • {insight}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Why This Matters - Always show for every article */}
+            <div className="mb-6">
+              <button
+                onClick={() => setShowInsights(!showInsights)}
+                className="text-yellow-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg pointer-events-auto flex items-center gap-1"
+              >
+                Why This Matters {showInsights ? '▼' : '▶'}
+              </button>
+              {showInsights && (
+                <div className="space-y-2">
+                  {(news.contextualInsights && news.contextualInsights.length > 0 ? news.contextualInsights : [
+                    'This story impacts how we understand current events and their broader implications',
+                    'Understanding these developments helps us make more informed decisions as citizens'
+                  ]).map((insight, index) => (
+                    <p key={index} className="text-white/90 text-sm leading-relaxed drop-shadow-lg bg-black/20 p-3 rounded-md">
+                      • {insight}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Author */}
             <div className="mb-4">
@@ -161,9 +162,9 @@ const VideoCard = ({
         </div>
       </div>
 
-      {/* Related Articles Carousel */}
+      {/* Related Articles Carousel - Full screen overlay */}
       <div 
-        className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
+        className={`absolute inset-0 transition-transform duration-300 ease-in-out bg-black ${
           showRelatedArticles ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -196,6 +197,17 @@ const VideoCard = ({
           }
         }}
       />
+
+      {/* Swipe indicator */}
+      {!showRelatedArticles && (
+        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 z-40 text-white/60">
+          <div className="flex flex-col items-center">
+            <span className="text-xs mb-1">Swipe left</span>
+            <span className="text-lg">→</span>
+            <span className="text-xs mt-1">for more</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

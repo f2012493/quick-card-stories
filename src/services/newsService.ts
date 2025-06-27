@@ -26,7 +26,10 @@ class NewsService {
     ['BBC News', 0.95],
     ['Reuters', 0.92],
     ['CNN', 0.8],
-    ['NewsAPI', 0.7]
+    ['NewsAPI', 0.7],
+    ['Times of India', 0.8],
+    ['Hindu', 0.85],
+    ['Indian Express', 0.8]
   ]);
 
   constructor() {
@@ -62,6 +65,17 @@ class NewsService {
     this.sources.push({
       name: 'CNN',
       fetch: () => this.fetchFromCNN()
+    });
+
+    // Indian news sources
+    this.sources.push({
+      name: 'Times of India',
+      fetch: () => this.fetchFromTimesOfIndia()
+    });
+
+    this.sources.push({
+      name: 'Hindu',
+      fetch: () => this.fetchFromHindu()
     });
   }
 
@@ -128,9 +142,25 @@ class NewsService {
   }
 
   private async fetchFromNewsAPI(): Promise<NewsItem[]> {
-    const response = await fetch(
-      'https://newsapi.org/v2/top-headlines?country=us&pageSize=10&apiKey=demo'
-    );
+    // Try to get country-specific news first
+    let response;
+    try {
+      response = await fetch(
+        'https://newsapi.org/v2/top-headlines?country=in&pageSize=10&apiKey=demo'
+      );
+      
+      if (!response.ok) {
+        // Fallback to US news if Indian news fails
+        response = await fetch(
+          'https://newsapi.org/v2/top-headlines?country=us&pageSize=10&apiKey=demo'
+        );
+      }
+    } catch (error) {
+      // Fallback to US news
+      response = await fetch(
+        'https://newsapi.org/v2/top-headlines?country=us&pageSize=10&apiKey=demo'
+      );
+    }
     
     if (!response.ok) throw new Error('NewsAPI failed');
     
@@ -182,6 +212,28 @@ class NewsService {
       return this.parseRSSFeed(text, 'CNN', 'cnn');
     } catch (error) {
       console.warn('CNN RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromTimesOfIndia(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://timesofindia.indiatimes.com/rssfeedstopstories.cms');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Times of India', 'toi');
+    } catch (error) {
+      console.warn('Times of India RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromHindu(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.thehindu.com/news/national/feeder/default.rss');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Hindu', 'hindu');
+    } catch (error) {
+      console.warn('Hindu RSS failed:', error);
       return [];
     }
   }
@@ -242,20 +294,32 @@ class NewsService {
     const insights: string[] = [];
     const content = `${title} ${description}`.toLowerCase();
 
-    if (content.includes('economy') || content.includes('market')) {
+    // Always provide at least one insight
+    if (content.includes('economy') || content.includes('market') || content.includes('business')) {
       insights.push('Economic implications for local businesses and employment');
-    }
-    if (content.includes('policy') || content.includes('government')) {
+      insights.push('Potential impact on consumer spending and market trends');
+    } else if (content.includes('policy') || content.includes('government') || content.includes('election')) {
       insights.push('Potential impact on local governance and citizen services');
-    }
-    if (content.includes('technology') || content.includes('innovation')) {
+      insights.push('Democratic implications and civic engagement opportunities');
+    } else if (content.includes('technology') || content.includes('innovation') || content.includes('ai')) {
       insights.push('Technology trends affecting daily life and work');
-    }
-    if (content.includes('climate') || content.includes('environment')) {
+      insights.push('Digital transformation implications for society');
+    } else if (content.includes('climate') || content.includes('environment') || content.includes('weather')) {
       insights.push('Environmental considerations for community planning');
+      insights.push('Long-term sustainability and climate action needs');
+    } else if (content.includes('health') || content.includes('medical') || content.includes('hospital')) {
+      insights.push('Public health implications and healthcare access');
+      insights.push('Community wellness and preventive care considerations');
+    } else if (content.includes('education') || content.includes('school') || content.includes('university')) {
+      insights.push('Educational opportunities and skill development impact');
+      insights.push('Future workforce and learning ecosystem changes');
+    } else {
+      // Default insights for general news
+      insights.push('Broader societal implications and community impact');
+      insights.push('Connection to larger trends and future developments');
     }
 
-    return insights;
+    return insights.slice(0, 3); // Limit to 3 insights max
   }
 
   private cleanDescription(description: string): string {
