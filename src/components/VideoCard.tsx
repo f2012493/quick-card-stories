@@ -1,7 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { analyticsService } from '@/services/analyticsService';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
-import { Badge } from '@/components/ui/badge';
 
 interface NewsItem {
   id: string;
@@ -72,16 +72,6 @@ const VideoCard = ({
 
   const relatedArticles = allNews.filter(article => article.id !== news.id);
 
-  const getTrustIndicator = (trustScore?: number) => {
-    if (!trustScore) return null;
-    if (trustScore >= 0.9) return { label: 'Highly Trusted', color: 'bg-green-500' };
-    if (trustScore >= 0.8) return { label: 'Trusted', color: 'bg-blue-500' };
-    if (trustScore >= 0.7) return { label: 'Reliable', color: 'bg-yellow-500' };
-    return { label: 'Verify', color: 'bg-orange-500' };
-  };
-
-  const trustInfo = getTrustIndicator(news.trustScore);
-
   return (
     <div className="relative w-full h-screen flex items-center justify-center">
       {/* Main Article View */}
@@ -114,11 +104,6 @@ const VideoCard = ({
                 <span className="text-white/70 text-xs">{formatPublishedDate(news.publishedAt)}</span>
               )}
               <span className="text-blue-400 text-xs font-medium">{news.category}</span>
-              {trustInfo && (
-                <Badge className={`${trustInfo.color} text-white text-xs px-2 py-1`}>
-                  {trustInfo.label}
-                </Badge>
-              )}
             </div>
           </div>
 

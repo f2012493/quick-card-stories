@@ -6,7 +6,6 @@ import { useLocation } from '@/hooks/useLocation';
 import { useTriggerNewsIngestion } from '@/hooks/useTriggerNewsIngestion';
 import { toast } from 'sonner';
 import { RefreshCw } from 'lucide-react';
-import CategoryFilter from './features/CategoryFilter';
 import RevenueDashboard from './RevenueDashboard';
 
 const VideoFeed = () => {
@@ -76,9 +75,6 @@ const VideoFeed = () => {
   }, [filteredNews]);
 
   const contentArray = createContentArray();
-
-  // Get unique categories
-  const categories = Array.from(new Set(allNews.map(article => article.category)));
 
   const handleRefreshNews = async () => {
     try {
@@ -258,7 +254,6 @@ const VideoFeed = () => {
         <div className="text-white text-lg text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
           <p>Loading fresh news from multiple sources...</p>
-          {locationData && <p className="text-sm text-blue-400 mt-2">📍 {locationData.city}, {locationData.country}</p>}
         </div>
       </div>
     );
@@ -327,15 +322,6 @@ const VideoFeed = () => {
         ))}
       </div>
       
-      {/* Category Filter */}
-      {categories.length > 1 && (
-        <CategoryFilter
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-        />
-      )}
-      
       {/* Progress indicator */}
       <div className="fixed right-2 top-1/2 transform -translate-y-1/2 z-50">
         <div className="flex flex-col space-y-1">
@@ -354,13 +340,6 @@ const VideoFeed = () => {
           })}
         </div>
       </div>
-
-      {/* Location indicator */}
-      {locationData && (
-        <div className="fixed top-4 left-4 z-50 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1 text-white/80 text-sm border border-white/20">
-          📍 {locationData.city}, {locationData.country}
-        </div>
-      )}
 
       {/* Manual refresh button */}
       <div className="fixed top-4 right-4 z-50">
