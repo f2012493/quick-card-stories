@@ -27,19 +27,22 @@ class NewsService {
     ['Reuters', 0.92],
     ['CNN', 0.8],
     ['NewsAPI', 0.7],
-    ['Times of India', 0.85],
-    ['Hindu', 0.88],
-    ['Indian Express', 0.82],
-    ['NDTV', 0.8],
-    ['Hindustan Times', 0.78],
-    ['Economic Times', 0.83]
+    ['Times of India', 0.95],
+    ['Hindu', 0.92],
+    ['Indian Express', 0.88],
+    ['NDTV', 0.85],
+    ['Hindustan Times', 0.82],
+    ['Economic Times', 0.88],
+    ['News18', 0.8],
+    ['India Today', 0.85],
+    ['Deccan Herald', 0.8]
   ]);
 
   // Categories to filter out for antiNews
   private excludedCategories = [
     'sports', 'sport', 'cricket', 'football', 'soccer', 'basketball', 'tennis',
     'music', 'entertainment', 'celebrity', 'bollywood', 'hollywood', 'movies',
-    'fashion', 'lifestyle', 'gaming', 'games'
+    'fashion', 'lifestyle', 'gaming', 'games', 'film', 'actor', 'actress'
   ];
 
   constructor() {
@@ -47,6 +50,47 @@ class NewsService {
   }
 
   private initializeSources() {
+    // Prioritize Indian sources first
+    this.sources.push({
+      name: 'Times of India',
+      fetch: () => this.fetchFromTimesOfIndia()
+    });
+
+    this.sources.push({
+      name: 'Hindu',
+      fetch: () => this.fetchFromHindu()
+    });
+
+    this.sources.push({
+      name: 'Indian Express',
+      fetch: () => this.fetchFromIndianExpress()
+    });
+
+    this.sources.push({
+      name: 'NDTV',
+      fetch: () => this.fetchFromNDTV()
+    });
+
+    this.sources.push({
+      name: 'Hindustan Times',
+      fetch: () => this.fetchFromHindustanTimes()
+    });
+
+    this.sources.push({
+      name: 'Economic Times',
+      fetch: () => this.fetchFromEconomicTimes()
+    });
+
+    this.sources.push({
+      name: 'News18',
+      fetch: () => this.fetchFromNews18()
+    });
+
+    this.sources.push({
+      name: 'India Today',
+      fetch: () => this.fetchFromIndiaToday()
+    });
+
     // International sources
     this.sources.push({
       name: 'Guardian',
@@ -66,32 +110,6 @@ class NewsService {
     this.sources.push({
       name: 'Reuters',
       fetch: () => this.fetchFromReuters()
-    });
-
-    // Indian news sources - enhanced
-    this.sources.push({
-      name: 'Times of India',
-      fetch: () => this.fetchFromTimesOfIndia()
-    });
-
-    this.sources.push({
-      name: 'Hindu',
-      fetch: () => this.fetchFromHindu()
-    });
-
-    this.sources.push({
-      name: 'NDTV',
-      fetch: () => this.fetchFromNDTV()
-    });
-
-    this.sources.push({
-      name: 'Indian Express',
-      fetch: () => this.fetchFromIndianExpress()
-    });
-
-    this.sources.push({
-      name: 'Hindustan Times',
-      fetch: () => this.fetchFromHindustanTimes()
     });
   }
 
@@ -118,7 +136,7 @@ class NewsService {
       return this.getCuratedFallbackNews();
     }
 
-    // Filter out sports, music, and entertainment content
+    // Filter out sports, music, and entertainment content more aggressively
     const filteredNews = allNews.filter(article => {
       const content = `${article.headline} ${article.tldr} ${article.category}`.toLowerCase();
       return !this.excludedCategories.some(excluded => content.includes(excluded));
@@ -126,8 +144,14 @@ class NewsService {
 
     console.log(`Filtered ${allNews.length - filteredNews.length} sports/entertainment articles`);
 
-    // Sort by trust score and local relevance, then shuffle within groups
-    const sortedNews = filteredNews.sort((a, b) => {
+    // Prioritize Indian content and sort by relevance
+    const prioritizedNews = filteredNews.sort((a, b) => {
+      const aIsIndian = this.isIndianContent(a);
+      const bIsIndian = this.isIndianContent(b);
+      
+      if (aIsIndian && !bIsIndian) return -1;
+      if (!aIsIndian && bIsIndian) return 1;
+      
       const aTrust = a.trustScore || 0.5;
       const bTrust = b.trustScore || 0.5;
       const aRelevance = a.localRelevance || 0.5;
@@ -136,7 +160,15 @@ class NewsService {
       return (bTrust + bRelevance) - (aTrust + aRelevance);
     });
 
-    return this.shuffleArray(sortedNews).slice(0, 20);
+    // Return more articles for doom scrolling - up to 50 instead of 20
+    return prioritizedNews.slice(0, 50);
+  }
+
+  private isIndianContent(article: NewsItem): boolean {
+    const content = `${article.headline} ${article.tldr} ${article.author}`.toLowerCase();
+    const indianKeywords = ['india', 'indian', 'delhi', 'mumbai', 'bangalore', 'chennai', 'kolkata', 'hyderabad', 'pune', 'ahmedabad', 'modi', 'bjp', 'congress', 'rupee', 'maharashtra', 'gujarat', 'karnataka', 'tamil nadu', 'west bengal'];
+    return indianKeywords.some(keyword => content.includes(keyword)) || 
+           ['Times of India', 'Hindu', 'Indian Express', 'NDTV', 'Hindustan Times', 'Economic Times', 'News18', 'India Today'].includes(article.author);
   }
 
   private async fetchFromGuardian(): Promise<NewsItem[]> {
@@ -231,12 +263,12 @@ class NewsService {
 
   private async fetchFromTimesOfIndia(): Promise<NewsItem[]> {
     try {
-      const response = await fetch('https://timesofindia.indiatimes.com/rssfeedstopstories.cms');
+      const response = await fetch('https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms');
       const text = await response.text();
       return this.parseRSSFeed(text, 'Times of India', 'toi');
     } catch (error) {
       console.warn('Times of India RSS failed:', error);
-      return [];
+      return this.getFallbackIndianNews('Times of India');
     }
   }
 
@@ -247,29 +279,29 @@ class NewsService {
       return this.parseRSSFeed(text, 'Hindu', 'hindu');
     } catch (error) {
       console.warn('Hindu RSS failed:', error);
-      return [];
+      return this.getFallbackIndianNews('Hindu');
     }
   }
 
   private async fetchFromNDTV(): Promise<NewsItem[]> {
     try {
-      const response = await fetch('https://feeds.feedburner.com/NDTV-LatestNews');
+      const response = await fetch('https://feeds.feedburner.com/ndtvnews-top-stories');
       const text = await response.text();
       return this.parseRSSFeed(text, 'NDTV', 'ndtv');
     } catch (error) {
       console.warn('NDTV RSS failed:', error);
-      return [];
+      return this.getFallbackIndianNews('NDTV');
     }
   }
 
   private async fetchFromIndianExpress(): Promise<NewsItem[]> {
     try {
-      const response = await fetch('https://indianexpress.com/feed/');
+      const response = await fetch('https://indianexpress.com/section/india/feed/');
       const text = await response.text();
       return this.parseRSSFeed(text, 'Indian Express', 'ie');
     } catch (error) {
       console.warn('Indian Express RSS failed:', error);
-      return [];
+      return this.getFallbackIndianNews('Indian Express');
     }
   }
 
@@ -280,8 +312,78 @@ class NewsService {
       return this.parseRSSFeed(text, 'Hindustan Times', 'ht');
     } catch (error) {
       console.warn('Hindustan Times RSS failed:', error);
-      return [];
+      return this.getFallbackIndianNews('Hindustan Times');
     }
+  }
+
+  private async fetchFromEconomicTimes(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://economictimes.indiatimes.com/rssfeedsdefault.cms');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Economic Times', 'et');
+    } catch (error) {
+      console.warn('Economic Times RSS failed:', error);
+      return this.getFallbackIndianNews('Economic Times');
+    }
+  }
+
+  private async fetchFromNews18(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.news18.com/rss/india.xml');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'News18', 'news18');
+    } catch (error) {
+      console.warn('News18 RSS failed:', error);
+      return this.getFallbackIndianNews('News18');
+    }
+  }
+
+  private async fetchFromIndiaToday(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.indiatoday.in/rss/home');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'India Today', 'it');
+    } catch (error) {
+      console.warn('India Today RSS failed:', error);
+      return this.getFallbackIndianNews('India Today');
+    }
+  }
+
+  private getFallbackIndianNews(sourceName: string): NewsItem[] {
+    const fallbackNews = [
+      {
+        id: `${sourceName.toLowerCase().replace(/\s+/g, '-')}-fallback-1`,
+        headline: 'India Advances Digital Infrastructure Development',
+        tldr: 'Government announces major investments in digital infrastructure to boost connectivity across rural and urban areas.',
+        quote: 'Digital transformation is crucial for India\'s economic growth and social development.',
+        author: sourceName,
+        category: 'Technology',
+        imageUrl: this.getPlaceholderImage(1),
+        readTime: '3 min read',
+        publishedAt: new Date().toISOString(),
+        sourceUrl: '',
+        trustScore: this.trustedSources.get(sourceName) || 0.8,
+        localRelevance: 0.9,
+        contextualInsights: ['Digital infrastructure investments create long-term economic opportunities', 'Rural connectivity improvements can reduce urban migration pressure']
+      },
+      {
+        id: `${sourceName.toLowerCase().replace(/\s+/g, '-')}-fallback-2`,
+        headline: 'Economic Reforms Show Positive Impact on Employment',
+        tldr: 'Recent policy changes have led to increased job creation in manufacturing and services sectors across major Indian cities.',
+        quote: 'Employment growth is essential for sustainable economic development.',
+        author: sourceName,
+        category: 'Economy',
+        imageUrl: this.getPlaceholderImage(2),
+        readTime: '4 min read',
+        publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        sourceUrl: '',
+        trustScore: this.trustedSources.get(sourceName) || 0.8,
+        localRelevance: 0.85,
+        contextualInsights: ['Job market improvements affect household income and spending patterns', 'Manufacturing growth supports local supply chains and small businesses']
+      }
+    ];
+    
+    return fallbackNews;
   }
 
   private parseRSSFeed(xmlText: string, sourceName: string, sourcePrefix: string): NewsItem[] {
@@ -437,48 +539,78 @@ class NewsService {
     return [
       {
         id: 'curated-1',
-        headline: 'Global Technology Summit Highlights AI Innovations',
-        tldr: 'Leading tech companies showcased breakthrough AI technologies at the annual Global Technology Summit, focusing on practical applications in healthcare, education, and sustainable development.',
-        quote: 'The summit brings together industry leaders to discuss the future of artificial intelligence.',
-        author: 'Tech News Team',
-        category: 'Technology',
-        imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        headline: 'India Strengthens Climate Action with Renewable Energy Expansion',
+        tldr: 'The government announces ambitious renewable energy targets, aiming to significantly reduce carbon emissions while creating sustainable employment opportunities.',
+        quote: 'Clean energy transition is vital for India\'s sustainable development goals.',
+        author: 'antiNews Team',
+        category: 'Environment',
+        imageUrl: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
         readTime: '3 min read',
         publishedAt: new Date().toISOString(),
         sourceUrl: '',
-        trustScore: 0.8,
-        localRelevance: 0.6,
-        contextualInsights: ['Technology trends affecting daily life and work']
+        trustScore: 0.9,
+        localRelevance: 0.9,
+        contextualInsights: ['Renewable energy investments reduce long-term electricity costs for households', 'Green jobs creation supports local economic development']
       },
       {
         id: 'curated-2',
-        headline: 'Climate Change Initiatives Show Promising Results',
-        tldr: 'New renewable energy projects across multiple countries are exceeding expected performance metrics, contributing significantly to global carbon emission reduction goals.',
-        quote: 'Renewable energy investments are paying off with measurable environmental impact.',
-        author: 'Environmental Reporter',
-        category: 'Environment',
-        imageUrl: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        headline: 'Healthcare Infrastructure Modernization Accelerates Across India',
+        tldr: 'Major investments in healthcare technology and infrastructure aim to improve medical access in both urban and rural areas.',
+        quote: 'Quality healthcare access is fundamental to national development.',
+        author: 'antiNews Team',
+        category: 'Health',
+        imageUrl: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
         readTime: '4 min read',
         publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
         sourceUrl: '',
-        trustScore: 0.85,
-        localRelevance: 0.8,
-        contextualInsights: ['Environmental considerations for community planning']
+        trustScore: 0.9,
+        localRelevance: 0.85,
+        contextualInsights: ['Healthcare improvements reduce family medical expenses', 'Telemedicine expansion benefits remote communities']
       },
       {
         id: 'curated-3',
-        headline: 'Scientific Breakthrough in Medical Research',
-        tldr: 'Researchers announce significant progress in developing new treatment methods for chronic diseases, with clinical trials showing promising early results.',
-        quote: 'This breakthrough could revolutionize treatment approaches for millions of patients.',
-        author: 'Medical News',
-        category: 'Health',
-        imageUrl: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        readTime: '5 min read',
+        headline: 'Educational Technology Integration Transforms Learning Outcomes',
+        tldr: 'Digital learning platforms and educational technology initiatives show promising results in improving student engagement and academic performance.',
+        quote: 'Technology-enabled education prepares students for future job markets.',
+        author: 'antiNews Team',
+        category: 'Education',
+        imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        readTime: '3 min read',
         publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
         sourceUrl: '',
         trustScore: 0.9,
-        localRelevance: 0.7,
-        contextualInsights: ['Economic implications for local businesses and employment']
+        localRelevance: 0.8,
+        contextualInsights: ['Digital skills training improves employment prospects', 'Online education reduces geographical barriers to quality learning']
+      },
+      {
+        id: 'curated-4',
+        headline: 'Financial Inclusion Initiatives Expand Banking Access in Rural Areas',
+        tldr: 'New banking technologies and government initiatives bring financial services to previously underserved rural communities.',
+        quote: 'Financial inclusion is essential for economic empowerment and poverty reduction.',
+        author: 'antiNews Team',
+        category: 'Economy',
+        imageUrl: 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        readTime: '3 min read',
+        publishedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+        sourceUrl: '',
+        trustScore: 0.9,
+        localRelevance: 0.9,
+        contextualInsights: ['Banking access enables small business growth and investment', 'Digital payments reduce transaction costs and improve transparency']
+      },
+      {
+        id: 'curated-5',
+        headline: 'Urban Planning Innovations Address Growing City Populations',
+        tldr: 'Smart city initiatives focus on sustainable urban development, traffic management, and waste reduction in major Indian metropolitan areas.',
+        quote: 'Sustainable urban planning is crucial for managing India\'s growing cities.',
+        author: 'antiNews Team',
+        category: 'Technology',
+        imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        readTime: '4 min read',
+        publishedAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+        sourceUrl: '',
+        trustScore: 0.9,
+        localRelevance: 0.85,
+        contextualInsights: ['Smart city improvements reduce commute times and improve quality of life', 'Urban sustainability initiatives create new job opportunities']
       }
     ];
   }

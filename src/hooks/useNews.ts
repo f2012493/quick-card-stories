@@ -13,6 +13,9 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
+  trustScore?: number;
+  localRelevance?: number;
+  contextualInsights?: string[];
 }
 
 interface UseNewsOptions {
@@ -28,18 +31,18 @@ export const useNews = (options: UseNewsOptions = {}) => {
   return useQuery({
     queryKey: ['comprehensive-news', options],
     queryFn: async (): Promise<NewsItem[]> => {
-      console.log('Fetching news from multiple sources...');
+      console.log('Fetching comprehensive news from multiple sources...');
       
       try {
         const news = await newsService.fetchAllNews();
         console.log(`Successfully fetched ${news.length} articles from various sources`);
         
-        // Cache the news locally
+        // Cache the news locally for offline access
         const cacheData = {
           news,
           timestamp: Date.now()
         };
-        localStorage.setItem('quick-card-stories-cache', JSON.stringify(cacheData));
+        localStorage.setItem('antinews-cache', JSON.stringify(cacheData));
         
         return news;
       } catch (error) {
@@ -47,7 +50,7 @@ export const useNews = (options: UseNewsOptions = {}) => {
         
         // Try to load from cache as fallback
         try {
-          const cachedNews = localStorage.getItem('quick-card-stories-cache');
+          const cachedNews = localStorage.getItem('antinews-cache');
           if (cachedNews) {
             const parsed = JSON.parse(cachedNews);
             if (parsed.news && parsed.news.length > 0) {
@@ -64,8 +67,8 @@ export const useNews = (options: UseNewsOptions = {}) => {
         return await newsService.fetchAllNews();
       }
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - fresher content for doom scrolling
+    gcTime: 15 * 60 * 1000, // 15 minutes
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
