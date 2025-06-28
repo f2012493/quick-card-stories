@@ -27,9 +27,12 @@ class NewsService {
     ['Reuters', 0.92],
     ['CNN', 0.8],
     ['NewsAPI', 0.7],
-    ['Times of India', 0.8],
-    ['Hindu', 0.85],
-    ['Indian Express', 0.8]
+    ['Times of India', 0.85],
+    ['Hindu', 0.88],
+    ['Indian Express', 0.82],
+    ['NDTV', 0.8],
+    ['Hindustan Times', 0.78],
+    ['Economic Times', 0.83]
   ]);
 
   constructor() {
@@ -37,37 +40,28 @@ class NewsService {
   }
 
   private initializeSources() {
-    // Guardian API (free tier)
+    // International sources
     this.sources.push({
       name: 'Guardian',
       fetch: () => this.fetchFromGuardian()
     });
 
-    // News API (free tier)
     this.sources.push({
       name: 'NewsAPI',
       fetch: () => this.fetchFromNewsAPI()
     });
 
-    // BBC RSS (free)
     this.sources.push({
       name: 'BBC',
       fetch: () => this.fetchFromBBC()
     });
 
-    // Reuters RSS (free)
     this.sources.push({
       name: 'Reuters',
       fetch: () => this.fetchFromReuters()
     });
 
-    // CNN RSS (free)
-    this.sources.push({
-      name: 'CNN',
-      fetch: () => this.fetchFromCNN()
-    });
-
-    // Indian news sources
+    // Indian news sources - enhanced
     this.sources.push({
       name: 'Times of India',
       fetch: () => this.fetchFromTimesOfIndia()
@@ -76,6 +70,21 @@ class NewsService {
     this.sources.push({
       name: 'Hindu',
       fetch: () => this.fetchFromHindu()
+    });
+
+    this.sources.push({
+      name: 'NDTV',
+      fetch: () => this.fetchFromNDTV()
+    });
+
+    this.sources.push({
+      name: 'Indian Express',
+      fetch: () => this.fetchFromIndianExpress()
+    });
+
+    this.sources.push({
+      name: 'Hindustan Times',
+      fetch: () => this.fetchFromHindustanTimes()
     });
   }
 
@@ -205,17 +214,6 @@ class NewsService {
     }
   }
 
-  private async fetchFromCNN(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('http://rss.cnn.com/rss/edition.rss');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'CNN', 'cnn');
-    } catch (error) {
-      console.warn('CNN RSS failed:', error);
-      return [];
-    }
-  }
-
   private async fetchFromTimesOfIndia(): Promise<NewsItem[]> {
     try {
       const response = await fetch('https://timesofindia.indiatimes.com/rssfeedstopstories.cms');
@@ -234,6 +232,39 @@ class NewsService {
       return this.parseRSSFeed(text, 'Hindu', 'hindu');
     } catch (error) {
       console.warn('Hindu RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromNDTV(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://feeds.feedburner.com/NDTV-LatestNews');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'NDTV', 'ndtv');
+    } catch (error) {
+      console.warn('NDTV RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromIndianExpress(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://indianexpress.com/feed/');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Indian Express', 'ie');
+    } catch (error) {
+      console.warn('Indian Express RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromHindustanTimes(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Hindustan Times', 'ht');
+    } catch (error) {
+      console.warn('Hindustan Times RSS failed:', error);
       return [];
     }
   }
@@ -294,32 +325,43 @@ class NewsService {
     const insights: string[] = [];
     const content = `${title} ${description}`.toLowerCase();
 
-    // Always provide at least one insight
-    if (content.includes('economy') || content.includes('market') || content.includes('business')) {
-      insights.push('Economic implications for local businesses and employment');
-      insights.push('Potential impact on consumer spending and market trends');
-    } else if (content.includes('policy') || content.includes('government') || content.includes('election')) {
-      insights.push('Potential impact on local governance and citizen services');
-      insights.push('Democratic implications and civic engagement opportunities');
-    } else if (content.includes('technology') || content.includes('innovation') || content.includes('ai')) {
-      insights.push('Technology trends affecting daily life and work');
-      insights.push('Digital transformation implications for society');
-    } else if (content.includes('climate') || content.includes('environment') || content.includes('weather')) {
-      insights.push('Environmental considerations for community planning');
-      insights.push('Long-term sustainability and climate action needs');
-    } else if (content.includes('health') || content.includes('medical') || content.includes('hospital')) {
-      insights.push('Public health implications and healthcare access');
-      insights.push('Community wellness and preventive care considerations');
+    // More specific and meaningful insights based on content analysis
+    if (content.includes('economy') || content.includes('gdp') || content.includes('inflation')) {
+      insights.push('Rising costs may affect household budgets and spending patterns in coming months');
+      insights.push('Local businesses could see changes in consumer demand and pricing strategies');
+    } else if (content.includes('election') || content.includes('vote') || content.includes('political')) {
+      insights.push('Voting patterns may shift based on current policy outcomes and public sentiment');
+      insights.push('New leadership could bring changes to local governance and public services');
+    } else if (content.includes('technology') || content.includes('ai') || content.includes('digital')) {
+      insights.push('Automation trends may create new job categories while eliminating others');
+      insights.push('Digital skills training becomes increasingly important for career advancement');
+    } else if (content.includes('climate') || content.includes('weather') || content.includes('environment')) {
+      insights.push('Extreme weather patterns require updated emergency preparedness and infrastructure');
+      insights.push('Green technology adoption could reduce long-term energy costs for households');
+    } else if (content.includes('health') || content.includes('medical') || content.includes('vaccine')) {
+      insights.push('Healthcare access and costs directly impact family financial planning');
+      insights.push('Preventive measures now could reduce future medical expenses and complications');
     } else if (content.includes('education') || content.includes('school') || content.includes('university')) {
-      insights.push('Educational opportunities and skill development impact');
-      insights.push('Future workforce and learning ecosystem changes');
+      insights.push('Educational policy changes affect long-term career prospects for students');
+      insights.push('Skills gap in job market highlights need for updated curriculum and training');
+    } else if (content.includes('transport') || content.includes('traffic') || content.includes('infrastructure')) {
+      insights.push('Transportation improvements could reduce commute times and increase property values');
+      insights.push('Infrastructure investments typically create local employment opportunities');
+    } else if (content.includes('housing') || content.includes('rent') || content.includes('property')) {
+      insights.push('Housing market changes directly affect monthly expenses and investment decisions');
+      insights.push('Property value fluctuations impact household wealth and borrowing capacity');
     } else {
-      // Default insights for general news
-      insights.push('Broader societal implications and community impact');
-      insights.push('Connection to larger trends and future developments');
+      // More specific default insights based on news patterns
+      if (content.includes('india') || content.includes('indian')) {
+        insights.push('National developments often translate to state-level policy changes and local implementation');
+        insights.push('Economic shifts at the federal level typically affect regional job markets and business opportunities');
+      } else {
+        insights.push('Global trends increasingly influence local markets and employment opportunities');
+        insights.push('International developments may affect supply chains and product availability locally');
+      }
     }
 
-    return insights.slice(0, 3); // Limit to 3 insights max
+    return insights.slice(0, 3);
   }
 
   private cleanDescription(description: string): string {
