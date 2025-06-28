@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { analyticsService } from '@/services/analyticsService';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
@@ -105,6 +104,7 @@ const VideoCard = ({
               )}
               <span className="text-blue-400 text-xs font-medium">{news.category}</span>
             </div>
+            <div className="text-white/60 text-xs font-medium">antiNews</div>
           </div>
 
           {/* Main Content Area */}
@@ -129,7 +129,7 @@ const VideoCard = ({
               </p>
             </div>
 
-            {/* Why This Matters - Always show for every article */}
+            {/* Why This Matters - Enhanced for antiNews */}
             <div className="mb-6">
               <button
                 onClick={() => setShowInsights(!showInsights)}
@@ -142,7 +142,7 @@ const VideoCard = ({
                   {(news.contextualInsights && news.contextualInsights.length > 0 ? news.contextualInsights : [
                     'This story impacts how we understand current events and their broader implications',
                     'Understanding these developments helps us make more informed decisions as citizens'
-                  ]).map((insight, index) => (
+                  ]).slice(0, 2).map((insight, index) => (
                     <p key={index} className="text-white/90 text-sm leading-relaxed drop-shadow-lg bg-black/20 p-3 rounded-md">
                       • {insight}
                     </p>
@@ -162,7 +162,7 @@ const VideoCard = ({
         </div>
       </div>
 
-      {/* Related Articles Carousel - Full screen overlay */}
+      {/* Insights Panel - Full screen overlay */}
       <div 
         className={`absolute inset-0 transition-transform duration-300 ease-in-out bg-black ${
           showRelatedArticles ? 'translate-x-0' : 'translate-x-full'
@@ -204,7 +204,7 @@ const VideoCard = ({
           <div className="flex flex-col items-center">
             <span className="text-xs mb-1">Swipe left</span>
             <span className="text-lg">→</span>
-            <span className="text-xs mt-1">for more</span>
+            <span className="text-xs mt-1">for insights</span>
           </div>
         </div>
       )}

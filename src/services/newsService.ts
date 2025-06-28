@@ -35,6 +35,13 @@ class NewsService {
     ['Economic Times', 0.83]
   ]);
 
+  // Categories to filter out for antiNews
+  private excludedCategories = [
+    'sports', 'sport', 'cricket', 'football', 'soccer', 'basketball', 'tennis',
+    'music', 'entertainment', 'celebrity', 'bollywood', 'hollywood', 'movies',
+    'fashion', 'lifestyle', 'gaming', 'games'
+  ];
+
   constructor() {
     this.initializeSources();
   }
@@ -111,8 +118,16 @@ class NewsService {
       return this.getCuratedFallbackNews();
     }
 
+    // Filter out sports, music, and entertainment content
+    const filteredNews = allNews.filter(article => {
+      const content = `${article.headline} ${article.tldr} ${article.category}`.toLowerCase();
+      return !this.excludedCategories.some(excluded => content.includes(excluded));
+    });
+
+    console.log(`Filtered ${allNews.length - filteredNews.length} sports/entertainment articles`);
+
     // Sort by trust score and local relevance, then shuffle within groups
-    const sortedNews = allNews.sort((a, b) => {
+    const sortedNews = filteredNews.sort((a, b) => {
       const aTrust = a.trustScore || 0.5;
       const bTrust = b.trustScore || 0.5;
       const aRelevance = a.localRelevance || 0.5;
@@ -281,13 +296,19 @@ class NewsService {
         const pubDate = item.querySelector('pubDate')?.textContent || '';
         const link = item.querySelector('link')?.textContent || '';
         
+        // Skip if it's sports/entertainment content
+        const content = `${title} ${description}`.toLowerCase();
+        if (this.excludedCategories.some(excluded => content.includes(excluded))) {
+          return null;
+        }
+        
         return {
           id: `${sourcePrefix}-${Date.now()}-${index}`,
           headline: title,
           tldr: this.cleanDescription(description) || this.generateTldr(title),
           quote: this.cleanDescription(description) || '',
           author: sourceName,
-          category: 'World News',
+          category: this.categorizeNews(title, description),
           imageUrl: this.getPlaceholderImage(index + 50),
           readTime: '3 min read',
           publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
@@ -296,11 +317,24 @@ class NewsService {
           localRelevance: this.calculateLocalRelevance(title, description),
           contextualInsights: this.generateContextualInsights(title, description)
         };
-      });
+      }).filter(Boolean) as NewsItem[];
     } catch (error) {
       console.warn(`Failed to parse RSS from ${sourceName}:`, error);
       return [];
     }
+  }
+
+  private categorizeNews(title: string, description: string): string {
+    const content = `${title} ${description}`.toLowerCase();
+    
+    if (content.includes('economy') || content.includes('business') || content.includes('market')) return 'Economy';
+    if (content.includes('health') || content.includes('medical') || content.includes('vaccine')) return 'Health';
+    if (content.includes('climate') || content.includes('environment') || content.includes('energy')) return 'Environment';
+    if (content.includes('technology') || content.includes('ai') || content.includes('digital')) return 'Technology';
+    if (content.includes('education') || content.includes('school') || content.includes('university')) return 'Education';
+    if (content.includes('government') || content.includes('policy') || content.includes('election')) return 'Politics';
+    
+    return 'World News';
   }
 
   private calculateLocalRelevance(title: string, description: string): number {

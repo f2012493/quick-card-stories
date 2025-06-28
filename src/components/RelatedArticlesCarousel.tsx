@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ChevronLeft, ExternalLink, Clock, User } from 'lucide-react';
+import { ChevronLeft, Lightbulb, TrendingUp, Users, Globe } from 'lucide-react';
 
 interface NewsItem {
   id: string;
@@ -13,6 +13,7 @@ interface NewsItem {
   readTime: string;
   publishedAt?: string;
   sourceUrl?: string;
+  contextualInsights?: string[];
 }
 
 interface RelatedArticlesCarouselProps {
@@ -24,30 +25,50 @@ interface RelatedArticlesCarouselProps {
 
 const RelatedArticlesCarousel = ({ 
   currentNews, 
-  relatedArticles, 
-  onNavigateToArticle, 
   onSwipeLeft 
 }: RelatedArticlesCarouselProps) => {
-  const handleArticleClick = (articleId: string) => {
-    onNavigateToArticle(articleId);
-    onSwipeLeft(); // Close the carousel after selection
+  const insights = currentNews.contextualInsights || [
+    'This story impacts how we understand current events and their broader implications',
+    'Understanding these developments helps us make more informed decisions as citizens',
+    'These changes may affect local communities and personal planning decisions'
+  ];
+
+  const getInsightIcon = (index: number) => {
+    const icons = [TrendingUp, Users, Globe, Lightbulb];
+    const Icon = icons[index % icons.length];
+    return <Icon className="w-5 h-5" />;
   };
 
-  const formatPublishedDate = (dateString?: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+  const getAdditionalInsights = () => {
+    const category = currentNews.category.toLowerCase();
+    const content = `${currentNews.headline} ${currentNews.tldr}`.toLowerCase();
     
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    return `${Math.floor(diffInHours / 24)}d ago`;
+    const additionalInsights = [];
+    
+    if (category.includes('economy') || content.includes('economy')) {
+      additionalInsights.push("Economic shifts often create ripple effects across employment, housing, and consumer spending");
+      additionalInsights.push("Policy changes in this area typically affect small businesses and household budgets within 6-12 months");
+    }
+    
+    if (category.includes('health') || content.includes('health')) {
+      additionalInsights.push("Healthcare developments directly impact insurance costs and treatment accessibility");
+      additionalInsights.push("Preventive measures and early interventions often prove more cost-effective than reactive solutions");
+    }
+    
+    if (category.includes('technology') || content.includes('technology')) {
+      additionalInsights.push("Technology adoption rates accelerate when economic incentives align with user benefits");
+      additionalInsights.push("Digital transformation affects job markets by eliminating some roles while creating others");
+    }
+    
+    if (category.includes('environment') || content.includes('climate')) {
+      additionalInsights.push("Environmental policies often intersect with economic development and job creation");
+      additionalInsights.push("Infrastructure investments in green technology typically have 10-20 year payback periods");
+    }
+    
+    return additionalInsights.slice(0, 2);
   };
 
-  // Get related articles from different categories or similar topics
-  const filteredRelated = relatedArticles
-    .filter(article => article.id !== currentNews.id)
-    .slice(0, 8);
+  const allInsights = [...insights, ...getAdditionalInsights()];
 
   return (
     <div className="relative w-full h-full bg-black text-white overflow-y-auto">
@@ -61,8 +82,8 @@ const RelatedArticlesCarousel = ({
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold">Related Coverage</h2>
-            <p className="text-sm text-gray-400">More stories you might find interesting</p>
+            <h2 className="text-lg font-semibold">Why This Matters</h2>
+            <p className="text-sm text-gray-400">Understanding the deeper implications</p>
           </div>
         </div>
       </div>
@@ -75,83 +96,72 @@ const RelatedArticlesCarousel = ({
               NOW
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-sm mb-1">Currently Reading</h3>
+              <h3 className="font-semibold text-sm mb-1">Current Story</h3>
               <p className="text-gray-300 text-sm line-clamp-2">{currentNews.headline}</p>
+              <span className="text-xs bg-blue-600/20 text-blue-400 px-2 py-1 rounded mt-2 inline-block">
+                {currentNews.category}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Related articles grid */}
+      {/* Insights section */}
       <div className="p-4">
         <div className="space-y-4">
-          {filteredRelated.map((article, index) => (
+          {allInsights.map((insight, index) => (
             <div
-              key={article.id}
-              onClick={() => handleArticleClick(article.id)}
-              className="bg-gray-900/30 rounded-lg p-4 cursor-pointer hover:bg-gray-800/50 transition-all duration-200 border border-gray-800/50 hover:border-gray-700 active:scale-95"
+              key={index}
+              className="bg-gray-900/30 rounded-lg p-4 border border-gray-800/50"
             >
               <div className="flex gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs bg-blue-600/20 text-blue-400 px-2 py-1 rounded">
-                      {article.category}
-                    </span>
-                    <div className="flex items-center gap-1 text-gray-400 text-xs">
-                      <Clock className="w-3 h-3" />
-                      {article.readTime}
-                    </div>
-                    {article.publishedAt && (
-                      <span className="text-gray-500 text-xs">
-                        {formatPublishedDate(article.publishedAt)}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <h3 className="font-semibold text-white mb-2 line-clamp-2 leading-tight">
-                    {article.headline}
-                  </h3>
-                  
-                  <p className="text-gray-300 text-sm line-clamp-3 mb-3">
-                    {article.tldr}
-                  </p>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1 text-gray-400 text-xs">
-                      <User className="w-3 h-3" />
-                      {article.author}
-                    </div>
-                    <div className="flex items-center gap-1 text-blue-400">
-                      <span className="text-xs">Read more</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </div>
-                  </div>
+                <div className="flex-shrink-0 w-10 h-10 bg-yellow-600/20 rounded-lg flex items-center justify-center text-yellow-400">
+                  {getInsightIcon(index)}
                 </div>
-                
-                <div className="w-20 h-20 flex-shrink-0">
-                  <img
-                    src={article.imageUrl}
-                    alt={article.headline}
-                    className="w-full h-full object-cover rounded-lg"
-                    loading="lazy"
-                  />
+                <div className="flex-1">
+                  <p className="text-gray-300 text-sm leading-relaxed">
+                    {insight}
+                  </p>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        {filteredRelated.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-2">No related articles found</div>
-            <button
-              onClick={onSwipeLeft}
-              className="text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              Go back to main story
-            </button>
+        {/* Trust and relevance indicators */}
+        <div className="mt-6 p-4 bg-gray-900/20 rounded-lg border border-gray-800/30">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Story Quality</h3>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">Source Reliability</span>
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-400 transition-all duration-300"
+                    style={{ width: `${(currentNews.trustScore || 0.8) * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs text-green-400">
+                  {Math.round((currentNews.trustScore || 0.8) * 100)}%
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">Local Relevance</span>
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-1 bg-gray-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-400 transition-all duration-300"
+                    style={{ width: `${(currentNews.localRelevance || 0.6) * 100}%` }}
+                  />
+                </div>
+                <span className="text-xs text-blue-400">
+                  {Math.round((currentNews.localRelevance || 0.6) * 100)}%
+                </span>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
