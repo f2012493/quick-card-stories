@@ -29,32 +29,39 @@ interface UseNewsOptions {
 
 export const useNews = (options: UseNewsOptions = {}) => {
   return useQuery({
-    queryKey: ['comprehensive-news', options],
+    queryKey: ['fresh-news', options, Date.now()], // Add timestamp to force fresh fetches
     queryFn: async (): Promise<NewsItem[]> => {
-      console.log('Fetching comprehensive news from multiple sources...');
+      console.log('Fetching fresh, real-time news...');
       
       try {
         const news = await newsService.fetchAllNews();
-        console.log(`Successfully fetched ${news.length} articles from various sources`);
+        console.log(`Successfully fetched ${news.length} fresh articles`);
         
-        // Cache the news locally for offline access
-        const cacheData = {
-          news,
-          timestamp: Date.now()
-        };
-        localStorage.setItem('antinews-cache', JSON.stringify(cacheData));
+        if (news.length > 0) {
+          // Cache only valid news, not fallback content
+          const cacheData = {
+            news,
+            timestamp: Date.now(),
+            isRealNews: news.some(article => article.author !== 'antiNews System')
+          };
+          localStorage.setItem('antinews-cache', JSON.stringify(cacheData));
+        }
         
         return news;
       } catch (error) {
-        console.error('Error fetching comprehensive news:', error);
+        console.error('Error fetching fresh news:', error);
         
-        // Try to load from cache as fallback
+        // Try to load from cache only if it's recent and real news
         try {
           const cachedNews = localStorage.getItem('antinews-cache');
           if (cachedNews) {
             const parsed = JSON.parse(cachedNews);
-            if (parsed.news && parsed.news.length > 0) {
-              console.log('Using cached news as fallback');
+            const cacheAge = Date.now() - parsed.timestamp;
+            const maxCacheAge = 2 * 60 * 1000; // 2 minutes max for fresh news
+            
+            if (parsed.news && parsed.news.length > 0 && 
+                cacheAge < maxCacheAge && parsed.isRealNews) {
+              console.log('Using recent cached real news as temporary fallback');
               return parsed.news;
             }
           }
@@ -62,14 +69,16 @@ export const useNews = (options: UseNewsOptions = {}) => {
           console.error('Failed to load cached news:', cacheError);
         }
         
-        // If everything fails, return curated news
-        console.log('Using curated fallback news');
-        return await newsService.fetchAllNews();
+        // Return empty array to show loading state rather than fake content
+        console.log('No real news available, showing loading state');
+        return [];
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes - fresher content for doom scrolling
-    gcTime: 15 * 60 * 1000, // 15 minutes
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    staleTime: 1 * 60 * 1000, // 1 minute - very fresh for real news
+    gcTime: 3 * 60 * 1000, // 3 minutes
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    refetchInterval: 2 * 60 * 1000, // Auto-refresh every 2 minutes
+    refetchIntervalInBackground: true, // Keep refreshing even when tab is not active
   });
 };

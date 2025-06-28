@@ -20,7 +20,6 @@ interface NewsItem {
 }
 
 class NewsService {
-  private sources: NewsSource[] = [];
   private trustedSources = new Map([
     ['Guardian', 0.9],
     ['BBC News', 0.95],
@@ -45,98 +44,62 @@ class NewsService {
     'fashion', 'lifestyle', 'gaming', 'games', 'film', 'actor', 'actress'
   ];
 
-  constructor() {
-    this.initializeSources();
-  }
-
-  private initializeSources() {
-    // Prioritize Indian sources first
-    this.sources.push({
-      name: 'Times of India',
-      fetch: () => this.fetchFromTimesOfIndia()
-    });
-
-    this.sources.push({
-      name: 'Hindu',
-      fetch: () => this.fetchFromHindu()
-    });
-
-    this.sources.push({
-      name: 'Indian Express',
-      fetch: () => this.fetchFromIndianExpress()
-    });
-
-    this.sources.push({
-      name: 'NDTV',
-      fetch: () => this.fetchFromNDTV()
-    });
-
-    this.sources.push({
-      name: 'Hindustan Times',
-      fetch: () => this.fetchFromHindustanTimes()
-    });
-
-    this.sources.push({
-      name: 'Economic Times',
-      fetch: () => this.fetchFromEconomicTimes()
-    });
-
-    this.sources.push({
-      name: 'News18',
-      fetch: () => this.fetchFromNews18()
-    });
-
-    this.sources.push({
-      name: 'India Today',
-      fetch: () => this.fetchFromIndiaToday()
-    });
-
-    // International sources
-    this.sources.push({
-      name: 'Guardian',
-      fetch: () => this.fetchFromGuardian()
-    });
-
-    this.sources.push({
-      name: 'NewsAPI',
-      fetch: () => this.fetchFromNewsAPI()
-    });
-
-    this.sources.push({
-      name: 'BBC',
-      fetch: () => this.fetchFromBBC()
-    });
-
-    this.sources.push({
-      name: 'Reuters',
-      fetch: () => this.fetchFromReuters()
-    });
-  }
+  // Store seen articles to prevent duplicates
+  private seenArticles = new Set<string>();
 
   async fetchAllNews(): Promise<NewsItem[]> {
-    const allNews: NewsItem[] = [];
-    const promises = this.sources.map(source => 
-      source.fetch().catch(error => {
-        console.warn(`Failed to fetch from ${source.name}:`, error);
-        return [];
-      })
-    );
-
-    const results = await Promise.allSettled(promises);
+    console.log('Fetching fresh news from multiple sources...');
     
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled' && result.value.length > 0) {
-        console.log(`Successfully fetched ${result.value.length} articles from ${this.sources[index].name}`);
-        allNews.push(...result.value);
-      }
-    });
+    try {
+      // Use Supabase edge function to fetch news (avoids CORS issues)
+      const response = await fetch('/functions/v1/fetch-news', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          country: 'India',
+          category: 'general',
+          pageSize: 50
+        })
+      });
 
-    if (allNews.length === 0) {
-      console.warn('All news sources failed, using curated fallback');
-      return this.getCuratedFallbackNews();
+      if (response.ok) {
+        const data = await response.json();
+        if (data.news && data.news.length > 0) {
+          console.log(`Fetched ${data.news.length} fresh articles from edge function`);
+          return this.deduplicateArticles(data.news);
+        }
+      }
+    } catch (error) {
+      console.error('Edge function failed, trying direct sources:', error);
     }
 
-    // Filter out sports, music, and entertainment content more aggressively
+    // Fallback to direct sources that work
+    const allNews: NewsItem[] = [];
+    
+    // Try Guardian API (works)
+    try {
+      const guardianNews = await this.fetchFromGuardian();
+      allNews.push(...guardianNews);
+    } catch (error) {
+      console.warn('Guardian failed:', error);
+    }
+
+    // Try News18 RSS (works)
+    try {
+      const news18Articles = await this.fetchFromNews18();
+      allNews.push(...news18Articles);
+    } catch (error) {
+      console.warn('News18 failed:', error);
+    }
+
+    if (allNews.length === 0) {
+      console.warn('All real sources failed, using minimal curated content');
+      return this.getMinimalFallbackNews();
+    }
+
+    // Filter out unwanted content
     const filteredNews = allNews.filter(article => {
       const content = `${article.headline} ${article.tldr} ${article.category}`.toLowerCase();
       return !this.excludedCategories.some(excluded => content.includes(excluded));
@@ -144,8 +107,11 @@ class NewsService {
 
     console.log(`Filtered ${allNews.length - filteredNews.length} sports/entertainment articles`);
 
-    // Prioritize Indian content and sort by relevance
-    const prioritizedNews = filteredNews.sort((a, b) => {
+    // Deduplicate and prioritize
+    const deduplicatedNews = this.deduplicateArticles(filteredNews);
+    
+    // Prioritize Indian content
+    const prioritizedNews = deduplicatedNews.sort((a, b) => {
       const aIsIndian = this.isIndianContent(a);
       const bIsIndian = this.isIndianContent(b);
       
@@ -160,8 +126,59 @@ class NewsService {
       return (bTrust + bRelevance) - (aTrust + aRelevance);
     });
 
-    // Return more articles for doom scrolling - up to 50 instead of 20
-    return prioritizedNews.slice(0, 50);
+    return prioritizedNews.slice(0, 30);
+  }
+
+  private deduplicateArticles(articles: NewsItem[]): NewsItem[] {
+    const uniqueArticles: NewsItem[] = [];
+    const seenTitles = new Set<string>();
+    const seenUrls = new Set<string>();
+
+    for (const article of articles) {
+      // Create a normalized title for comparison
+      const normalizedTitle = article.headline.toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      // Create a shorter version for similarity checking
+      const titleWords = normalizedTitle.split(' ').slice(0, 8).join(' ');
+      
+      // Check for exact URL match
+      if (article.sourceUrl && seenUrls.has(article.sourceUrl)) {
+        console.log(`Skipping duplicate URL: ${article.headline}`);
+        continue;
+      }
+
+      // Check for similar title
+      let isDuplicate = false;
+      for (const seenTitle of seenTitles) {
+        if (this.calculateSimilarity(titleWords, seenTitle) > 0.7) {
+          console.log(`Skipping similar article: ${article.headline}`);
+          isDuplicate = true;
+          break;
+        }
+      }
+
+      if (!isDuplicate) {
+        uniqueArticles.push(article);
+        seenTitles.add(titleWords);
+        if (article.sourceUrl) {
+          seenUrls.add(article.sourceUrl);
+        }
+      }
+    }
+
+    console.log(`Deduplicated from ${articles.length} to ${uniqueArticles.length} articles`);
+    return uniqueArticles;
+  }
+
+  private calculateSimilarity(str1: string, str2: string): number {
+    const words1 = str1.split(' ');
+    const words2 = str2.split(' ');
+    const intersection = words1.filter(word => words2.includes(word));
+    const union = [...new Set([...words1, ...words2])];
+    return intersection.length / union.length;
   }
 
   private isIndianContent(article: NewsItem): boolean {
@@ -173,7 +190,7 @@ class NewsService {
 
   private async fetchFromGuardian(): Promise<NewsItem[]> {
     const response = await fetch(
-      'https://content.guardianapis.com/search?api-key=test&show-fields=thumbnail,trailText,body&page-size=10'
+      'https://content.guardianapis.com/search?api-key=test&show-fields=thumbnail,trailText,body&page-size=15'
     );
     
     if (!response.ok) throw new Error('Guardian API failed');
@@ -197,136 +214,6 @@ class NewsService {
     }));
   }
 
-  private async fetchFromNewsAPI(): Promise<NewsItem[]> {
-    // Try to get country-specific news first
-    let response;
-    try {
-      response = await fetch(
-        'https://newsapi.org/v2/top-headlines?country=in&pageSize=10&apiKey=demo'
-      );
-      
-      if (!response.ok) {
-        // Fallback to US news if Indian news fails
-        response = await fetch(
-          'https://newsapi.org/v2/top-headlines?country=us&pageSize=10&apiKey=demo'
-        );
-      }
-    } catch (error) {
-      // Fallback to US news
-      response = await fetch(
-        'https://newsapi.org/v2/top-headlines?country=us&pageSize=10&apiKey=demo'
-      );
-    }
-    
-    if (!response.ok) throw new Error('NewsAPI failed');
-    
-    const data = await response.json();
-    
-    return (data.articles || []).map((article: any, index: number): NewsItem => ({
-      id: `newsapi-${Date.now()}-${index}`,
-      headline: article.title,
-      tldr: article.description || this.generateTldr(article.title),
-      quote: article.description || '',
-      author: article.author || article.source?.name || 'News Team',
-      category: 'Breaking News',
-      imageUrl: article.urlToImage || this.getPlaceholderImage(index),
-      readTime: '2 min read',
-      publishedAt: article.publishedAt,
-      sourceUrl: article.url,
-      trustScore: this.trustedSources.get('NewsAPI') || 0.7,
-      localRelevance: this.calculateLocalRelevance(article.title, article.description || ''),
-      contextualInsights: this.generateContextualInsights(article.title, article.description || '')
-    }));
-  }
-
-  private async fetchFromBBC(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://feeds.bbci.co.uk/news/rss.xml');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'BBC News', 'bbc');
-    } catch (error) {
-      console.warn('BBC RSS failed:', error);
-      return [];
-    }
-  }
-
-  private async fetchFromReuters(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'Reuters', 'reuters');
-    } catch (error) {
-      console.warn('Reuters RSS failed:', error);
-      return [];
-    }
-  }
-
-  private async fetchFromTimesOfIndia(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'Times of India', 'toi');
-    } catch (error) {
-      console.warn('Times of India RSS failed:', error);
-      return this.getFallbackIndianNews('Times of India');
-    }
-  }
-
-  private async fetchFromHindu(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://www.thehindu.com/news/national/feeder/default.rss');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'Hindu', 'hindu');
-    } catch (error) {
-      console.warn('Hindu RSS failed:', error);
-      return this.getFallbackIndianNews('Hindu');
-    }
-  }
-
-  private async fetchFromNDTV(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://feeds.feedburner.com/ndtvnews-top-stories');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'NDTV', 'ndtv');
-    } catch (error) {
-      console.warn('NDTV RSS failed:', error);
-      return this.getFallbackIndianNews('NDTV');
-    }
-  }
-
-  private async fetchFromIndianExpress(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://indianexpress.com/section/india/feed/');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'Indian Express', 'ie');
-    } catch (error) {
-      console.warn('Indian Express RSS failed:', error);
-      return this.getFallbackIndianNews('Indian Express');
-    }
-  }
-
-  private async fetchFromHindustanTimes(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'Hindustan Times', 'ht');
-    } catch (error) {
-      console.warn('Hindustan Times RSS failed:', error);
-      return this.getFallbackIndianNews('Hindustan Times');
-    }
-  }
-
-  private async fetchFromEconomicTimes(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://economictimes.indiatimes.com/rssfeedsdefault.cms');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'Economic Times', 'et');
-    } catch (error) {
-      console.warn('Economic Times RSS failed:', error);
-      return this.getFallbackIndianNews('Economic Times');
-    }
-  }
-
   private async fetchFromNews18(): Promise<NewsItem[]> {
     try {
       const response = await fetch('https://www.news18.com/rss/india.xml');
@@ -334,56 +221,8 @@ class NewsService {
       return this.parseRSSFeed(text, 'News18', 'news18');
     } catch (error) {
       console.warn('News18 RSS failed:', error);
-      return this.getFallbackIndianNews('News18');
+      return [];
     }
-  }
-
-  private async fetchFromIndiaToday(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://www.indiatoday.in/rss/home');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'India Today', 'it');
-    } catch (error) {
-      console.warn('India Today RSS failed:', error);
-      return this.getFallbackIndianNews('India Today');
-    }
-  }
-
-  private getFallbackIndianNews(sourceName: string): NewsItem[] {
-    const fallbackNews = [
-      {
-        id: `${sourceName.toLowerCase().replace(/\s+/g, '-')}-fallback-1`,
-        headline: 'India Advances Digital Infrastructure Development',
-        tldr: 'Government announces major investments in digital infrastructure to boost connectivity across rural and urban areas.',
-        quote: 'Digital transformation is crucial for India\'s economic growth and social development.',
-        author: sourceName,
-        category: 'Technology',
-        imageUrl: this.getPlaceholderImage(1),
-        readTime: '3 min read',
-        publishedAt: new Date().toISOString(),
-        sourceUrl: '',
-        trustScore: this.trustedSources.get(sourceName) || 0.8,
-        localRelevance: 0.9,
-        contextualInsights: ['Digital infrastructure investments create long-term economic opportunities', 'Rural connectivity improvements can reduce urban migration pressure']
-      },
-      {
-        id: `${sourceName.toLowerCase().replace(/\s+/g, '-')}-fallback-2`,
-        headline: 'Economic Reforms Show Positive Impact on Employment',
-        tldr: 'Recent policy changes have led to increased job creation in manufacturing and services sectors across major Indian cities.',
-        quote: 'Employment growth is essential for sustainable economic development.',
-        author: sourceName,
-        category: 'Economy',
-        imageUrl: this.getPlaceholderImage(2),
-        readTime: '4 min read',
-        publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: '',
-        trustScore: this.trustedSources.get(sourceName) || 0.8,
-        localRelevance: 0.85,
-        contextualInsights: ['Job market improvements affect household income and spending patterns', 'Manufacturing growth supports local supply chains and small businesses']
-      }
-    ];
-    
-    return fallbackNews;
   }
 
   private parseRSSFeed(xmlText: string, sourceName: string, sourcePrefix: string): NewsItem[] {
@@ -392,7 +231,7 @@ class NewsService {
       const doc = parser.parseFromString(xmlText, 'text/xml');
       const items = doc.querySelectorAll('item');
       
-      return Array.from(items).slice(0, 8).map((item, index): NewsItem => {
+      return Array.from(items).slice(0, 15).map((item, index): NewsItem => {
         const title = item.querySelector('title')?.textContent || 'News Update';
         const description = item.querySelector('description')?.textContent || '';
         const pubDate = item.querySelector('pubDate')?.textContent || '';
@@ -443,7 +282,6 @@ class NewsService {
     const content = `${title} ${description}`.toLowerCase();
     let relevanceScore = 0.5;
 
-    // Check for location-specific keywords
     const locationKeywords = ['local', 'city', 'state', 'community', 'region', 'municipal', 'county'];
     const politicalKeywords = ['election', 'vote', 'policy', 'government', 'council', 'mayor'];
     const economicKeywords = ['economy', 'business', 'jobs', 'employment', 'market', 'trade'];
@@ -461,7 +299,6 @@ class NewsService {
     const insights: string[] = [];
     const content = `${title} ${description}`.toLowerCase();
 
-    // More specific and meaningful insights based on content analysis
     if (content.includes('economy') || content.includes('gdp') || content.includes('inflation')) {
       insights.push('Rising costs may affect household budgets and spending patterns in coming months');
       insights.push('Local businesses could see changes in consumer demand and pricing strategies');
@@ -477,24 +314,9 @@ class NewsService {
     } else if (content.includes('health') || content.includes('medical') || content.includes('vaccine')) {
       insights.push('Healthcare access and costs directly impact family financial planning');
       insights.push('Preventive measures now could reduce future medical expenses and complications');
-    } else if (content.includes('education') || content.includes('school') || content.includes('university')) {
-      insights.push('Educational policy changes affect long-term career prospects for students');
-      insights.push('Skills gap in job market highlights need for updated curriculum and training');
-    } else if (content.includes('transport') || content.includes('traffic') || content.includes('infrastructure')) {
-      insights.push('Transportation improvements could reduce commute times and increase property values');
-      insights.push('Infrastructure investments typically create local employment opportunities');
-    } else if (content.includes('housing') || content.includes('rent') || content.includes('property')) {
-      insights.push('Housing market changes directly affect monthly expenses and investment decisions');
-      insights.push('Property value fluctuations impact household wealth and borrowing capacity');
     } else {
-      // More specific default insights based on news patterns
-      if (content.includes('india') || content.includes('indian')) {
-        insights.push('National developments often translate to state-level policy changes and local implementation');
-        insights.push('Economic shifts at the federal level typically affect regional job markets and business opportunities');
-      } else {
-        insights.push('Global trends increasingly influence local markets and employment opportunities');
-        insights.push('International developments may affect supply chains and product availability locally');
-      }
+      insights.push('Global trends increasingly influence local markets and employment opportunities');
+      insights.push('Economic shifts at the federal level typically affect regional job markets and business opportunities');
     }
 
     return insights.slice(0, 3);
@@ -535,93 +357,24 @@ class NewsService {
     return `https://images.unsplash.com/photo-${selectedId}?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
   }
 
-  private getCuratedFallbackNews(): NewsItem[] {
+  private getMinimalFallbackNews(): NewsItem[] {
     return [
       {
-        id: 'curated-1',
-        headline: 'India Strengthens Climate Action with Renewable Energy Expansion',
-        tldr: 'The government announces ambitious renewable energy targets, aiming to significantly reduce carbon emissions while creating sustainable employment opportunities.',
-        quote: 'Clean energy transition is vital for India\'s sustainable development goals.',
-        author: 'antiNews Team',
-        category: 'Environment',
-        imageUrl: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        readTime: '3 min read',
+        id: 'fresh-1',
+        headline: 'Breaking: Real-time News Service Temporarily Unavailable',
+        tldr: 'Our news aggregation service is experiencing connectivity issues. We are working to restore full access to live news feeds.',
+        quote: 'Technical teams are actively working to resolve connectivity issues with news sources.',
+        author: 'antiNews System',
+        category: 'System Update',
+        imageUrl: this.getPlaceholderImage(1),
+        readTime: '1 min read',
         publishedAt: new Date().toISOString(),
         sourceUrl: '',
         trustScore: 0.9,
         localRelevance: 0.9,
-        contextualInsights: ['Renewable energy investments reduce long-term electricity costs for households', 'Green jobs creation supports local economic development']
-      },
-      {
-        id: 'curated-2',
-        headline: 'Healthcare Infrastructure Modernization Accelerates Across India',
-        tldr: 'Major investments in healthcare technology and infrastructure aim to improve medical access in both urban and rural areas.',
-        quote: 'Quality healthcare access is fundamental to national development.',
-        author: 'antiNews Team',
-        category: 'Health',
-        imageUrl: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        readTime: '4 min read',
-        publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: '',
-        trustScore: 0.9,
-        localRelevance: 0.85,
-        contextualInsights: ['Healthcare improvements reduce family medical expenses', 'Telemedicine expansion benefits remote communities']
-      },
-      {
-        id: 'curated-3',
-        headline: 'Educational Technology Integration Transforms Learning Outcomes',
-        tldr: 'Digital learning platforms and educational technology initiatives show promising results in improving student engagement and academic performance.',
-        quote: 'Technology-enabled education prepares students for future job markets.',
-        author: 'antiNews Team',
-        category: 'Education',
-        imageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        readTime: '3 min read',
-        publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: '',
-        trustScore: 0.9,
-        localRelevance: 0.8,
-        contextualInsights: ['Digital skills training improves employment prospects', 'Online education reduces geographical barriers to quality learning']
-      },
-      {
-        id: 'curated-4',
-        headline: 'Financial Inclusion Initiatives Expand Banking Access in Rural Areas',
-        tldr: 'New banking technologies and government initiatives bring financial services to previously underserved rural communities.',
-        quote: 'Financial inclusion is essential for economic empowerment and poverty reduction.',
-        author: 'antiNews Team',
-        category: 'Economy',
-        imageUrl: 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        readTime: '3 min read',
-        publishedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: '',
-        trustScore: 0.9,
-        localRelevance: 0.9,
-        contextualInsights: ['Banking access enables small business growth and investment', 'Digital payments reduce transaction costs and improve transparency']
-      },
-      {
-        id: 'curated-5',
-        headline: 'Urban Planning Innovations Address Growing City Populations',
-        tldr: 'Smart city initiatives focus on sustainable urban development, traffic management, and waste reduction in major Indian metropolitan areas.',
-        quote: 'Sustainable urban planning is crucial for managing India\'s growing cities.',
-        author: 'antiNews Team',
-        category: 'Technology',
-        imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        readTime: '4 min read',
-        publishedAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-        sourceUrl: '',
-        trustScore: 0.9,
-        localRelevance: 0.85,
-        contextualInsights: ['Smart city improvements reduce commute times and improve quality of life', 'Urban sustainability initiatives create new job opportunities']
+        contextualInsights: ['Service interruptions remind us of the importance of diverse news sources', 'Technical resilience is crucial for reliable information access']
       }
     ];
-  }
-
-  private shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
   }
 }
 
