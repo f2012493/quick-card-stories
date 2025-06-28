@@ -14,6 +14,8 @@ interface NewsItem {
   publishedAt?: string;
   sourceUrl?: string;
   contextualInsights?: string[];
+  trustScore?: number;
+  localRelevance?: number;
 }
 
 interface RelatedArticlesCarouselProps {
