@@ -29,18 +29,27 @@ const VideoFeed = () => {
 
   const { data: newsData = [], isLoading, error } = useNews({
     category: 'general',
-    pageSize: 20,
+    pageSize: 50, // Increased for more content
     country: locationData?.country,
     city: locationData?.city,
     region: locationData?.region
   });
 
-  // Initialize with fresh news
+  // Initialize with fresh news - optimized for performance
   useEffect(() => {
     if (newsData.length > 0) {
-      setAllNews(newsData);
-      setIsInitialLoad(false);
-      console.log('Fresh news loaded:', newsData.length, 'articles');
+      // Filter out any remaining template content at component level
+      const realNews = newsData.filter(article => 
+        article.author !== 'antiNews System' && 
+        article.category !== 'System Update' &&
+        !article.headline.includes('Breaking: Real-time News Service')
+      );
+      
+      if (realNews.length > 0) {
+        setAllNews(realNews);
+        setIsInitialLoad(false);
+        console.log('Real news loaded:', realNews.length, 'articles');
+      }
     }
   }, [newsData]);
 
@@ -248,27 +257,31 @@ const VideoFeed = () => {
     }
   }, [contentArray]);
 
+  // Optimized loading state for mobile
   if (isInitialLoad && isLoading) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Loading fresh news from multiple sources...</p>
+          <p>Loading fresh news...</p>
+          <p className="text-sm text-gray-400 mt-2">Fetching from multiple sources</p>
         </div>
       </div>
     );
   }
 
-  if (contentArray.length === 0) {
+  // Show message if no real content is available
+  if (contentArray.length === 0 || allNews.length === 0) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
         <div className="text-white text-lg text-center">
-          <p>No articles found for the selected category.</p>
+          <p>No fresh news available at the moment.</p>
+          <p className="text-sm text-gray-400 mt-2">Please check your connection and try again</p>
           <button
-            onClick={() => setSelectedCategory(null)}
+            onClick={handleRefreshNews}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
-            Show All Articles
+            Refresh News
           </button>
         </div>
       </div>

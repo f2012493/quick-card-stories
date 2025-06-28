@@ -34,7 +34,13 @@ class NewsService {
     ['Economic Times', 0.88],
     ['News18', 0.8],
     ['India Today', 0.85],
-    ['Deccan Herald', 0.8]
+    ['Deccan Herald', 0.8],
+    ['FirstPost', 0.8],
+    ['ThePrint', 0.85],
+    ['Scroll.in', 0.88],
+    ['LiveMint', 0.87],
+    ['MoneyControl', 0.82],
+    ['Business Standard', 0.84]
   ]);
 
   // Categories to filter out for antiNews
@@ -46,12 +52,13 @@ class NewsService {
 
   // Store seen articles to prevent duplicates
   private seenArticles = new Set<string>();
+  private titleCache = new Set<string>();
 
   async fetchAllNews(): Promise<NewsItem[]> {
-    console.log('Fetching fresh news from multiple sources...');
+    console.log('Fetching optimized news from multiple sources...');
     
     try {
-      // Use Supabase edge function to fetch news (avoids CORS issues)
+      // Primary: Use Supabase edge function for better performance and CORS handling
       const response = await fetch('/functions/v1/fetch-news', {
         method: 'POST',
         headers: {
@@ -60,54 +67,78 @@ class NewsService {
         body: JSON.stringify({
           country: 'India',
           category: 'general',
-          pageSize: 50
+          pageSize: 60 // Increased for more content
         })
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.news && data.news.length > 0) {
-          console.log(`Fetched ${data.news.length} fresh articles from edge function`);
-          return this.deduplicateArticles(data.news);
+          console.log(`Fetched ${data.news.length} articles from edge function`);
+          const processedNews = this.processAndDeduplicateNews(data.news);
+          
+          // Only return if we have real news, not template content
+          if (processedNews.length > 0 && !this.isTemplateContent(processedNews)) {
+            return processedNews;
+          }
         }
       }
     } catch (error) {
       console.error('Edge function failed, trying direct sources:', error);
     }
 
-    // Fallback to direct sources that work
+    // Fallback: Multiple direct sources in parallel for better performance
     const allNews: NewsItem[] = [];
     
-    // Try Guardian API (works)
-    try {
-      const guardianNews = await this.fetchFromGuardian();
-      allNews.push(...guardianNews);
-    } catch (error) {
-      console.warn('Guardian failed:', error);
-    }
+    // Fetch from multiple sources in parallel
+    const sourcePromises = [
+      this.fetchFromGuardian(),
+      this.fetchFromNews18(),
+      this.fetchFromIndianExpress(),
+      this.fetchFromNDTV(),
+      this.fetchFromTimesOfIndia()
+    ];
 
-    // Try News18 RSS (works)
-    try {
-      const news18Articles = await this.fetchFromNews18();
-      allNews.push(...news18Articles);
-    } catch (error) {
-      console.warn('News18 failed:', error);
-    }
-
-    if (allNews.length === 0) {
-      console.warn('All real sources failed, using minimal curated content');
-      return this.getMinimalFallbackNews();
-    }
-
-    // Filter out unwanted content
-    const filteredNews = allNews.filter(article => {
-      const content = `${article.headline} ${article.tldr} ${article.category}`.toLowerCase();
-      return !this.excludedCategories.some(excluded => content.includes(excluded));
+    const results = await Promise.allSettled(sourcePromises);
+    
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value.length > 0) {
+        allNews.push(...result.value);
+        console.log(`Source ${index + 1} provided ${result.value.length} articles`);
+      }
     });
 
-    console.log(`Filtered ${allNews.length - filteredNews.length} sports/entertainment articles`);
+    if (allNews.length === 0) {
+      console.warn('All sources failed - returning empty array instead of template content');
+      return [];
+    }
 
-    // Deduplicate and prioritize
+    return this.processAndDeduplicateNews(allNews);
+  }
+
+  private processAndDeduplicateNews(articles: NewsItem[]): NewsItem[] {
+    // Filter out unwanted content and template articles
+    const filteredNews = articles.filter(article => {
+      const content = `${article.headline} ${article.tldr} ${article.category}`.toLowerCase();
+      
+      // Skip template/system content
+      if (article.author === 'antiNews System' || 
+          article.category === 'System Update' ||
+          article.headline.includes('Breaking: Real-time News Service')) {
+        return false;
+      }
+      
+      // Skip sports/entertainment
+      if (this.excludedCategories.some(excluded => content.includes(excluded))) {
+        return false;
+      }
+      
+      return true;
+    });
+
+    console.log(`Filtered ${articles.length - filteredNews.length} unwanted articles`);
+
+    // Advanced deduplication
     const deduplicatedNews = this.deduplicateArticles(filteredNews);
     
     // Prioritize Indian content
@@ -126,7 +157,15 @@ class NewsService {
       return (bTrust + bRelevance) - (aTrust + aRelevance);
     });
 
-    return prioritizedNews.slice(0, 30);
+    return prioritizedNews.slice(0, 50); // Increased limit for more content
+  }
+
+  private isTemplateContent(articles: NewsItem[]): boolean {
+    return articles.every(article => 
+      article.author === 'antiNews System' || 
+      article.category === 'System Update' ||
+      article.headline.includes('Breaking: Real-time News Service')
+    );
   }
 
   private deduplicateArticles(articles: NewsItem[]): NewsItem[] {
@@ -221,6 +260,39 @@ class NewsService {
       return this.parseRSSFeed(text, 'News18', 'news18');
     } catch (error) {
       console.warn('News18 RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromIndianExpress(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://indianexpress.com/print/front-page/feed/');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Indian Express', 'indianexpress');
+    } catch (error) {
+      console.warn('Indian Express RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromNDTV(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://feeds.feedburner.com/ndtvnews-top-stories');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'NDTV', 'ndtv');
+    } catch (error) {
+      console.warn('NDTV RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromTimesOfIndia(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://timesofindia.indiatimes.com/rssfeedstopstories.cms');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Times of India', 'toi');
+    } catch (error) {
+      console.warn('Times of India RSS failed:', error);
       return [];
     }
   }
