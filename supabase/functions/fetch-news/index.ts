@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -354,42 +355,118 @@ const calculateLocalRelevance = (title: string, description: string, location?: 
   return Math.min(1, relevanceScore);
 };
 
-const searchForImages = async (query: string): Promise<string[]> => {
+const getRelevantImageFromUnsplash = async (headline: string, description: string = ''): Promise<string> => {
   try {
-    const imageUrls = [
-      `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
-      `https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
-      `https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
-      `https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`,
-      `https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`
-    ];
+    const unsplashApiKey = Deno.env.get('UNSPLASH_ACCESS_KEY');
     
-    return imageUrls;
+    if (unsplashApiKey) {
+      // Extract keywords from headline and description for better search
+      const content = `${headline} ${description}`.toLowerCase();
+      let searchQuery = '';
+      
+      // Determine search query based on content
+      if (content.includes('modi') || content.includes('bjp') || content.includes('congress') || content.includes('election')) {
+        searchQuery = 'indian politics government';
+      } else if (content.includes('economy') || content.includes('market') || content.includes('business')) {
+        searchQuery = 'business economy india';
+      } else if (content.includes('mumbai') || content.includes('delhi') || content.includes('bangalore')) {
+        searchQuery = 'indian city urban';
+      } else if (content.includes('cricket') || content.includes('sports')) {
+        searchQuery = 'cricket sports india';
+      } else if (content.includes('technology') || content.includes('startup')) {
+        searchQuery = 'technology innovation india';
+      } else if (content.includes('climate') || content.includes('environment')) {
+        searchQuery = 'environment climate india';
+      } else if (content.includes('health') || content.includes('medical')) {
+        searchQuery = 'healthcare medical india';
+      } else {
+        // Extract first few meaningful words from headline
+        const words = headline.split(' ').slice(0, 3).join(' ');
+        searchQuery = `${words} india news`;
+      }
+      
+      console.log(`Searching Unsplash for: ${searchQuery}`);
+      
+      const response = await fetch(
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchQuery)}&per_page=10&orientation=landscape`,
+        {
+          headers: {
+            'Authorization': `Client-ID ${unsplashApiKey}`,
+          },
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+          const randomIndex = Math.floor(Math.random() * Math.min(5, data.results.length));
+          const selectedImage = data.results[randomIndex];
+          console.log(`Found relevant image: ${selectedImage.urls.regular}`);
+          return selectedImage.urls.regular;
+        }
+      }
+    }
   } catch (error) {
-    console.error('Error searching for images:', error);
-    return [];
+    console.error('Unsplash search failed:', error);
   }
+  
+  // Fallback to contextual placeholder
+  return getContextualPlaceholder(headline, description);
 };
 
-const getHighQualityImage = async (originalUrl: string, headline: string): Promise<string> => {
+const getContextualPlaceholder = (headline: string, description: string = ''): string => {
+  const content = `${headline} ${description}`.toLowerCase();
+  
+  // Business/Economy themed images
+  if (content.includes('economy') || content.includes('market') || content.includes('business') || content.includes('financial')) {
+    return `https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
+  }
+  
+  // Technology themed images
+  if (content.includes('technology') || content.includes('ai') || content.includes('digital') || content.includes('startup')) {
+    return `https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
+  }
+  
+  // Politics/Government themed images
+  if (content.includes('modi') || content.includes('bjp') || content.includes('congress') || content.includes('election') || content.includes('government')) {
+    return `https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
+  }
+  
+  // Healthcare themed images
+  if (content.includes('health') || content.includes('medical') || content.includes('hospital') || content.includes('vaccine')) {
+    return `https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
+  }
+  
+  // Environment/Climate themed images
+  if (content.includes('climate') || content.includes('environment') || content.includes('pollution') || content.includes('green')) {
+    return `https://images.unsplash.com/photo-1569163139394-de44cb33c2a0?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
+  }
+  
+  // City/Urban themed images for city-specific news
+  if (content.includes('mumbai') || content.includes('delhi') || content.includes('bangalore') || content.includes('chennai')) {
+    return `https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
+  }
+  
+  // Default news/breaking news image
+  return `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
+};
+
+const getHighQualityImage = async (originalUrl: string, headline: string, description: string = ''): Promise<string> => {
+  // First, try to use the original image if it exists and is accessible
   if (originalUrl && originalUrl.includes('http')) {
     try {
       const response = await fetch(originalUrl, { method: 'HEAD' });
       if (response.ok) {
+        console.log(`Using original image: ${originalUrl}`);
         return originalUrl;
       }
     } catch (error) {
-      console.log('Original image not accessible, searching for alternative');
+      console.log('Original image not accessible, searching for relevant alternative');
     }
   }
   
-  const searchImages = await searchForImages(headline);
-  
-  if (searchImages.length > 0) {
-    return searchImages[Math.floor(Math.random() * searchImages.length)];
-  }
-  
-  return `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
+  // If no original image or not accessible, get a relevant image
+  return await getRelevantImageFromUnsplash(headline, description);
 };
 
 serve(async (req) => {
@@ -400,7 +477,7 @@ serve(async (req) => {
   try {
     const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
     
-    console.log('Fetching news with enhanced analysis:', {
+    console.log('Fetching news with enhanced image search:', {
       country: country || 'Global',
       city: city || 'Unknown',
       region: region || 'Unknown',
@@ -457,21 +534,20 @@ serve(async (req) => {
 
     const locationString = city && country ? `${city}, ${country}` : country || '';
 
-    // Transform articles with enhanced analysis
+    // Transform articles with enhanced analysis and relevant images
     const transformedNews: NewsItem[] = await Promise.all(
       articles.slice(0, pageSize).map(async (article, index) => {
         const headline = article.title || article.headline || 'Breaking News';
         const content = article.content || article.snippet || '';
         const description = article.description || '';
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
-        const articleCategory = article.category || category || 'General';
         const sourceName = article.source?.name || 'News Source';
         
         // Generate enhanced analysis with insights
         const analysis = await generateInsightfulAnalysis(content, headline, description, locationString);
         
-        // Get high-quality image
-        const imageUrl = await getHighQualityImage(originalImage, headline);
+        // Get high-quality, relevant image
+        const imageUrl = await getHighQualityImage(originalImage, headline, description);
         
         return {
           id: `news-${Date.now()}-${index}`,
@@ -479,7 +555,7 @@ serve(async (req) => {
           tldr: analysis.tldr,
           quote: (description || content).substring(0, 200) + ((description || content).length > 200 ? '...' : ''),
           author: article.author || sourceName,
-          category: String(articleCategory),
+          category: '', // Removed categories as requested
           imageUrl: imageUrl,
           readTime: '2 min read',
           publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
@@ -491,7 +567,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} news articles with enhanced analysis`);
+    console.log(`Returning ${transformedNews.length} news articles with relevant images and enhanced analysis`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),

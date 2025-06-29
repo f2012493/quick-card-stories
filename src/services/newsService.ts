@@ -1,4 +1,3 @@
-
 interface NewsSource {
   name: string;
   fetch: () => Promise<any[]>;
@@ -120,11 +119,10 @@ class NewsService {
   private processAndDeduplicateNews(articles: NewsItem[]): NewsItem[] {
     // Filter out unwanted content and template articles
     const filteredNews = articles.filter(article => {
-      const content = `${article.headline} ${article.tldr} ${article.category}`.toLowerCase();
+      const content = `${article.headline} ${article.tldr}`.toLowerCase();
       
       // Skip template/system content
       if (article.author === 'antiNews System' || 
-          article.category === 'System Update' ||
           article.headline.includes('Breaking: Real-time News Service')) {
         return false;
       }
@@ -164,7 +162,6 @@ class NewsService {
   private isTemplateContent(articles: NewsItem[]): boolean {
     return articles.every(article => 
       article.author === 'antiNews System' || 
-      article.category === 'System Update' ||
       article.headline.includes('Breaking: Real-time News Service')
     );
   }
@@ -243,8 +240,8 @@ class NewsService {
       tldr: article.fields?.trailText || this.generateTldr(article.webTitle),
       quote: article.fields?.trailText || '',
       author: 'The Guardian',
-      category: article.sectionName || 'News',
-      imageUrl: article.fields?.thumbnail || this.getPlaceholderImage(index),
+      category: '', // Removed categories
+      imageUrl: article.fields?.thumbnail || this.getContextualImage(article.webTitle, index),
       readTime: '3 min read',
       publishedAt: article.webPublicationDate,
       sourceUrl: article.webUrl,
@@ -322,8 +319,8 @@ class NewsService {
           tldr: this.cleanDescription(description) || this.generateTldr(title),
           quote: this.cleanDescription(description) || '',
           author: sourceName,
-          category: this.categorizeNews(title, description),
-          imageUrl: this.getPlaceholderImage(index + 50),
+          category: '', // Removed categories
+          imageUrl: this.getContextualImage(title, index + 50, description),
           readTime: '3 min read',
           publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
           sourceUrl: link,
@@ -338,17 +335,79 @@ class NewsService {
     }
   }
 
-  private categorizeNews(title: string, description: string): string {
-    const content = `${title} ${description}`.toLowerCase();
+  private getContextualImage(headline: string, index: number, description: string = ''): string {
+    const content = `${headline} ${description}`.toLowerCase();
     
-    if (content.includes('economy') || content.includes('business') || content.includes('market')) return 'Economy';
-    if (content.includes('health') || content.includes('medical') || content.includes('vaccine')) return 'Health';
-    if (content.includes('climate') || content.includes('environment') || content.includes('energy')) return 'Environment';
-    if (content.includes('technology') || content.includes('ai') || content.includes('digital')) return 'Technology';
-    if (content.includes('education') || content.includes('school') || content.includes('university')) return 'Education';
-    if (content.includes('government') || content.includes('policy') || content.includes('election')) return 'Politics';
+    // Business/Economy themed images
+    if (content.includes('economy') || content.includes('market') || content.includes('business') || content.includes('financial')) {
+      const businessImages = [
+        'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+      ];
+      return businessImages[index % businessImages.length];
+    }
     
-    return 'World News';
+    // Technology themed images
+    if (content.includes('technology') || content.includes('ai') || content.includes('digital') || content.includes('startup')) {
+      const techImages = [
+        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+      ];
+      return techImages[index % techImages.length];
+    }
+    
+    // Politics/Government themed images
+    if (content.includes('modi') || content.includes('bjp') || content.includes('congress') || content.includes('election') || content.includes('government')) {
+      const politicsImages = [
+        'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+      ];
+      return politicsImages[index % politicsImages.length];
+    }
+    
+    // Healthcare themed images
+    if (content.includes('health') || content.includes('medical') || content.includes('hospital') || content.includes('vaccine')) {
+      const healthImages = [
+        'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1584982751601-97dcc096659c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+      ];
+      return healthImages[index % healthImages.length];
+    }
+    
+    // Environment/Climate themed images
+    if (content.includes('climate') || content.includes('environment') || content.includes('pollution') || content.includes('green')) {
+      const envImages = [
+        'https://images.unsplash.com/photo-1569163139394-de44cb33c2a0?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+      ];
+      return envImages[index % envImages.length];
+    }
+    
+    // City/Urban themed images for city-specific news
+    if (content.includes('mumbai') || content.includes('delhi') || content.includes('bangalore') || content.includes('chennai')) {
+      const cityImages = [
+        'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+        'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+      ];
+      return cityImages[index % cityImages.length];
+    }
+    
+    // Default news images - varied selection
+    const defaultImages = [
+      'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+      'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+      'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
+      'https://images.unsplash.com/photo-1605810230434-7631ac76ec81?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+    ];
+    
+    return defaultImages[index % defaultImages.length];
   }
 
   private calculateLocalRelevance(title: string, description: string): number {
@@ -374,50 +433,50 @@ class NewsService {
 
     // Economic and financial impact
     if (content.includes('rupee') || content.includes('inflation') || content.includes('interest rate')) {
-      insights.push('Currency fluctuations directly affect import costs and fuel prices for consumers');
-      insights.push('Interest rate changes influence home loans, credit card rates, and business expansion plans');
+      insights.push('Currency fluctuations directly affect fuel prices and daily expenses for Indian families');
+      insights.push('Interest rate changes influence home loan EMIs and business credit costs across India');
     } else if (content.includes('gdp') || content.includes('growth') || content.includes('economy')) {
-      insights.push('Economic growth patterns determine job creation and salary increments across sectors');
-      insights.push('GDP changes influence government spending on infrastructure and social welfare programs');
+      insights.push('Economic growth determines job creation in metros like Mumbai, Delhi, and Bangalore');
+      insights.push('GDP changes influence government spending on rural employment schemes like MGNREGA');
     }
 
     // Political and governance
     else if (content.includes('election') || content.includes('vote') || content.includes('bjp') || content.includes('congress')) {
-      insights.push('Political changes affect policy implementation timelines for healthcare, education, and employment');
-      insights.push('Election outcomes determine budget allocations for state development and welfare schemes');
+      insights.push('Political changes affect implementation of schemes like PM-KISAN and Ayushman Bharat');
+      insights.push('Election outcomes determine state budget allocations for education and healthcare');
     } else if (content.includes('policy') || content.includes('law') || content.includes('regulation')) {
-      insights.push('New regulations create compliance requirements for businesses and may affect product pricing');
-      insights.push('Policy changes often have 6-12 month implementation periods affecting planning decisions');
+      insights.push('New regulations create compliance costs for small businesses and affect pricing');
+      insights.push('Policy changes often require 6-12 months for implementation across Indian states');
     }
 
     // Technology and innovation
     else if (content.includes('technology') || content.includes('ai') || content.includes('digital') || content.includes('startup')) {
-      insights.push('Technology adoption accelerates in urban areas first, creating temporary skill gaps in rural regions');
-      insights.push('Digital transformation initiatives require workforce retraining and new skill development programs');
+      insights.push('Tech adoption accelerates in cities but creates digital divide with rural areas');
+      insights.push('Digital transformation requires reskilling programs for India\'s large workforce');
     }
 
     // Infrastructure and urban development
     else if (content.includes('infrastructure') || content.includes('metro') || content.includes('highway') || content.includes('airport')) {
-      insights.push('Infrastructure projects boost local employment during construction but may cause temporary traffic disruptions');
-      insights.push('Transportation improvements increase property values in connected areas within 2-3 years');
+      insights.push('Infrastructure projects boost local employment but may cause traffic disruptions');
+      insights.push('New transport links increase property values in connected suburban areas');
     }
 
     // Healthcare and public welfare
     else if (content.includes('health') || content.includes('hospital') || content.includes('vaccine') || content.includes('medical')) {
-      insights.push('Healthcare policy changes affect insurance premiums and treatment accessibility for families');
-      insights.push('Public health initiatives require individual behavioral changes to achieve community-wide benefits');
+      insights.push('Healthcare policy changes affect insurance premiums and treatment costs for families');
+      insights.push('Public health initiatives require community participation to achieve widespread benefits');
     }
 
     // Environmental and climate
-    else if (content.includes('climate') || content.includes('pollution') || content.includes('environment') || content.includes('weather')) {
-      insights.push('Environmental regulations increase manufacturing costs but improve long-term public health outcomes');
-      insights.push('Climate patterns affect agricultural yields, influencing food prices and farmer incomes seasonally');
+    else if (content.includes('climate') || content.includes('environment') || content.includes('pollution') || content.includes('green')) {
+      insights.push('Environmental regulations increase manufacturing costs but improve air quality in cities');
+      insights.push('Climate patterns affect monsoon timing, influencing crop yields and food prices');
     }
 
     // Default insights for general news
     else {
-      insights.push('National developments create ripple effects in local markets and employment opportunities');
-      insights.push('Policy decisions at the federal level typically influence state-level implementation within 3-6 months');
+      insights.push('National developments create opportunities in regional markets and employment');
+      insights.push('Central government decisions typically influence state policies within 3-6 months');
     }
 
     return insights.slice(0, 3);
@@ -438,44 +497,6 @@ class NewsService {
     const words = headline.split(' ');
     if (words.length <= 12) return headline;
     return words.slice(0, 12).join(' ') + '...';
-  }
-
-  private getPlaceholderImage(index: number): string {
-    const imageIds = [
-      '1504711434969-e33886168f5c',
-      '1495020689067-958852a7765e',
-      '1586339949916-3e9457bef6d3',
-      '1521295121783-8a321d551ad2',
-      '1557804506-669a67965ba0',
-      '1518770660439-4636190af475',
-      '1581091226825-a6a2a5aee158',
-      '1526374965328-7f61d4dc18c5',
-      '1605810230434-7631ac76ec81',
-      '1581092795360-fd1ca04f0952'
-    ];
-    
-    const selectedId = imageIds[index % imageIds.length];
-    return `https://images.unsplash.com/photo-${selectedId}?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
-  }
-
-  private getMinimalFallbackNews(): NewsItem[] {
-    return [
-      {
-        id: 'fresh-1',
-        headline: 'Breaking: Real-time News Service Temporarily Unavailable',
-        tldr: 'Our news aggregation service is experiencing connectivity issues. We are working to restore full access to live news feeds.',
-        quote: 'Technical teams are actively working to resolve connectivity issues with news sources.',
-        author: 'antiNews System',
-        category: 'System Update',
-        imageUrl: this.getPlaceholderImage(1),
-        readTime: '1 min read',
-        publishedAt: new Date().toISOString(),
-        sourceUrl: '',
-        trustScore: 0.9,
-        localRelevance: 0.9,
-        contextualInsights: ['Service interruptions remind us of the importance of diverse news sources', 'Technical resilience is crucial for reliable information access']
-      }
-    ];
   }
 }
 
