@@ -1,3 +1,4 @@
+
 interface NewsSource {
   name: string;
   fetch: () => Promise<any[]>;
@@ -371,24 +372,52 @@ class NewsService {
     const insights: string[] = [];
     const content = `${title} ${description}`.toLowerCase();
 
-    if (content.includes('economy') || content.includes('gdp') || content.includes('inflation')) {
-      insights.push('Rising costs may affect household budgets and spending patterns in coming months');
-      insights.push('Local businesses could see changes in consumer demand and pricing strategies');
-    } else if (content.includes('election') || content.includes('vote') || content.includes('political')) {
-      insights.push('Voting patterns may shift based on current policy outcomes and public sentiment');
-      insights.push('New leadership could bring changes to local governance and public services');
-    } else if (content.includes('technology') || content.includes('ai') || content.includes('digital')) {
-      insights.push('Automation trends may create new job categories while eliminating others');
-      insights.push('Digital skills training becomes increasingly important for career advancement');
-    } else if (content.includes('climate') || content.includes('weather') || content.includes('environment')) {
-      insights.push('Extreme weather patterns require updated emergency preparedness and infrastructure');
-      insights.push('Green technology adoption could reduce long-term energy costs for households');
-    } else if (content.includes('health') || content.includes('medical') || content.includes('vaccine')) {
-      insights.push('Healthcare access and costs directly impact family financial planning');
-      insights.push('Preventive measures now could reduce future medical expenses and complications');
-    } else {
-      insights.push('Global trends increasingly influence local markets and employment opportunities');
-      insights.push('Economic shifts at the federal level typically affect regional job markets and business opportunities');
+    // Economic and financial impact
+    if (content.includes('rupee') || content.includes('inflation') || content.includes('interest rate')) {
+      insights.push('Currency fluctuations directly affect import costs and fuel prices for consumers');
+      insights.push('Interest rate changes influence home loans, credit card rates, and business expansion plans');
+    } else if (content.includes('gdp') || content.includes('growth') || content.includes('economy')) {
+      insights.push('Economic growth patterns determine job creation and salary increments across sectors');
+      insights.push('GDP changes influence government spending on infrastructure and social welfare programs');
+    }
+
+    // Political and governance
+    else if (content.includes('election') || content.includes('vote') || content.includes('bjp') || content.includes('congress')) {
+      insights.push('Political changes affect policy implementation timelines for healthcare, education, and employment');
+      insights.push('Election outcomes determine budget allocations for state development and welfare schemes');
+    } else if (content.includes('policy') || content.includes('law') || content.includes('regulation')) {
+      insights.push('New regulations create compliance requirements for businesses and may affect product pricing');
+      insights.push('Policy changes often have 6-12 month implementation periods affecting planning decisions');
+    }
+
+    // Technology and innovation
+    else if (content.includes('technology') || content.includes('ai') || content.includes('digital') || content.includes('startup')) {
+      insights.push('Technology adoption accelerates in urban areas first, creating temporary skill gaps in rural regions');
+      insights.push('Digital transformation initiatives require workforce retraining and new skill development programs');
+    }
+
+    // Infrastructure and urban development
+    else if (content.includes('infrastructure') || content.includes('metro') || content.includes('highway') || content.includes('airport')) {
+      insights.push('Infrastructure projects boost local employment during construction but may cause temporary traffic disruptions');
+      insights.push('Transportation improvements increase property values in connected areas within 2-3 years');
+    }
+
+    // Healthcare and public welfare
+    else if (content.includes('health') || content.includes('hospital') || content.includes('vaccine') || content.includes('medical')) {
+      insights.push('Healthcare policy changes affect insurance premiums and treatment accessibility for families');
+      insights.push('Public health initiatives require individual behavioral changes to achieve community-wide benefits');
+    }
+
+    // Environmental and climate
+    else if (content.includes('climate') || content.includes('pollution') || content.includes('environment') || content.includes('weather')) {
+      insights.push('Environmental regulations increase manufacturing costs but improve long-term public health outcomes');
+      insights.push('Climate patterns affect agricultural yields, influencing food prices and farmer incomes seasonally');
+    }
+
+    // Default insights for general news
+    else {
+      insights.push('National developments create ripple effects in local markets and employment opportunities');
+      insights.push('Policy decisions at the federal level typically influence state-level implementation within 3-6 months');
     }
 
     return insights.slice(0, 3);

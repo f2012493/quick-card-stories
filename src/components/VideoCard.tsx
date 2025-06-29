@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { analyticsService } from '@/services/analyticsService';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
@@ -102,7 +103,6 @@ const VideoCard = ({
               {news.publishedAt && (
                 <span className="text-white/70 text-xs">{formatPublishedDate(news.publishedAt)}</span>
               )}
-              <span className="text-blue-400 text-xs font-medium">{news.category}</span>
             </div>
             <div className="text-white/60 text-xs font-medium">antiNews</div>
           </div>
@@ -140,8 +140,8 @@ const VideoCard = ({
               {showInsights && (
                 <div className="space-y-2">
                   {(news.contextualInsights && news.contextualInsights.length > 0 ? news.contextualInsights : [
-                    'This story impacts how we understand current events and their broader implications',
-                    'Understanding these developments helps us make more informed decisions as citizens'
+                    'This development may influence economic decisions and policy changes in the region',
+                    'Citizens should stay informed about these changes as they may affect daily life and future planning'
                   ]).slice(0, 2).map((insight, index) => (
                     <p key={index} className="text-white/90 text-sm leading-relaxed drop-shadow-lg bg-black/20 p-3 rounded-md">
                       • {insight}
