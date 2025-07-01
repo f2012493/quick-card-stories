@@ -107,13 +107,6 @@ const Advertisement = ({ index }: AdvertisementProps) => {
           </span>
         </div>
 
-        {/* Revenue Indicator (for demonstration) */}
-        <div className="absolute top-6 right-6">
-          <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
-            +${(currentAd.revenue / 100).toFixed(2)}
-          </span>
-        </div>
-
         {/* Ad Content */}
         <div className="text-center max-w-md">
           <h2 className="text-white text-3xl font-bold mb-4 drop-shadow-2xl">

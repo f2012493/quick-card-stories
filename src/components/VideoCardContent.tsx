@@ -33,27 +33,26 @@ const VideoCardContent = ({ news, showInsights, onToggleInsights }: VideoCardCon
         </p>
       </div>
 
-      {/* Why This Matters */}
-      <div className="mb-6">
-        <button
-          onClick={onToggleInsights}
-          className="text-yellow-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg pointer-events-auto flex items-center gap-1"
-        >
-          Why This Matters {showInsights ? '▼' : '▶'}
-        </button>
-        {showInsights && (
-          <div className="space-y-2">
-            {(news.contextualInsights && news.contextualInsights.length > 0 ? news.contextualInsights : [
-              'This development may influence economic decisions and policy changes in the region',
-              'Citizens should stay informed about these changes as they may affect daily life and future planning'
-            ]).slice(0, 2).map((insight, index) => (
-              <p key={index} className="text-white/90 text-sm leading-relaxed drop-shadow-lg bg-black/20 p-3 rounded-md">
-                • {insight}
-              </p>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Why This Matters - Only show if we have actual insights */}
+      {news.contextualInsights && news.contextualInsights.length > 0 && (
+        <div className="mb-6">
+          <button
+            onClick={onToggleInsights}
+            className="text-yellow-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg pointer-events-auto flex items-center gap-1"
+          >
+            Why This Matters {showInsights ? '▼' : '▶'}
+          </button>
+          {showInsights && (
+            <div className="space-y-2">
+              {news.contextualInsights.slice(0, 2).map((insight, index) => (
+                <p key={index} className="text-white/90 text-sm leading-relaxed drop-shadow-lg bg-black/20 p-3 rounded-md">
+                  • {insight}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Author */}
       <div className="mb-4">
