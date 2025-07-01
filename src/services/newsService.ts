@@ -93,10 +93,7 @@ class NewsService {
     // Fetch from multiple sources in parallel
     const sourcePromises = [
       this.fetchFromGuardian(),
-      this.fetchFromNews18(),
-      this.fetchFromIndianExpress(),
-      this.fetchFromNDTV(),
-      this.fetchFromTimesOfIndia()
+      this.fetchFromNews18()
     ];
 
     const results = await Promise.allSettled(sourcePromises);
@@ -240,8 +237,8 @@ class NewsService {
       tldr: article.fields?.trailText || this.generateTldr(article.webTitle),
       quote: article.fields?.trailText || '',
       author: 'The Guardian',
-      category: '', // Removed categories
-      imageUrl: article.fields?.thumbnail || this.getContextualImage(article.webTitle, index),
+      category: '',
+      imageUrl: article.fields?.thumbnail || this.getRelevantImageUrl(article.webTitle, article.fields?.trailText || '', index),
       readTime: '3 min read',
       publishedAt: article.webPublicationDate,
       sourceUrl: article.webUrl,
@@ -258,39 +255,6 @@ class NewsService {
       return this.parseRSSFeed(text, 'News18', 'news18');
     } catch (error) {
       console.warn('News18 RSS failed:', error);
-      return [];
-    }
-  }
-
-  private async fetchFromIndianExpress(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://indianexpress.com/print/front-page/feed/');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'Indian Express', 'indianexpress');
-    } catch (error) {
-      console.warn('Indian Express RSS failed:', error);
-      return [];
-    }
-  }
-
-  private async fetchFromNDTV(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://feeds.feedburner.com/ndtvnews-top-stories');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'NDTV', 'ndtv');
-    } catch (error) {
-      console.warn('NDTV RSS failed:', error);
-      return [];
-    }
-  }
-
-  private async fetchFromTimesOfIndia(): Promise<NewsItem[]> {
-    try {
-      const response = await fetch('https://timesofindia.indiatimes.com/rssfeedstopstories.cms');
-      const text = await response.text();
-      return this.parseRSSFeed(text, 'Times of India', 'toi');
-    } catch (error) {
-      console.warn('Times of India RSS failed:', error);
       return [];
     }
   }
@@ -312,6 +276,18 @@ class NewsService {
         if (this.excludedCategories.some(excluded => content.includes(excluded))) {
           return null;
         }
+
+        // Try to extract image from media:content or enclosure
+        let imageUrl = '';
+        const mediaContent = item.querySelector('media\\:content, content');
+        if (mediaContent) {
+          imageUrl = mediaContent.getAttribute('url') || '';
+        }
+        
+        // If no media image found, use relevant image based on content
+        if (!imageUrl) {
+          imageUrl = this.getRelevantImageUrl(title, description, index + 50);
+        }
         
         return {
           id: `${sourcePrefix}-${Date.now()}-${index}`,
@@ -319,8 +295,8 @@ class NewsService {
           tldr: this.cleanDescription(description) || this.generateTldr(title),
           quote: this.cleanDescription(description) || '',
           author: sourceName,
-          category: '', // Removed categories
-          imageUrl: this.getContextualImage(title, index + 50, description),
+          category: '',
+          imageUrl: imageUrl,
           readTime: '3 min read',
           publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
           sourceUrl: link,
@@ -335,79 +311,156 @@ class NewsService {
     }
   }
 
-  private getContextualImage(headline: string, index: number, description: string = ''): string {
+  private getRelevantImageUrl(headline: string, description: string = '', index: number): string {
     const content = `${headline} ${description}`.toLowerCase();
     
-    // Business/Economy themed images
-    if (content.includes('economy') || content.includes('market') || content.includes('business') || content.includes('financial')) {
-      const businessImages = [
-        'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
-      ];
-      return businessImages[index % businessImages.length];
-    }
+    // Get specific relevant images based on content analysis
+    const imageKeywords = this.analyzeContentForImageKeywords(content);
     
-    // Technology themed images
-    if (content.includes('technology') || content.includes('ai') || content.includes('digital') || content.includes('startup')) {
-      const techImages = [
-        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
-      ];
-      return techImages[index % techImages.length];
-    }
-    
-    // Politics/Government themed images
-    if (content.includes('modi') || content.includes('bjp') || content.includes('congress') || content.includes('election') || content.includes('government')) {
+    // Politics/Government - Use actual political/government imagery
+    if (imageKeywords.includes('politics') || imageKeywords.includes('government')) {
       const politicsImages = [
-        'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+        'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Parliament/government building
+        'https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Voting/democracy
+        'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Government meeting
+        'https://images.unsplash.com/photo-1551135049-8a33b5883817?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Indian flag/politics
       ];
       return politicsImages[index % politicsImages.length];
     }
     
-    // Healthcare themed images
-    if (content.includes('health') || content.includes('medical') || content.includes('hospital') || content.includes('vaccine')) {
+    // Business/Economy - Financial imagery
+    if (imageKeywords.includes('business') || imageKeywords.includes('economy')) {
+      const businessImages = [
+        'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Business meeting
+        'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Stock market
+        'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Finance charts
+        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Business growth
+      ];
+      return businessImages[index % businessImages.length];
+    }
+    
+    // Technology - Tech imagery
+    if (imageKeywords.includes('technology') || imageKeywords.includes('tech')) {
+      const techImages = [
+        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Technology background
+        'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Woman with laptop
+        'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Server room
+        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Digital innovation
+      ];
+      return techImages[index % techImages.length];
+    }
+    
+    // Healthcare - Medical imagery
+    if (imageKeywords.includes('health') || imageKeywords.includes('medical')) {
       const healthImages = [
-        'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1584982751601-97dcc096659c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+        'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Medical equipment
+        'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Hospital corridor
+        'https://images.unsplash.com/photo-1584982751601-97dcc096659c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Healthcare worker
+        'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Medical consultation
       ];
       return healthImages[index % healthImages.length];
     }
     
-    // Environment/Climate themed images
-    if (content.includes('climate') || content.includes('environment') || content.includes('pollution') || content.includes('green')) {
+    // Environment/Climate
+    if (imageKeywords.includes('environment') || imageKeywords.includes('climate')) {
       const envImages = [
-        'https://images.unsplash.com/photo-1569163139394-de44cb33c2a0?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+        'https://images.unsplash.com/photo-1569163139394-de44cb33c2a0?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Environmental scene
+        'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Climate change
+        'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Nature conservation
+        'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Forest/environment
       ];
       return envImages[index % envImages.length];
     }
     
-    // City/Urban themed images for city-specific news
-    if (content.includes('mumbai') || content.includes('delhi') || content.includes('bangalore') || content.includes('chennai')) {
+    // Indian cities/locations
+    if (imageKeywords.includes('city') || imageKeywords.includes('urban')) {
       const cityImages = [
-        'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-        'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+        'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Indian cityscape
+        'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Mumbai skyline
+        'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Indian street
+        'https://images.unsplash.com/photo-1544281452-b33d11da4f72?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Delhi architecture
       ];
       return cityImages[index % cityImages.length];
     }
     
-    // Default news images - varied selection
+    // Violence/conflict - Use appropriate serious imagery
+    if (imageKeywords.includes('violence') || imageKeywords.includes('conflict')) {
+      const conflictImages = [
+        'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Breaking news
+        'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // News reporting
+        'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Serious news
+        'https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Social issues
+      ];
+      return conflictImages[index % conflictImages.length];
+    }
+    
+    // Default general news images
     const defaultImages = [
-      'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-      'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-      'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80',
-      'https://images.unsplash.com/photo-1605810230434-7631ac76ec81?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80'
+      'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Newspaper
+      'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Breaking news
+      'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // News microphone
+      'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // News matrix
+      'https://images.unsplash.com/photo-1605810230434-7631ac76ec81?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80', // Media screens
     ];
     
     return defaultImages[index % defaultImages.length];
+  }
+
+  private analyzeContentForImageKeywords(content: string): string[] {
+    const keywords: string[] = [];
+    
+    // Political keywords
+    if (content.includes('modi') || content.includes('bjp') || content.includes('congress') || 
+        content.includes('election') || content.includes('government') || content.includes('minister') ||
+        content.includes('parliament') || content.includes('policy') || content.includes('mns') ||
+        content.includes('thackeray') || content.includes('political')) {
+      keywords.push('politics', 'government');
+    }
+    
+    // Business/Economy keywords
+    if (content.includes('economy') || content.includes('market') || content.includes('business') || 
+        content.includes('financial') || content.includes('rupee') || content.includes('gdp') ||
+        content.includes('growth') || content.includes('stock') || content.includes('bank')) {
+      keywords.push('business', 'economy');
+    }
+    
+    // Technology keywords
+    if (content.includes('technology') || content.includes('ai') || content.includes('digital') || 
+        content.includes('startup') || content.includes('tech') || content.includes('software') ||
+        content.includes('app') || content.includes('internet') || content.includes('cyber')) {
+      keywords.push('technology', 'tech');
+    }
+    
+    // Healthcare keywords
+    if (content.includes('health') || content.includes('medical') || content.includes('hospital') || 
+        content.includes('vaccine') || content.includes('doctor') || content.includes('patient') ||
+        content.includes('disease') || content.includes('treatment')) {
+      keywords.push('health', 'medical');
+    }
+    
+    // Environmental keywords
+    if (content.includes('climate') || content.includes('environment') || content.includes('pollution') || 
+        content.includes('green') || content.includes('water') || content.includes('air') ||
+        content.includes('forest') || content.includes('wildlife') || content.includes('carbon')) {
+      keywords.push('environment', 'climate');
+    }
+    
+    // Urban/City keywords
+    if (content.includes('mumbai') || content.includes('delhi') || content.includes('bangalore') || 
+        content.includes('chennai') || content.includes('city') || content.includes('urban') ||
+        content.includes('metro') || content.includes('transport') || content.includes('infrastructure')) {
+      keywords.push('city', 'urban');
+    }
+    
+    // Violence/Conflict keywords
+    if (content.includes('violence') || content.includes('attack') || content.includes('killed') || 
+        content.includes('bomb') || content.includes('blast') || content.includes('accident') ||
+        content.includes('death') || content.includes('injured') || content.includes('slap') ||
+        content.includes('fight') || content.includes('conflict')) {
+      keywords.push('violence', 'conflict');
+    }
+    
+    return keywords;
   }
 
   private calculateLocalRelevance(title: string, description: string): number {
