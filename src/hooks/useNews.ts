@@ -8,7 +8,6 @@ interface NewsItem {
   tldr: string;
   quote: string;
   author: string;
-  category: string;
   imageUrl: string;
   readTime: string;
   publishedAt?: string;
@@ -24,12 +23,11 @@ interface UseNewsOptions {
   country?: string;
   city?: string;
   region?: string;
-  userId?: string;
 }
 
 export const useNews = (options: UseNewsOptions = {}) => {
   return useQuery({
-    queryKey: ['news', options.category, options.country], // Removed timestamp to prevent excessive refetching
+    queryKey: ['news', options.country],
     queryFn: async (): Promise<NewsItem[]> => {
       console.log('Fetching news with optimized performance...');
       
@@ -37,7 +35,6 @@ export const useNews = (options: UseNewsOptions = {}) => {
         const news = await newsService.fetchAllNews();
         console.log(`Successfully fetched ${news.length} articles`);
         
-        // Only cache real news articles, not template content
         if (news.length > 0 && !news.every(article => article.author === 'antiNews System')) {
           const cacheData = {
             news,
@@ -51,13 +48,12 @@ export const useNews = (options: UseNewsOptions = {}) => {
       } catch (error) {
         console.error('Error fetching news:', error);
         
-        // Try to load from cache only if it's recent real news
         try {
           const cachedNews = localStorage.getItem('antinews-cache');
           if (cachedNews) {
             const parsed = JSON.parse(cachedNews);
             const cacheAge = Date.now() - parsed.timestamp;
-            const maxCacheAge = 5 * 60 * 1000; // 5 minutes for mobile performance
+            const maxCacheAge = 5 * 60 * 1000;
             
             if (parsed.news && parsed.news.length > 0 && 
                 cacheAge < maxCacheAge && parsed.isRealNews) {
@@ -69,15 +65,14 @@ export const useNews = (options: UseNewsOptions = {}) => {
           console.error('Failed to load cached news:', cacheError);
         }
         
-        // Return empty array instead of template content
         return [];
       }
     },
-    staleTime: 3 * 60 * 1000, // 3 minutes - longer for mobile performance
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    retry: 1, // Reduced retries for faster mobile experience
-    retryDelay: 1000, // Faster retry for mobile
-    refetchInterval: 5 * 60 * 1000, // Reduced frequency to 5 minutes
-    refetchIntervalInBackground: false, // Disable background refetch on mobile
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 1,
+    retryDelay: 1000,
+    refetchInterval: 5 * 60 * 1000,
+    refetchIntervalInBackground: false,
   });
 };

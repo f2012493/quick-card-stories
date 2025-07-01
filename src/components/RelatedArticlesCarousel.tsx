@@ -8,7 +8,6 @@ interface NewsItem {
   tldr: string;
   quote: string;
   author: string;
-  category: string;
   imageUrl: string;
   readTime: string;
   publishedAt?: string;
@@ -20,7 +19,6 @@ interface NewsItem {
 
 interface RelatedArticlesCarouselProps {
   currentNews: NewsItem;
-  relatedArticles: NewsItem[];
   onNavigateToArticle: (articleId: string) => void;
   onSwipeLeft: () => void;
 }
@@ -42,27 +40,26 @@ const RelatedArticlesCarousel = ({
   };
 
   const getAdditionalInsights = () => {
-    const category = currentNews.category.toLowerCase();
     const content = `${currentNews.headline} ${currentNews.tldr}`.toLowerCase();
     
     const additionalInsights = [];
     
-    if (category.includes('economy') || content.includes('economy')) {
+    if (content.includes('economy') || content.includes('economic')) {
       additionalInsights.push("Economic shifts often create ripple effects across employment, housing, and consumer spending");
       additionalInsights.push("Policy changes in this area typically affect small businesses and household budgets within 6-12 months");
     }
     
-    if (category.includes('health') || content.includes('health')) {
+    if (content.includes('health') || content.includes('medical')) {
       additionalInsights.push("Healthcare developments directly impact insurance costs and treatment accessibility");
       additionalInsights.push("Preventive measures and early interventions often prove more cost-effective than reactive solutions");
     }
     
-    if (category.includes('technology') || content.includes('technology')) {
+    if (content.includes('technology') || content.includes('tech')) {
       additionalInsights.push("Technology adoption rates accelerate when economic incentives align with user benefits");
       additionalInsights.push("Digital transformation affects job markets by eliminating some roles while creating others");
     }
     
-    if (category.includes('environment') || content.includes('climate')) {
+    if (content.includes('environment') || content.includes('climate')) {
       additionalInsights.push("Environmental policies often intersect with economic development and job creation");
       additionalInsights.push("Infrastructure investments in green technology typically have 10-20 year payback periods");
     }
@@ -100,9 +97,6 @@ const RelatedArticlesCarousel = ({
             <div className="flex-1">
               <h3 className="font-semibold text-sm mb-1">Current Story</h3>
               <p className="text-gray-300 text-sm line-clamp-2">{currentNews.headline}</p>
-              <span className="text-xs bg-blue-600/20 text-blue-400 px-2 py-1 rounded mt-2 inline-block">
-                {currentNews.category}
-              </span>
             </div>
           </div>
         </div>

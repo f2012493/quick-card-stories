@@ -9,7 +9,6 @@ interface NewsItem {
   tldr: string;
   quote: string;
   author: string;
-  category: string;
   imageUrl: string;
   readTime: string;
   publishedAt?: string;
@@ -22,26 +21,20 @@ interface NewsItem {
 interface VideoCardProps {
   news: NewsItem;
   isActive: boolean;
-  index: number;
-  allNews: NewsItem[];
   onNavigateToArticle: (articleId: string) => void;
-  readingSpeed?: number;
 }
 
 const VideoCard = ({ 
   news, 
   isActive, 
-  index, 
-  allNews, 
-  onNavigateToArticle,
-  readingSpeed = 1 
+  onNavigateToArticle
 }: VideoCardProps) => {
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
     if (isActive) {
-      analyticsService.startTracking(news.id, news.category);
+      analyticsService.startTracking(news.id, 'general');
     }
     
     return () => {
@@ -49,7 +42,7 @@ const VideoCard = ({
         analyticsService.endTracking(false);
       }
     };
-  }, [isActive, news.id, news.category]);
+  }, [isActive, news.id]);
 
   const formatPublishedDate = (dateString?: string) => {
     if (!dateString) return '';
@@ -69,8 +62,6 @@ const VideoCard = ({
   const handleSwipeLeft = () => {
     setShowRelatedArticles(false);
   };
-
-  const relatedArticles = allNews.filter(article => article.id !== news.id);
 
   return (
     <div className="relative w-full h-screen flex items-center justify-center">
@@ -119,17 +110,12 @@ const VideoCard = ({
               <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
                 TL;DR
               </h2>
-              <p 
-                className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium"
-                style={{
-                  animationDuration: `${3 / readingSpeed}s`
-                }}
-              >
+              <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium">
                 {news.tldr}
               </p>
             </div>
 
-            {/* Why This Matters - Enhanced for antiNews */}
+            {/* Why This Matters */}
             <div className="mb-6">
               <button
                 onClick={() => setShowInsights(!showInsights)}
@@ -162,7 +148,7 @@ const VideoCard = ({
         </div>
       </div>
 
-      {/* Insights Panel - Full screen overlay */}
+      {/* Insights Panel */}
       <div 
         className={`absolute inset-0 transition-transform duration-300 ease-in-out bg-black ${
           showRelatedArticles ? 'translate-x-0' : 'translate-x-full'
@@ -170,7 +156,6 @@ const VideoCard = ({
       >
         <RelatedArticlesCarousel
           currentNews={news}
-          relatedArticles={relatedArticles}
           onNavigateToArticle={onNavigateToArticle}
           onSwipeLeft={handleSwipeLeft}
         />

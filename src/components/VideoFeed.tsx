@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import Advertisement from './Advertisement';
@@ -12,9 +13,6 @@ const VideoFeed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [allNews, setAllNews] = useState<any[]>([]);
-  const [filteredNews, setFilteredNews] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [readingSpeed, setReadingSpeed] = useState(1);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   const containerRef = useRef<HTMLDivElement>(null);
@@ -24,24 +22,22 @@ const VideoFeed = () => {
   const lastTimeRef = useRef(0);
   const animationFrameRef = useRef<number>();
 
-  const { locationData, isLoading: locationLoading } = useLocation();
+  const { locationData } = useLocation();
   const triggerIngestion = useTriggerNewsIngestion();
 
-  const { data: newsData = [], isLoading, error } = useNews({
+  const { data: newsData = [], isLoading } = useNews({
     category: 'general',
-    pageSize: 50, // Increased for more content
+    pageSize: 50,
     country: locationData?.country,
     city: locationData?.city,
     region: locationData?.region
   });
 
-  // Initialize with fresh news - optimized for performance
+  // Initialize with fresh news
   useEffect(() => {
     if (newsData.length > 0) {
-      // Filter out any remaining template content at component level
       const realNews = newsData.filter(article => 
         article.author !== 'antiNews System' && 
-        article.category !== 'System Update' &&
         !article.headline.includes('Breaking: Real-time News Service')
       );
       
@@ -53,35 +49,21 @@ const VideoFeed = () => {
     }
   }, [newsData]);
 
-  // Filter news by category
-  useEffect(() => {
-    if (selectedCategory) {
-      const filtered = allNews.filter(article => 
-        article.category.toLowerCase().includes(selectedCategory.toLowerCase())
-      );
-      setFilteredNews(filtered);
-      setCurrentIndex(0);
-    } else {
-      setFilteredNews(allNews);
-    }
-  }, [allNews, selectedCategory]);
-
   // Create combined content array with ads inserted every 8 news items
   const createContentArray = useCallback(() => {
     const contentArray: Array<{ type: 'news' | 'ad', data: any, originalIndex?: number }> = [];
     let adIndex = 0;
     
-    filteredNews.forEach((newsItem, index) => {
+    allNews.forEach((newsItem, index) => {
       contentArray.push({ type: 'news', data: newsItem, originalIndex: index });
       
-      // Insert ad after every 8 news items
       if ((index + 1) % 8 === 0) {
         contentArray.push({ type: 'ad', data: { adIndex: adIndex++ } });
       }
     });
     
     return contentArray;
-  }, [filteredNews]);
+  }, [allNews]);
 
   const contentArray = createContentArray();
 
@@ -150,12 +132,12 @@ const VideoFeed = () => {
       if (totalDelta > 0 || velocity > minVelocity) {
         newIndex = Math.max(0, currentIndex - 1);
       } else if (totalDelta < 0 || velocity < -minVelocity) {
-        newIndex = Math.min(filteredNews.length - 1, currentIndex + 1);
+        newIndex = Math.min(allNews.length - 1, currentIndex + 1);
       }
     }
     
     setCurrentIndex(newIndex);
-  }, [isDragging, currentIndex, filteredNews.length]);
+  }, [isDragging, currentIndex, allNews.length]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
@@ -257,7 +239,6 @@ const VideoFeed = () => {
     }
   }, [contentArray]);
 
-  // Optimized loading state for mobile
   if (isInitialLoad && isLoading) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
@@ -270,7 +251,6 @@ const VideoFeed = () => {
     );
   }
 
-  // Show message if no real content is available
   if (contentArray.length === 0 || allNews.length === 0) {
     return (
       <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
@@ -323,10 +303,7 @@ const VideoFeed = () => {
               <VideoCard
                 news={item.data}
                 isActive={index === currentIndex}
-                index={index}
-                allNews={filteredNews}
                 onNavigateToArticle={navigateToArticle}
-                readingSpeed={readingSpeed}
               />
             ) : (
               <Advertisement index={item.data.adIndex} />
