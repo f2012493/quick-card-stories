@@ -44,21 +44,6 @@ const RelatedArticlesCarousel = ({
         </div>
       </div>
 
-      {/* Current article summary */}
-      <div className="p-4 border-b border-gray-800">
-        <div className="bg-gray-900/50 rounded-lg p-4">
-          <div className="flex items-start gap-3 mb-3">
-            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              NOW
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-sm mb-1">Current Story</h3>
-              <p className="text-gray-300 text-sm line-clamp-2">{currentNews.headline}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Trust and relevance indicators */}
       <div className="p-4">
         <div className="p-4 bg-gray-900/20 rounded-lg border border-gray-800/30">
