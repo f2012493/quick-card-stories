@@ -18,7 +18,6 @@ interface NewsItem {
   sourceUrl?: string;
   trustScore?: number;
   localRelevance?: number;
-  contextualInsights?: string[];
 }
 
 interface VideoCardProps {
@@ -95,7 +94,7 @@ const VideoCard = ({
         </div>
       </div>
 
-      {/* Insights Panel */}
+      {/* Article Details Panel */}
       <div 
         className={`absolute inset-0 transition-transform duration-300 ease-in-out bg-black ${
           showRelatedArticles ? 'translate-x-0' : 'translate-x-full'

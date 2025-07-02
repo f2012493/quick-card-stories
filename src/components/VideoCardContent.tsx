@@ -5,7 +5,6 @@ interface NewsItem {
   headline: string;
   tldr: string;
   author: string;
-  contextualInsights?: string[];
   localRelevance?: number;
 }
 
@@ -15,7 +14,7 @@ interface VideoCardContentProps {
   onToggleInsights: () => void;
 }
 
-const VideoCardContent = ({ news, showInsights, onToggleInsights }: VideoCardContentProps) => {
+const VideoCardContent = ({ news }: VideoCardContentProps) => {
   return (
     <div className="flex-1 flex flex-col justify-end pb-32 md:pb-24">
       {/* Headline */}
@@ -32,27 +31,6 @@ const VideoCardContent = ({ news, showInsights, onToggleInsights }: VideoCardCon
           {news.tldr}
         </p>
       </div>
-
-      {/* Why This Matters - Only show if we have actual insights */}
-      {news.contextualInsights && news.contextualInsights.length > 0 && (
-        <div className="mb-6">
-          <button
-            onClick={onToggleInsights}
-            className="text-yellow-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg pointer-events-auto flex items-center gap-1"
-          >
-            Why This Matters {showInsights ? '▼' : '▶'}
-          </button>
-          {showInsights && (
-            <div className="space-y-2">
-              {news.contextualInsights.slice(0, 2).map((insight, index) => (
-                <p key={index} className="text-white/90 text-sm leading-relaxed drop-shadow-lg bg-black/20 p-3 rounded-md">
-                  • {insight}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Author */}
       <div className="mb-4">

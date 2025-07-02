@@ -20,7 +20,6 @@ interface NewsItem {
   sourceUrl?: string;
   trustScore?: number;
   localRelevance?: number;
-  contextualInsights?: string[];
 }
 
 const unwantedPhrases = [
@@ -192,8 +191,8 @@ const extractFromHeadline = (headline: string): string => {
   return summary + (summary.endsWith('.') ? '' : '.');
 };
 
-const generateInsightfulAnalysis = async (content: string, headline: string, description: string = '', location?: string): Promise<{ tldr: string; insights: string[] }> => {
-  console.log(`Generating insightful analysis for: "${headline}"`);
+const generateTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
+  console.log(`Generating TL;DR for: "${headline}"`);
   
   const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
   
@@ -207,30 +206,15 @@ const generateInsightfulAnalysis = async (content: string, headline: string, des
         cleanContent = cleanContent.replace(regex, '');
       });
 
-      const locationContext = location ? `considering the local context of ${location}` : '';
-
-      const prompt = `You are a news analyst focused on making complex events understandable. Analyze this news story and provide:
-
-1. A clear, factual summary (2-3 sentences, max 60 words)
-2. 2-3 contextual insights explaining WHY this matters and what it means for people's lives
+      const prompt = `Summarize this news story in 2-3 clear, factual sentences (max 60 words). Focus on WHO, WHAT, WHEN, WHERE with specific facts. Avoid generic phrases.
 
 HEADLINE: ${headline}
 CONTENT: ${cleanContent.substring(0, 800)}
-${locationContext}
 
 Requirements:
-- Summary: Focus on WHO, WHAT, WHEN, WHERE with specific facts
-- Insights: Explain the deeper significance, implications, and connections to broader trends
-- Be specific about actual impact on people's daily lives
-- Avoid generic phrases like "situation" or "development"
+- Be specific about actual facts and events
 - Use proper capitalization and grammar
-
-Format your response as:
-SUMMARY: [your 2-3 sentence summary]
-INSIGHTS:
-- [insight 1]
-- [insight 2]
-- [insight 3]`;
+- Avoid words like "situation" or "development"`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -243,7 +227,7 @@ INSIGHTS:
           messages: [
             {
               role: 'system',
-              content: 'You are an expert news analyst who helps people understand the deeper meaning behind current events. Focus on clarity, context, and real-world implications.'
+              content: 'You are a news summarizer. Provide clear, factual summaries without generic language.'
             },
             {
               role: 'user',
@@ -251,75 +235,28 @@ INSIGHTS:
             }
           ],
           temperature: 0.3,
-          max_tokens: 200
+          max_tokens: 100
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        const analysis = data.choices[0].message.content.trim();
+        const summary = data.choices[0].message.content.trim();
         
-        const summaryMatch = analysis.match(/SUMMARY:\s*(.+?)(?=INSIGHTS:|$)/s);
-        const insightsMatch = analysis.match(/INSIGHTS:\s*(.+)/s);
-        
-        let tldr = '';
-        let insights: string[] = [];
-        
-        if (summaryMatch) {
-          tldr = summaryMatch[1].trim();
-        }
-        
-        if (insightsMatch) {
-          insights = insightsMatch[1]
-            .split('\n')
-            .map(line => line.replace(/^-\s*/, '').trim())
-            .filter(line => line.length > 10);
-        }
-        
-        if (tldr.length > 10 && insights.length > 0) {
-          console.log(`AI-generated analysis - TL;DR: "${tldr}", Insights: ${insights.length}`);
-          return { tldr, insights };
+        if (summary.length > 10) {
+          console.log(`AI-generated TL;DR: "${summary}"`);
+          return summary;
         }
       } else {
         console.error('OpenAI API error:', await response.text());
       }
     } catch (error) {
-      console.error('AI analysis failed:', error);
+      console.error('AI summary failed:', error);
     }
   }
   
-  // Fallback analysis
-  return {
-    tldr: generateSmartFallback(fullContent, headline, description),
-    insights: generateBasicInsights(headline, fullContent)
-  };
-};
-
-const generateBasicInsights = (headline: string, content: string): string[] => {
-  const insights: string[] = [];
-  const text = `${headline} ${content}`.toLowerCase();
-  
-  if (text.includes('economy') || text.includes('market') || text.includes('job') || text.includes('business')) {
-    insights.push('Economic implications may affect local employment and business opportunities');
-  }
-  
-  if (text.includes('policy') || text.includes('government') || text.includes('law') || text.includes('regulation')) {
-    insights.push('Policy changes could impact citizen services and community governance');
-  }
-  
-  if (text.includes('technology') || text.includes('digital') || text.includes('ai') || text.includes('innovation')) {
-    insights.push('Technology developments may reshape how we work and interact daily');
-  }
-  
-  if (text.includes('climate') || text.includes('environment') || text.includes('energy') || text.includes('green')) {
-    insights.push('Environmental factors influence long-term community planning and lifestyle');
-  }
-  
-  if (text.includes('health') || text.includes('medical') || text.includes('hospital') || text.includes('disease')) {
-    insights.push('Health developments affect community wellbeing and healthcare access');
-  }
-  
-  return insights.slice(0, 3);
+  // Fallback summary
+  return generateSmartFallback(fullContent, headline, description);
 };
 
 const calculateTrustScore = (sourceName: string): number => {
@@ -534,7 +471,7 @@ serve(async (req) => {
 
     const locationString = city && country ? `${city}, ${country}` : country || '';
 
-    // Transform articles with enhanced analysis and relevant images
+    // Transform articles with TL;DR generation and relevant images
     const transformedNews: NewsItem[] = await Promise.all(
       articles.slice(0, pageSize).map(async (article, index) => {
         const headline = article.title || article.headline || 'Breaking News';
@@ -543,8 +480,8 @@ serve(async (req) => {
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         const sourceName = article.source?.name || 'News Source';
         
-        // Generate enhanced analysis with insights
-        const analysis = await generateInsightfulAnalysis(content, headline, description, locationString);
+        // Generate TL;DR
+        const tldr = await generateTLDR(content, headline, description);
         
         // Get high-quality, relevant image
         const imageUrl = await getHighQualityImage(originalImage, headline, description);
@@ -552,7 +489,7 @@ serve(async (req) => {
         return {
           id: `news-${Date.now()}-${index}`,
           headline: headline,
-          tldr: analysis.tldr,
+          tldr: tldr,
           quote: (description || content).substring(0, 200) + ((description || content).length > 200 ? '...' : ''),
           author: article.author || sourceName,
           category: '', // Removed categories as requested
@@ -561,13 +498,12 @@ serve(async (req) => {
           publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
           sourceUrl: article.url || article.link || '',
           trustScore: calculateTrustScore(sourceName),
-          localRelevance: calculateLocalRelevance(headline, description, locationString),
-          contextualInsights: analysis.insights
+          localRelevance: calculateLocalRelevance(headline, description, locationString)
         };
       })
     );
 
-    console.log(`Returning ${transformedNews.length} news articles with relevant images and enhanced analysis`);
+    console.log(`Returning ${transformedNews.length} news articles with relevant images`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),
