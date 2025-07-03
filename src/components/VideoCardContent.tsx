@@ -6,7 +6,6 @@ interface NewsItem {
   tldr: string;
   author: string;
   localRelevance?: number;
-  trustScore?: number;
 }
 
 interface VideoCardContentProps {
@@ -18,35 +17,6 @@ interface VideoCardContentProps {
 const VideoCardContent = ({ news }: VideoCardContentProps) => {
   return (
     <div className="flex-1 flex flex-col justify-end pb-32 md:pb-24">
-      {/* Source Reliability and Local Relevance */}
-      <div className="mb-4 flex gap-4">
-        <div className="flex items-center gap-2 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1">
-          <span className="text-white/70 text-xs">Source Reliability</span>
-          <div className="w-12 h-1 bg-gray-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-green-400 transition-all duration-300"
-              style={{ width: `${(news.trustScore || 0.8) * 100}%` }}
-            />
-          </div>
-          <span className="text-green-400 text-xs font-medium">
-            {Math.round((news.trustScore || 0.8) * 100)}%
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-2 bg-black/30 backdrop-blur-sm rounded-full px-3 py-1">
-          <span className="text-white/70 text-xs">Local Relevance</span>
-          <div className="w-12 h-1 bg-gray-700 rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-blue-400 transition-all duration-300"
-              style={{ width: `${(news.localRelevance || 0.6) * 100}%` }}
-            />
-          </div>
-          <span className="text-blue-400 text-xs font-medium">
-            {Math.round((news.localRelevance || 0.6) * 100)}%
-          </span>
-        </div>
-      </div>
-
       {/* Headline */}
       <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4 drop-shadow-2xl">
         {news.headline}
@@ -59,16 +29,6 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
         </h2>
         <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium">
           {news.tldr}
-        </p>
-      </div>
-
-      {/* Why This Matters */}
-      <div className="mb-6">
-        <h2 className="text-yellow-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
-          Why This Matters
-        </h2>
-        <p className="text-white/90 text-sm leading-relaxed drop-shadow-lg">
-          This story impacts local communities and reflects broader trends in the region. Understanding these developments helps you stay informed about changes that may affect your daily life.
         </p>
       </div>
 
