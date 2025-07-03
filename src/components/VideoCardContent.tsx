@@ -6,6 +6,7 @@ interface NewsItem {
   tldr: string;
   author: string;
   localRelevance?: number;
+  trustScore?: number;
 }
 
 interface VideoCardContentProps {
@@ -38,6 +39,41 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
         {(news.localRelevance || 0) > 0.7 && (
           <p className="text-green-400 text-xs mt-1">📍 High local relevance</p>
         )}
+      </div>
+
+      {/* Source Reliability and Local Relevance */}
+      <div className="mb-4 space-y-3">
+        {/* Source Reliability */}
+        <div className="flex items-center justify-between">
+          <span className="text-white/70 text-xs font-medium">Source Reliability</span>
+          <div className="flex items-center gap-2">
+            <div className="w-20 h-1.5 bg-black/30 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-green-400 transition-all duration-300"
+                style={{ width: `${Math.round((news.trustScore || 0.8) * 100)}%` }}
+              />
+            </div>
+            <span className="text-green-400 text-xs font-semibold min-w-[32px]">
+              {Math.round((news.trustScore || 0.8) * 100)}%
+            </span>
+          </div>
+        </div>
+        
+        {/* Local Relevance */}
+        <div className="flex items-center justify-between">
+          <span className="text-white/70 text-xs font-medium">Local Relevance</span>
+          <div className="flex items-center gap-2">
+            <div className="w-20 h-1.5 bg-black/30 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-400 transition-all duration-300"
+                style={{ width: `${Math.round((news.localRelevance || 0.6) * 100)}%` }}
+              />
+            </div>
+            <span className="text-blue-400 text-xs font-semibold min-w-[32px]">
+              {Math.round((news.localRelevance || 0.6) * 100)}%
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
