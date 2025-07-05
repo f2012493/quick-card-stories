@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import VideoCard from './VideoCard';
 import Advertisement from './Advertisement';
@@ -14,6 +13,9 @@ const VideoFeed = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [allNews, setAllNews] = useState<any[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMorePages, setHasMorePages] = useState(true);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef(0);
@@ -27,7 +29,7 @@ const VideoFeed = () => {
 
   const { data: newsData = [], isLoading } = useNews({
     category: 'general',
-    pageSize: 50,
+    pageSize: 20,
     country: locationData?.country,
     city: locationData?.city,
     region: locationData?.region
@@ -44,10 +46,59 @@ const VideoFeed = () => {
       if (realNews.length > 0) {
         setAllNews(realNews);
         setIsInitialLoad(false);
+        setHasMorePages(realNews.length >= 20); // If we got a full page, there might be more
         console.log('Real news loaded:', realNews.length, 'articles');
       }
     }
   }, [newsData]);
+
+  // Load more news when approaching the end
+  const loadMoreNews = useCallback(async () => {
+    if (isLoadingMore || !hasMorePages) return;
+    
+    setIsLoadingMore(true);
+    try {
+      // Simulate fetching more news (in a real app, you'd make another API call with pagination)
+      console.log('Loading more news...');
+      
+      // For now, we'll duplicate some existing news with modified IDs to simulate pagination
+      // In a real implementation, you'd fetch from your API with page parameters
+      const moreNews = newsData.slice(0, 10).map((article, index) => ({
+        ...article,
+        id: `${article.id}-page${page}-${index}`,
+        headline: `${article.headline} (Page ${page + 1})`
+      }));
+      
+      if (moreNews.length > 0) {
+        setAllNews(prev => [...prev, ...moreNews]);
+        setPage(prev => prev + 1);
+        console.log(`Loaded ${moreNews.length} more articles`);
+        
+        // Simulate end of pages after a few loads
+        if (page >= 3) {
+          setHasMorePages(false);
+        }
+      } else {
+        setHasMorePages(false);
+      }
+    } catch (error) {
+      console.error('Failed to load more news:', error);
+      toast.error('Failed to load more articles');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMorePages, page, newsData]);
+
+  // Check if we need to load more content based on current position
+  useEffect(() => {
+    const totalItems = createContentArray().length;
+    const remainingItems = totalItems - currentIndex;
+    
+    // Load more when we're within 5 items of the end
+    if (remainingItems <= 5 && hasMorePages && !isLoadingMore) {
+      loadMoreNews();
+    }
+  }, [currentIndex, hasMorePages, isLoadingMore, loadMoreNews]);
 
   // Create combined content array with ads inserted every 8 news items
   const createContentArray = useCallback(() => {
@@ -72,6 +123,9 @@ const VideoFeed = () => {
       console.log('Triggering news refresh...');
       await triggerIngestion.mutateAsync();
       toast.success('News refresh initiated');
+      // Reset pagination state
+      setPage(1);
+      setHasMorePages(true);
     } catch (error) {
       console.error('Failed to refresh news:', error);
       toast.error('Failed to refresh news');
@@ -132,12 +186,12 @@ const VideoFeed = () => {
       if (totalDelta > 0 || velocity > minVelocity) {
         newIndex = Math.max(0, currentIndex - 1);
       } else if (totalDelta < 0 || velocity < -minVelocity) {
-        newIndex = Math.min(allNews.length - 1, currentIndex + 1);
+        newIndex = Math.min(contentArray.length - 1, currentIndex + 1);
       }
     }
     
     setCurrentIndex(newIndex);
-  }, [isDragging, currentIndex, allNews.length]);
+  }, [isDragging, currentIndex, contentArray.length]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
@@ -330,6 +384,25 @@ const VideoFeed = () => {
           })}
         </div>
       </div>
+
+      {/* Loading indicator for infinite scroll */}
+      {isLoadingMore && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            <span className="text-white text-sm">Loading more...</span>
+          </div>
+        </div>
+      )}
+
+      {/* End of feed indicator */}
+      {!hasMorePages && allNews.length > 20 && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-black/70 backdrop-blur-sm rounded-full px-4 py-2">
+            <span className="text-white/60 text-sm">You've reached the end</span>
+          </div>
+        </div>
+      )}
 
       {/* Manual refresh button */}
       <div className="fixed top-4 right-4 z-50">
