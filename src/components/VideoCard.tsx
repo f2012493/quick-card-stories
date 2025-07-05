@@ -66,19 +66,22 @@ const VideoCard = ({
           showRelatedArticles ? '-translate-x-full' : 'translate-x-0'
         }`}
       >
-        {/* Image Background */}
+        {/* Black Background */}
+        <div className="absolute inset-0 bg-black" />
+        
+        {/* Image Background with reduced opacity */}
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40"
           style={{
             backgroundImage: `url(${news.imageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'brightness(0.8) contrast(1.1) saturate(1.2)'
+            filter: 'brightness(0.7) contrast(1.1) saturate(1.2)'
           }}
         />
         
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/50" />
+        {/* Stronger Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/70" />
         
         {/* Content Overlay */}
         <div className="relative z-20 w-full h-full flex flex-col p-6 pointer-events-none">
