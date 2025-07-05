@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ChevronLeft, BookOpen, Link, Clock } from 'lucide-react';
+import { ChevronLeft, BookOpen, Clock } from 'lucide-react';
 
 interface NewsItem {
   id: string;
@@ -33,9 +33,6 @@ const RelatedArticlesCarousel = ({
   currentNews, 
   onSwipeLeft 
 }: RelatedArticlesCarouselProps) => {
-  const contextualInfo = currentNews.contextualInfo;
-  const clusteredArticles = contextualInfo?.clusteredArticles || [];
-
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -50,7 +47,7 @@ const RelatedArticlesCarousel = ({
 
   return (
     <div className="relative w-full h-full bg-slate-950 text-white overflow-y-auto">
-      {/* Minimal Header */}
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-sm border-b border-slate-800 p-4">
         <div className="flex items-center gap-3">
           <button
@@ -61,82 +58,78 @@ const RelatedArticlesCarousel = ({
           </button>
           <div className="flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-slate-400" />
-            <h2 className="text-lg font-medium text-slate-200">Additional Information</h2>
+            <h2 className="text-lg font-medium text-slate-200">Full Article</h2>
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-6 space-y-6">
-        {/* Background Context */}
-        {contextualInfo?.backgroundInfo && contextualInfo.backgroundInfo.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wide">Background Context</h3>
-            <div className="space-y-3">
-              {contextualInfo.backgroundInfo.map((info, index) => (
-                <div key={index} className="bg-slate-900/50 rounded-lg p-4 border border-slate-800/50">
-                  <p className="text-slate-300 leading-relaxed text-sm">{info}</p>
-                </div>
-              ))}
-            </div>
+        {/* Article Header */}
+        <div className="space-y-4">
+          <h1 className="text-2xl font-bold text-white leading-tight">
+            {currentNews.headline}
+          </h1>
+          
+          <div className="flex items-center gap-4 text-sm text-slate-400">
+            <span>By {currentNews.author}</span>
+            {currentNews.publishedAt && (
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>{formatTimeAgo(currentNews.publishedAt)}</span>
+              </div>
+            )}
+            <span>{currentNews.readTime}</span>
+          </div>
+        </div>
+
+        {/* Article Image */}
+        {currentNews.imageUrl && (
+          <div className="w-full">
+            <img 
+              src={currentNews.imageUrl} 
+              alt={currentNews.headline}
+              className="w-full h-64 object-cover rounded-lg"
+            />
           </div>
         )}
 
-        {/* Clustered Articles */}
-        {clusteredArticles.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wide flex items-center gap-2">
-              <Link className="w-4 h-4" />
-              Related Articles
-            </h3>
-            <div className="space-y-3">
-              {clusteredArticles.map((article, index) => (
-                <div key={article.id} className="bg-slate-900/30 rounded-lg p-4 border border-slate-800/30 hover:bg-slate-900/50 transition-colors cursor-pointer">
-                  <div className="flex gap-3">
-                    {article.image_url && (
-                      <div className="flex-shrink-0">
-                        <img 
-                          src={article.image_url} 
-                          alt=""
-                          className="w-16 h-16 rounded-lg object-cover"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-slate-200 leading-snug mb-2 line-clamp-2">
-                        {article.title}
-                      </h4>
-                      {article.description && (
-                        <p className="text-xs text-slate-400 leading-relaxed line-clamp-2 mb-2">
-                          {article.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3 text-xs text-slate-500">
-                        <span>{article.author}</span>
-                        {article.published_at && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{formatTimeAgo(article.published_at)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* TL;DR Section */}
+        <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-800/50">
+          <h3 className="text-blue-400 text-sm font-semibold mb-3 uppercase tracking-wider">
+            TL;DR
+          </h3>
+          <p className="text-slate-300 leading-relaxed">
+            {currentNews.tldr}
+          </p>
+        </div>
 
-        {/* Empty State */}
-        {(!contextualInfo?.backgroundInfo || contextualInfo.backgroundInfo.length === 0) && 
-         clusteredArticles.length === 0 && (
-          <div className="flex flex-col items-center justify-center text-center py-16">
-            <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
-              <BookOpen className="w-8 h-8 text-slate-500" />
+        {/* Full Article Content */}
+        <div className="space-y-4">
+          <h3 className="text-slate-400 text-sm font-medium uppercase tracking-wide">
+            Full Article
+          </h3>
+          <div className="prose prose-invert prose-slate max-w-none">
+            <p className="text-slate-300 leading-relaxed text-base whitespace-pre-wrap">
+              {currentNews.quote || 'Full article content would be displayed here. Currently showing the available quote content as a placeholder for the full article text.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Source Information */}
+        {currentNews.sourceUrl && (
+          <div className="pt-6 border-t border-slate-800">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-400">Read original article:</span>
+              <a 
+                href={currentNews.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                View Source →
+              </a>
             </div>
-            <p className="text-slate-400 text-lg mb-2">Processing article...</p>
-            <p className="text-slate-500 text-sm">Additional information will appear here</p>
           </div>
         )}
       </div>
