@@ -33,6 +33,33 @@ const RelatedArticlesCarousel = ({
   currentNews, 
   onSwipeLeft 
 }: RelatedArticlesCarouselProps) => {
+  // Create a more comprehensive article content by combining available information
+  const getFullArticleContent = () => {
+    let content = '';
+    
+    // Start with the quote/main content
+    if (currentNews.quote && currentNews.quote !== currentNews.tldr) {
+      content += currentNews.quote;
+    } else if (currentNews.tldr) {
+      content += currentNews.tldr;
+    }
+    
+    // Add contextual information if available
+    if (currentNews.contextualInfo) {
+      if (currentNews.contextualInfo.backgroundInfo?.length > 0) {
+        content += '\n\nBackground Context:\n';
+        content += currentNews.contextualInfo.backgroundInfo.join('\n\n');
+      }
+      
+      if (currentNews.contextualInfo.keyFacts?.length > 0) {
+        content += '\n\nKey Facts:\n';
+        content += currentNews.contextualInfo.keyFacts.map(fact => `• ${fact}`).join('\n');
+      }
+    }
+    
+    return content || 'Full article content is not available. Please visit the original source for the complete article.';
+  };
+
   return (
     <div className="relative w-full h-full bg-slate-950 text-white overflow-y-auto">
       {/* Header */}
@@ -53,7 +80,7 @@ const RelatedArticlesCarousel = ({
         {/* Full Article Content */}
         <div className="prose prose-invert prose-slate max-w-none">
           <div className="text-slate-300 leading-relaxed text-base whitespace-pre-wrap">
-            {currentNews.quote || 'Full article content would be displayed here. Currently showing the available quote content as a placeholder for the full article text.'}
+            {getFullArticleContent()}
           </div>
         </div>
 
