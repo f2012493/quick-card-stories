@@ -101,7 +101,7 @@ const VideoCard = ({
         
         {/* Image Background with blur and reduced transparency */}
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-60"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80"
           style={{
             backgroundImage: `url(${enhancedNews.imageUrl})`,
             backgroundSize: 'cover',
