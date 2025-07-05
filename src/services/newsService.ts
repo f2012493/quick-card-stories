@@ -17,6 +17,12 @@ interface NewsItem {
   trustScore?: number;
   localRelevance?: number;
   contextualInsights?: string[];
+  contextualInfo?: {
+    topic: string;
+    backgroundInfo: string[];
+    keyFacts: string[];
+    relatedConcepts: string[];
+  };
 }
 
 class NewsService {
@@ -117,7 +123,7 @@ class NewsService {
         const data = await response.json();
         if (data.news && data.news.length > 0) {
           console.log(`Fetched ${data.news.length} articles from edge function`);
-          const processedNews = this.processAndDeduplicateNews(data.news);
+          const processedNews = await this.processAndDeduplicateNews(data.news);
           
           // Only return if we have real news, not template content
           if (processedNews.length > 0 && !this.isTemplateContent(processedNews)) {
@@ -165,10 +171,10 @@ class NewsService {
       return [];
     }
 
-    return this.processAndDeduplicateNews(allNews);
+    return await this.processAndDeduplicateNews(allNews);
   }
 
-  private processAndDeduplicateNews(articles: NewsItem[]): NewsItem[] {
+  private async processAndDeduplicateNews(articles: NewsItem[]): Promise<NewsItem[]> {
     // Clean all articles first
     const cleanedArticles = articles.map(article => ({
       ...article,
@@ -202,11 +208,30 @@ class NewsService {
 
     console.log(`Filtered ${articles.length - filteredNews.length} unwanted articles`);
 
-    // Advanced deduplication
+    // Enhanced deduplication with contextual info
     const deduplicatedNews = this.deduplicateArticles(filteredNews);
     
+    // Fetch contextual information for each article
+    const newsWithContext = await Promise.all(
+      deduplicatedNews.map(async (article) => {
+        try {
+          const contextualInfo = await contextService.fetchContextualInfo(
+            article.headline,
+            article.tldr
+          );
+          return {
+            ...article,
+            contextualInfo
+          };
+        } catch (error) {
+          console.error('Failed to fetch context for article:', article.headline, error);
+          return article;
+        }
+      })
+    );
+    
     // Prioritize diverse sources and quality content
-    const prioritizedNews = deduplicatedNews.sort((a, b) => {
+    const prioritizedNews = newsWithContext.sort((a, b) => {
       // Prioritize diverse sources
       const aIsMainstream = ['Guardian', 'BBC', 'Reuters', 'CNN', 'Associated Press'].includes(a.author);
       const bIsMainstream = ['Guardian', 'BBC', 'Reuters', 'CNN', 'Associated Press'].includes(b.author);

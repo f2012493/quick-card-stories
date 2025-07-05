@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { newsService } from '@/services/newsService';
 
@@ -15,6 +14,12 @@ interface NewsItem {
   trustScore?: number;
   localRelevance?: number;
   contextualInsights?: string[];
+  contextualInfo?: {
+    topic: string;
+    backgroundInfo: string[];
+    keyFacts: string[];
+    relatedConcepts: string[];
+  };
 }
 
 interface UseNewsOptions {
