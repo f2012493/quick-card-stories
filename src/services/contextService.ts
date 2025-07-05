@@ -8,7 +8,7 @@ interface ContextualInfo {
 class ContextService {
   private cache = new Map<string, ContextualInfo>();
 
-  async fetchContextualInfo(headline: string, description: string): Promise<ContextualInfo> {
+  async fetchContextualInfo(headline: string, description: string, fullContent?: string): Promise<ContextualInfo> {
     const cacheKey = `${headline}-${description}`.substring(0, 100);
     
     if (this.cache.has(cacheKey)) {
@@ -16,12 +16,11 @@ class ContextService {
     }
 
     try {
-      const entities = this.extractEntities(headline, description);
       const contextualInfo: ContextualInfo = {
         topic: this.extractMainTopic(headline),
-        backgroundInfo: this.generateBackgroundFromEntities(entities, headline),
-        keyFacts: this.generateFactsFromEntities(entities, headline, description),
-        relatedConcepts: this.generateConceptsFromEntities(entities)
+        backgroundInfo: this.extractBackgroundFromContent(headline, description, fullContent),
+        keyFacts: [],
+        relatedConcepts: []
       };
 
       this.cache.set(cacheKey, contextualInfo);
@@ -32,35 +31,204 @@ class ContextService {
     }
   }
 
-  private extractEntities(headline: string, description: string): {
-    people: string[],
-    organizations: string[],
-    locations: string[],
-    numbers: string[],
-    dates: string[],
-    topics: string[]
-  } {
-    const text = `${headline} ${description}`.toLowerCase();
-    
-    // Extract people (common Indian names and titles)
-    const people = this.extractPeople(text);
-    
-    // Extract organizations
-    const organizations = this.extractOrganizations(text);
-    
-    // Extract locations
-    const locations = this.extractLocations(text);
-    
-    // Extract numbers and percentages
-    const numbers = this.extractNumbers(text);
-    
-    // Extract dates and time references
-    const dates = this.extractDates(text);
-    
-    // Extract topic keywords
-    const topics = this.extractTopicKeywords(text);
+  private extractBackgroundFromContent(headline: string, description: string, fullContent?: string): string[] {
+    const text = `${headline} ${description} ${fullContent || ''}`.toLowerCase();
+    const background: string[] = [];
 
-    return { people, organizations, locations, numbers, dates, topics };
+    // Extract context based on article content analysis
+    const contextPatterns = this.analyzeContentForContext(text, headline);
+    
+    // Extract historical context
+    const historicalContext = this.extractHistoricalContext(text);
+    if (historicalContext) {
+      background.push(historicalContext);
+    }
+
+    // Extract procedural/process context
+    const processContext = this.extractProcessContext(text, headline);
+    if (processContext) {
+      background.push(processContext);
+    }
+
+    // Extract impact/significance context
+    const impactContext = this.extractImpactContext(text, headline);
+    if (impactContext) {
+      background.push(impactContext);
+    }
+
+    // Extract regulatory/legal context
+    const regulatoryContext = this.extractRegulatoryContext(text);
+    if (regulatoryContext) {
+      background.push(regulatoryContext);
+    }
+
+    // If we don't have enough specific context, add some based on content analysis
+    if (background.length < 2) {
+      const additionalContext = this.generateAdditionalContext(text, headline);
+      background.push(...additionalContext);
+    }
+
+    return background.slice(0, 4);
+  }
+
+  private analyzeContentForContext(text: string, headline: string): any {
+    const entities = {
+      organizations: this.extractOrganizations(text),
+      people: this.extractPeople(text),
+      locations: this.extractLocations(text),
+      numbers: this.extractNumbers(text),
+      topics: this.extractTopicKeywords(text)
+    };
+
+    return entities;
+  }
+
+  private extractHistoricalContext(text: string): string | null {
+    // Look for historical references, previous events, or time-based context
+    if (text.includes('first time') || text.includes('historic') || text.includes('unprecedented')) {
+      return 'This represents a significant milestone or first-time occurrence in the sector';
+    }
+    
+    if (text.includes('since') || text.includes('after') || text.includes('following')) {
+      const timeReferences = text.match(/(?:since|after|following)\s+([^.]+)/gi);
+      if (timeReferences && timeReferences[0]) {
+        return `This development follows previous events: ${timeReferences[0].replace(/^(since|after|following)\s+/i, '')}`;
+      }
+    }
+
+    if (text.includes('previously') || text.includes('earlier') || text.includes('before')) {
+      return 'This builds upon previous developments and changes in the sector';
+    }
+
+    return null;
+  }
+
+  private extractProcessContext(text: string, headline: string): string | null {
+    // Extract information about processes, procedures, or how things work
+    if (text.includes('approval') || text.includes('cleared') || text.includes('authorized')) {
+      return 'This involves regulatory approval processes and compliance requirements';
+    }
+
+    if (text.includes('implementation') || text.includes('rollout') || text.includes('launch')) {
+      return 'This is part of a structured implementation or deployment process';
+    }
+
+    if (text.includes('investigation') || text.includes('probe') || text.includes('inquiry')) {
+      return 'This involves investigative or review processes by relevant authorities';
+    }
+
+    if (text.includes('negotiation') || text.includes('discussion') || text.includes('talks')) {
+      return 'This development involves ongoing negotiations or discussions between stakeholders';
+    }
+
+    return null;
+  }
+
+  private extractImpactContext(text: string, headline: string): string | null {
+    // Extract information about impact, significance, or consequences
+    if (text.includes('impact') || text.includes('affect') || text.includes('influence')) {
+      const impactMatches = text.match(/(?:impact|affect|influence)\s+([^.]+)/gi);
+      if (impactMatches && impactMatches[0]) {
+        return `Impact analysis: ${impactMatches[0].substring(0, 100)}...`;
+      }
+    }
+
+    if (text.includes('benefit') || text.includes('advantage') || text.includes('positive')) {
+      return 'This development is expected to bring positive outcomes and benefits to stakeholders';
+    }
+
+    if (text.includes('challenge') || text.includes('concern') || text.includes('risk')) {
+      return 'This situation presents certain challenges and considerations that need to be addressed';
+    }
+
+    if (text.includes('change') || text.includes('transform') || text.includes('shift')) {
+      return 'This represents a significant change or transformation in the current landscape';
+    }
+
+    return null;
+  }
+
+  private extractRegulatoryContext(text: string): string | null {
+    // Extract regulatory, legal, or policy context
+    const regulatoryTerms = ['regulation', 'policy', 'law', 'rule', 'compliance', 'legal', 'court', 'judge', 'ruling'];
+    
+    for (const term of regulatoryTerms) {
+      if (text.includes(term)) {
+        if (term === 'court' || term === 'judge' || term === 'ruling') {
+          return 'This involves legal proceedings and judicial decisions that may set precedents';
+        } else {
+          return 'This development operates within specific regulatory frameworks and policy guidelines';
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private generateAdditionalContext(text: string, headline: string): string[] {
+    const context: string[] = [];
+    
+    // Analyze the main subject/domain
+    const domain = this.identifyDomain(text, headline);
+    if (domain) {
+      context.push(`This development is significant within the ${domain} sector and its operational framework`);
+    }
+
+    // Look for stakeholder involvement
+    const stakeholders = this.identifyStakeholders(text);
+    if (stakeholders.length > 0) {
+      context.push(`Multiple stakeholders are involved including ${stakeholders.slice(0, 2).join(' and ')}, indicating broad sectoral impact`);
+    }
+
+    // Add timing/urgency context if available
+    if (text.includes('urgent') || text.includes('immediate') || text.includes('emergency')) {
+      context.push('This situation requires immediate attention and rapid response from relevant authorities');
+    }
+
+    return context;
+  }
+
+  private identifyDomain(text: string, headline: string): string | null {
+    const domains = {
+      'technology': ['tech', 'digital', 'ai', 'software', 'app', 'platform', 'innovation'],
+      'healthcare': ['health', 'medical', 'hospital', 'patient', 'treatment', 'vaccine', 'disease'],
+      'finance': ['bank', 'financial', 'economy', 'market', 'investment', 'fund', 'rupee', 'dollar'],
+      'education': ['school', 'university', 'student', 'education', 'academic', 'learning'],
+      'infrastructure': ['transport', 'road', 'railway', 'airport', 'construction', 'development'],
+      'energy': ['power', 'electricity', 'energy', 'solar', 'renewable', 'fuel', 'coal'],
+      'governance': ['government', 'ministry', 'policy', 'administration', 'public', 'citizen']
+    };
+
+    const combinedText = `${headline} ${text}`.toLowerCase();
+    
+    for (const [domain, keywords] of Object.entries(domains)) {
+      if (keywords.some(keyword => combinedText.includes(keyword))) {
+        return domain;
+      }
+    }
+
+    return null;
+  }
+
+  private identifyStakeholders(text: string): string[] {
+    const stakeholderPatterns = [
+      /\b(ministry|department|commission|authority|board|council)\s+of\s+([a-z\s]+)/gi,
+      /\b(government|administration|officials|ministers|authorities)/gi,
+      /\b(companies|corporations|firms|businesses|industry)/gi,
+      /\b(citizens|public|people|residents|community)/gi,
+      /\b(experts|analysts|researchers|specialists)/gi
+    ];
+
+    const stakeholders: string[] = [];
+    
+    stakeholderPatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        stakeholders.push(...matches.slice(0, 2));
+      }
+    });
+
+    return [...new Set(stakeholders)];
   }
 
   private extractPeople(text: string): string[] {
@@ -135,24 +303,6 @@ class ContextService {
     return [...new Set(numbers)].slice(0, 3);
   }
 
-  private extractDates(text: string): string[] {
-    const dates: string[] = [];
-    const datePatterns = [
-      /\b(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}\b/gi,
-      /\b\d{1,2}\/\d{1,2}\/\d{4}\b/gi,
-      /\b(?:today|yesterday|tomorrow|this week|next week|last week|this month|next month)\b/gi
-    ];
-
-    datePatterns.forEach(pattern => {
-      const matches = text.match(pattern);
-      if (matches) {
-        dates.push(...matches);
-      }
-    });
-
-    return [...new Set(dates)].slice(0, 2);
-  }
-
   private extractTopicKeywords(text: string): string[] {
     const topics: string[] = [];
     const topicPatterns = [
@@ -172,80 +322,6 @@ class ContextService {
     });
 
     return [...new Set(topics)];
-  }
-
-  private generateBackgroundFromEntities(entities: any, headline: string): string[] {
-    const background: string[] = [];
-
-    if (entities.organizations.length > 0) {
-      background.push(`Key organizations involved: ${entities.organizations.slice(0, 3).join(', ')}`);
-    }
-
-    if (entities.people.length > 0) {
-      background.push(`Notable figures mentioned: ${entities.people.slice(0, 3).join(', ')}`);
-    }
-
-    if (entities.locations.length > 0) {
-      background.push(`Geographic scope includes: ${entities.locations.slice(0, 3).join(', ')}`);
-    }
-
-    if (entities.topics.length > 0) {
-      const mainTopic = entities.topics[0];
-      background.push(`This development relates to ${mainTopic.toLowerCase()} sector developments`);
-    }
-
-    return background.slice(0, 3);
-  }
-
-  private generateFactsFromEntities(entities: any, headline: string, description: string): string[] {
-    const facts: string[] = [];
-
-    if (entities.numbers.length > 0) {
-      facts.push(`Financial/Statistical data: ${entities.numbers.slice(0, 2).join(', ')}`);
-    }
-
-    if (entities.dates.length > 0) {
-      facts.push(`Timeline: ${entities.dates.slice(0, 2).join(', ')}`);
-    }
-
-    if (entities.organizations.length > 1) {
-      facts.push(`Multiple stakeholders involved: ${entities.organizations.length} organizations mentioned`);
-    }
-
-    if (facts.length === 0) {
-      facts.push('Multiple factors contributing to this development');
-      facts.push('Implementation details are being finalized');
-    }
-
-    return facts.slice(0, 3);
-  }
-
-  private generateConceptsFromEntities(entities: any): string[] {
-    const concepts: string[] = [];
-
-    // Add concepts based on extracted entities
-    if (entities.topics.length > 0) {
-      concepts.push(...entities.topics.slice(0, 2));
-    }
-
-    if (entities.people.length > 0) {
-      concepts.push('Political Leadership');
-    }
-
-    if (entities.organizations.length > 0) {
-      concepts.push('Institutional Framework');
-    }
-
-    if (entities.locations.length > 0) {
-      concepts.push('Regional Impact');
-    }
-
-    // Add default concepts if none extracted
-    if (concepts.length === 0) {
-      concepts.push('Policy Implementation', 'Stakeholder Engagement', 'Public Interest');
-    }
-
-    return [...new Set(concepts)].slice(0, 4);
   }
 
   private capitalizeWords(str: string): string {
@@ -292,16 +368,12 @@ class ContextService {
     return {
       topic: 'General News',
       backgroundInfo: [
-        'This news event is part of ongoing developments',
-        'Multiple factors contribute to this situation',
-        'Understanding context helps in making informed decisions'
+        'This news event is part of ongoing developments in the sector',
+        'Multiple factors and stakeholders contribute to this situation',
+        'Understanding the broader context helps in making informed decisions'
       ],
-      keyFacts: [
-        'Stakeholder interests vary across different groups',
-        'Implementation timeline affects outcomes',
-        'Regional variations may apply'
-      ],
-      relatedConcepts: ['Current Affairs', 'Policy Impact', 'Social Development']
+      keyFacts: [],
+      relatedConcepts: []
     };
   }
 }
