@@ -1,423 +1,150 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+
+import React, { useEffect } from 'react';
 import VideoCard from './VideoCard';
 import Advertisement from './Advertisement';
-import { useNews } from '@/hooks/useNews';
-import { useLocation } from '@/hooks/useLocation';
 import { useTriggerNewsIngestion } from '@/hooks/useTriggerNewsIngestion';
 import { toast } from 'sonner';
-import { RefreshCw } from 'lucide-react';
 import RevenueDashboard from './RevenueDashboard';
+import { useVideoFeedData } from '@/hooks/useVideoFeedData';
+import { useVideoFeedInteractions } from '@/hooks/useVideoFeedInteractions';
+import VideoFeedLoadingStates from './VideoFeedLoadingStates';
+import VideoFeedProgressIndicator from './VideoFeedProgressIndicator';
+import VideoFeedRefreshButton from './VideoFeedRefreshButton';
 
 const VideoFeed = () => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [allNews, setAllNews] = useState<any[]>([]);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMorePages, setHasMorePages] = useState(true);
-  
-  const containerRef = useRef<HTMLDivElement>(null);
-  const startYRef = useRef(0);
-  const lastYRef = useRef(0);
-  const velocityRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const animationFrameRef = useRef<number>();
+  const {
+    allNews,
+    isInitialLoad,
+    isLoadingMore,
+    hasMorePages,
+    isLoading,
+    loadMoreNews,
+    createContentArray,
+    resetPagination
+  } = useVideoFeedData();
 
-  const { locationData } = useLocation();
+  const contentArray = createContentArray();
+
+  const {
+    currentIndex,
+    isDragging,
+    containerRef,
+    navigateToArticle,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleWheel
+  } = useVideoFeedInteractions(contentArray);
+
   const triggerIngestion = useTriggerNewsIngestion();
-
-  const { data: newsData = [], isLoading } = useNews({
-    category: 'general',
-    pageSize: 20,
-    country: locationData?.country,
-    city: locationData?.city,
-    region: locationData?.region
-  });
-
-  // Initialize with fresh news
-  useEffect(() => {
-    if (newsData.length > 0) {
-      const realNews = newsData.filter(article => 
-        article.author !== 'antiNews System' && 
-        !article.headline.includes('Breaking: Real-time News Service')
-      );
-      
-      if (realNews.length > 0) {
-        setAllNews(realNews);
-        setIsInitialLoad(false);
-        setHasMorePages(realNews.length >= 20); // If we got a full page, there might be more
-        console.log('Real news loaded:', realNews.length, 'articles');
-      }
-    }
-  }, [newsData]);
-
-  // Load more news when approaching the end
-  const loadMoreNews = useCallback(async () => {
-    if (isLoadingMore || !hasMorePages) return;
-    
-    setIsLoadingMore(true);
-    try {
-      // Simulate fetching more news (in a real app, you'd make another API call with pagination)
-      console.log('Loading more news...');
-      
-      // For now, we'll duplicate some existing news with modified IDs to simulate pagination
-      // In a real implementation, you'd fetch from your API with page parameters
-      const moreNews = newsData.slice(0, 10).map((article, index) => ({
-        ...article,
-        id: `${article.id}-page${page}-${index}`,
-        headline: `${article.headline} (Page ${page + 1})`
-      }));
-      
-      if (moreNews.length > 0) {
-        setAllNews(prev => [...prev, ...moreNews]);
-        setPage(prev => prev + 1);
-        console.log(`Loaded ${moreNews.length} more articles`);
-        
-        // Simulate end of pages after a few loads
-        if (page >= 3) {
-          setHasMorePages(false);
-        }
-      } else {
-        setHasMorePages(false);
-      }
-    } catch (error) {
-      console.error('Failed to load more news:', error);
-      toast.error('Failed to load more articles');
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [isLoadingMore, hasMorePages, page, newsData]);
 
   // Check if we need to load more content based on current position
   useEffect(() => {
-    const totalItems = createContentArray().length;
+    const totalItems = contentArray.length;
     const remainingItems = totalItems - currentIndex;
     
     // Load more when we're within 5 items of the end
     if (remainingItems <= 5 && hasMorePages && !isLoadingMore) {
       loadMoreNews();
     }
-  }, [currentIndex, hasMorePages, isLoadingMore, loadMoreNews]);
-
-  // Create combined content array with ads inserted every 8 news items
-  const createContentArray = useCallback(() => {
-    const contentArray: Array<{ type: 'news' | 'ad', data: any, originalIndex?: number }> = [];
-    let adIndex = 0;
-    
-    allNews.forEach((newsItem, index) => {
-      contentArray.push({ type: 'news', data: newsItem, originalIndex: index });
-      
-      if ((index + 1) % 8 === 0) {
-        contentArray.push({ type: 'ad', data: { adIndex: adIndex++ } });
-      }
-    });
-    
-    return contentArray;
-  }, [allNews]);
-
-  const contentArray = createContentArray();
+  }, [currentIndex, hasMorePages, isLoadingMore, loadMoreNews, contentArray.length]);
 
   const handleRefreshNews = async () => {
     try {
       console.log('Triggering news refresh...');
       await triggerIngestion.mutateAsync();
       toast.success('News refresh initiated');
-      // Reset pagination state
-      setPage(1);
-      setHasMorePages(true);
+      resetPagination();
     } catch (error) {
       console.error('Failed to refresh news:', error);
       toast.error('Failed to refresh news');
     }
   };
 
-  const scrollToIndex = useCallback((index: number, smooth = true) => {
-    if (containerRef.current) {
-      const targetY = index * window.innerHeight;
-      containerRef.current.scrollTo({
-        top: targetY,
-        behavior: smooth ? 'smooth' : 'instant'
-      });
-    }
-  }, []);
-
-  const handleStart = useCallback((clientY: number) => {
-    setIsDragging(true);
-    startYRef.current = clientY;
-    lastYRef.current = clientY;
-    lastTimeRef.current = Date.now();
-    velocityRef.current = 0;
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-  }, []);
-
-  const handleMove = useCallback((clientY: number) => {
-    if (!isDragging) return;
-    
-    const now = Date.now();
-    const timeDelta = now - lastTimeRef.current;
-    const yDelta = clientY - lastYRef.current;
-    
-    if (timeDelta > 0) {
-      velocityRef.current = yDelta / timeDelta;
-    }
-    
-    lastYRef.current = clientY;
-    lastTimeRef.current = now;
-  }, [isDragging]);
-
-  const handleEnd = useCallback(() => {
-    if (!isDragging) return;
-    
-    setIsDragging(false);
-    
-    const totalDelta = lastYRef.current - startYRef.current;
-    const velocity = velocityRef.current;
-    
-    const minDistance = 50;
-    const minVelocity = 0.3;
-    
-    let newIndex = currentIndex;
-    
-    if (Math.abs(totalDelta) > minDistance || Math.abs(velocity) > minVelocity) {
-      if (totalDelta > 0 || velocity > minVelocity) {
-        newIndex = Math.max(0, currentIndex - 1);
-      } else if (totalDelta < 0 || velocity < -minVelocity) {
-        newIndex = Math.min(contentArray.length - 1, currentIndex + 1);
-      }
-    }
-    
-    setCurrentIndex(newIndex);
-  }, [isDragging, currentIndex, contentArray.length]);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    handleStart(e.touches[0].clientY);
-  }, [handleStart]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    handleMove(e.touches[0].clientY);
-  }, [handleMove]);
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    handleEnd();
-  }, [handleEnd]);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    handleStart(e.clientY);
-  }, [handleStart]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      handleMove(e.clientY);
-    }
-  }, [isDragging, handleMove]);
-
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      handleEnd();
-    }
-  }, [isDragging, handleEnd]);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    
-    const now = Date.now();
-    if (now - (handleWheel as any).lastWheelTime < 100) return;
-    (handleWheel as any).lastWheelTime = now;
-    
-    if (e.deltaY > 0 && currentIndex < contentArray.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    } else if (e.deltaY < 0 && currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-    }
-  }, [currentIndex, contentArray.length]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' && currentIndex > 0) {
-        e.preventDefault();
-        setCurrentIndex(prev => prev - 1);
-      } else if (e.key === 'ArrowDown' && currentIndex < contentArray.length - 1) {
-        e.preventDefault();
-        setCurrentIndex(prev => prev + 1);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, contentArray.length]);
-
-  useEffect(() => {
-    scrollToIndex(currentIndex, true);
-  }, [currentIndex, scrollToIndex]);
-
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        handleMove(e.clientY);
-      }
-    };
-
-    const handleGlobalMouseUp = (e: MouseEvent) => {
-      if (isDragging) {
-        handleEnd();
-      }
-    };
-
-    if (isDragging) {
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [isDragging, handleMove, handleEnd]);
-
-  const navigateToArticle = useCallback((articleId: string) => {
-    const targetIndex = contentArray.findIndex(item => 
-      item.type === 'news' && item.data.id === articleId
-    );
-    if (targetIndex !== -1) {
-      setCurrentIndex(targetIndex);
-    }
-  }, [contentArray]);
-
-  if (isInitialLoad && isLoading) {
-    return (
-      <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
-        <div className="text-white text-lg text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Loading fresh news...</p>
-          <p className="text-sm text-gray-400 mt-2">Fetching from multiple sources</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (contentArray.length === 0 || allNews.length === 0) {
-    return (
-      <div className="relative w-full h-screen overflow-hidden bg-black flex items-center justify-center">
-        <div className="text-white text-lg text-center">
-          <p>No fresh news available at the moment.</p>
-          <p className="text-sm text-gray-400 mt-2">Please check your connection and try again</p>
-          <button
-            onClick={handleRefreshNews}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            Refresh News
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const hasContent = contentArray.length > 0 && allNews.length > 0;
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <div
-        ref={containerRef}
-        className="w-full h-full overflow-hidden snap-y snap-mandatory"
-        style={{
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          WebkitOverflowScrolling: 'touch'
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onWheel={handleWheel}
-      >
-        {contentArray.map((item, index) => (
+      <VideoFeedLoadingStates
+        isInitialLoad={isInitialLoad}
+        isLoading={isLoading}
+        hasContent={hasContent}
+        isLoadingMore={isLoadingMore}
+        hasMorePages={hasMorePages}
+        allNewsLength={allNews.length}
+        onRefreshNews={handleRefreshNews}
+      />
+
+      {hasContent && (
+        <>
           <div
-            key={item.type === 'news' ? item.data.id : `ad-${item.data.adIndex}`}
-            className="w-full h-screen snap-start snap-always flex-shrink-0"
+            ref={containerRef}
+            className="w-full h-full overflow-hidden snap-y snap-mandatory"
             style={{
-              transform: `translateY(${(index - currentIndex) * 100}vh)`,
-              transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              WebkitOverflowScrolling: 'touch'
             }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onWheel={handleWheel}
           >
-            {item.type === 'news' ? (
-              <VideoCard
-                news={item.data}
-                isActive={index === currentIndex}
-                onNavigateToArticle={navigateToArticle}
-              />
-            ) : (
-              <Advertisement index={item.data.adIndex} />
-            )}
-          </div>
-        ))}
-      </div>
-      
-      {/* Progress indicator */}
-      <div className="fixed right-2 top-1/2 transform -translate-y-1/2 z-50">
-        <div className="flex flex-col space-y-1">
-          {contentArray.slice(Math.max(0, currentIndex - 2), currentIndex + 3).map((_, relativeIndex) => {
-            const actualIndex = Math.max(0, currentIndex - 2) + relativeIndex;
-            return (
+            {contentArray.map((item, index) => (
               <div
-                key={actualIndex}
-                className={`w-0.5 h-6 rounded-full transition-all duration-300 ${
-                  actualIndex === currentIndex 
-                    ? 'bg-white shadow-lg shadow-white/30' 
-                    : 'bg-white/30'
-                }`}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Loading indicator for infinite scroll */}
-      {isLoadingMore && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            <span className="text-white text-sm">Loading more...</span>
+                key={item.type === 'news' ? item.data.id : `ad-${item.data.adIndex}`}
+                className="w-full h-screen snap-start snap-always flex-shrink-0"
+                style={{
+                  transform: `translateY(${(index - currentIndex) * 100}vh)`,
+                  transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0
+                }}
+              >
+                {item.type === 'news' ? (
+                  <VideoCard
+                    news={item.data}
+                    isActive={index === currentIndex}
+                    onNavigateToArticle={navigateToArticle}
+                  />
+                ) : (
+                  <Advertisement index={item.data.adIndex} />
+                )}
+              </div>
+            ))}
           </div>
-        </div>
+          
+          <VideoFeedProgressIndicator 
+            currentIndex={currentIndex}
+            contentArray={contentArray}
+          />
+
+          <VideoFeedLoadingStates
+            isInitialLoad={false}
+            isLoading={false}
+            hasContent={true}
+            isLoadingMore={isLoadingMore}
+            hasMorePages={hasMorePages}
+            allNewsLength={allNews.length}
+            onRefreshNews={handleRefreshNews}
+          />
+
+          <VideoFeedRefreshButton
+            onRefresh={handleRefreshNews}
+            isPending={triggerIngestion.isPending}
+          />
+
+          <RevenueDashboard />
+        </>
       )}
-
-      {/* End of feed indicator */}
-      {!hasMorePages && allNews.length > 20 && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-black/70 backdrop-blur-sm rounded-full px-4 py-2">
-            <span className="text-white/60 text-sm">You've reached the end</span>
-          </div>
-        </div>
-      )}
-
-      {/* Manual refresh button */}
-      <div className="fixed top-4 right-4 z-50">
-        <button
-          onClick={handleRefreshNews}
-          disabled={triggerIngestion.isPending}
-          className="p-2 bg-black/30 backdrop-blur-sm rounded-full text-white/80 hover:text-white hover:bg-black/50 disabled:opacity-50 disabled:cursor-not-allowed border border-white/20"
-          title="Refresh news feed"
-        >
-          <RefreshCw className={`w-5 h-5 ${triggerIngestion.isPending ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
-
-      {/* Revenue Dashboard */}
-      <RevenueDashboard />
     </div>
   );
 };
