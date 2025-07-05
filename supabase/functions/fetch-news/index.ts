@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -194,65 +193,11 @@ const extractFromHeadline = (headline: string): string => {
 const generateTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
   console.log(`Generating TL;DR for: "${headline}"`);
   
-  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-  
+  // Simple rule-based TL;DR generation instead of OpenAI
   const fullContent = `${description} ${content}`.trim();
   
-  if (openAIApiKey && fullContent.length > 20) {
-    try {
-      let cleanContent = fullContent;
-      unwantedPhrases.forEach(phrase => {
-        const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-        cleanContent = cleanContent.replace(regex, '');
-      });
-
-      const prompt = `Summarize this news story in 2-3 clear, factual sentences (max 60 words). Focus on WHO, WHAT, WHEN, WHERE with specific facts. Avoid generic phrases.
-
-HEADLINE: ${headline}
-CONTENT: ${cleanContent.substring(0, 800)}
-
-Requirements:
-- Be specific about actual facts and events
-- Use proper capitalization and grammar
-- Avoid words like "situation" or "development"`;
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a news summarizer. Provide clear, factual summaries without generic language.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 100
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const summary = data.choices[0].message.content.trim();
-        
-        if (summary.length > 10) {
-          console.log(`AI-generated TL;DR: "${summary}"`);
-          return summary;
-        }
-      } else {
-        console.error('OpenAI API error:', await response.text());
-      }
-    } catch (error) {
-      console.error('AI summary failed:', error);
-    }
+  if (fullContent.length > 20) {
+    return generateSmartFallback(fullContent, headline, description);
   }
   
   // Fallback summary
@@ -292,65 +237,6 @@ const calculateLocalRelevance = (title: string, description: string, location?: 
   return Math.min(1, relevanceScore);
 };
 
-const getRelevantImageFromUnsplash = async (headline: string, description: string = ''): Promise<string> => {
-  try {
-    const unsplashApiKey = Deno.env.get('UNSPLASH_ACCESS_KEY');
-    
-    if (unsplashApiKey) {
-      // Extract keywords from headline and description for better search
-      const content = `${headline} ${description}`.toLowerCase();
-      let searchQuery = '';
-      
-      // Determine search query based on content
-      if (content.includes('modi') || content.includes('bjp') || content.includes('congress') || content.includes('election')) {
-        searchQuery = 'indian politics government';
-      } else if (content.includes('economy') || content.includes('market') || content.includes('business')) {
-        searchQuery = 'business economy india';
-      } else if (content.includes('mumbai') || content.includes('delhi') || content.includes('bangalore')) {
-        searchQuery = 'indian city urban';
-      } else if (content.includes('cricket') || content.includes('sports')) {
-        searchQuery = 'cricket sports india';
-      } else if (content.includes('technology') || content.includes('startup')) {
-        searchQuery = 'technology innovation india';
-      } else if (content.includes('climate') || content.includes('environment')) {
-        searchQuery = 'environment climate india';
-      } else if (content.includes('health') || content.includes('medical')) {
-        searchQuery = 'healthcare medical india';
-      } else {
-        // Extract first few meaningful words from headline
-        const words = headline.split(' ').slice(0, 3).join(' ');
-        searchQuery = `${words} india news`;
-      }
-      
-      console.log(`Searching Unsplash for: ${searchQuery}`);
-      
-      const response = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchQuery)}&per_page=10&orientation=landscape`,
-        {
-          headers: {
-            'Authorization': `Client-ID ${unsplashApiKey}`,
-          },
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.results && data.results.length > 0) {
-          const randomIndex = Math.floor(Math.random() * Math.min(5, data.results.length));
-          const selectedImage = data.results[randomIndex];
-          console.log(`Found relevant image: ${selectedImage.urls.regular}`);
-          return selectedImage.urls.regular;
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Unsplash search failed:', error);
-  }
-  
-  // Fallback to contextual placeholder
-  return getContextualPlaceholder(headline, description);
-};
-
 const getContextualPlaceholder = (headline: string, description: string = ''): string => {
   const content = `${headline} ${description}`.toLowerCase();
   
@@ -386,24 +272,6 @@ const getContextualPlaceholder = (headline: string, description: string = ''): s
   
   // Default news/breaking news image
   return `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&h=800&fit=crop&crop=entropy&auto=format&q=80`;
-};
-
-const getHighQualityImage = async (originalUrl: string, headline: string, description: string = ''): Promise<string> => {
-  // First, try to use the original image if it exists and is accessible
-  if (originalUrl && originalUrl.includes('http')) {
-    try {
-      const response = await fetch(originalUrl, { method: 'HEAD' });
-      if (response.ok) {
-        console.log(`Using original image: ${originalUrl}`);
-        return originalUrl;
-      }
-    } catch (error) {
-      console.log('Original image not accessible, searching for relevant alternative');
-    }
-  }
-  
-  // If no original image or not accessible, get a relevant image
-  return await getRelevantImageFromUnsplash(headline, description);
 };
 
 serve(async (req) => {
@@ -480,11 +348,11 @@ serve(async (req) => {
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         const sourceName = article.source?.name || 'News Source';
         
-        // Generate TL;DR
+        // Generate TL;DR without OpenAI
         const tldr = await generateTLDR(content, headline, description);
         
-        // Get high-quality, relevant image
-        const imageUrl = await getHighQualityImage(originalImage, headline, description);
+        // Use original image or contextual placeholder
+        const imageUrl = originalImage || getContextualPlaceholder(headline, description);
         
         return {
           id: `news-${Date.now()}-${index}`,
@@ -492,7 +360,7 @@ serve(async (req) => {
           tldr: tldr,
           quote: (description || content).substring(0, 200) + ((description || content).length > 200 ? '...' : ''),
           author: article.author || sourceName,
-          category: '', // Removed categories as requested
+          category: '',
           imageUrl: imageUrl,
           readTime: '2 min read',
           publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
@@ -503,7 +371,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} news articles with relevant images`);
+    console.log(`Returning ${transformedNews.length} news articles`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),

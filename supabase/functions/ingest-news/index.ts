@@ -25,35 +25,18 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-const generateEmbedding = async (text: string): Promise<number[]> => {
-  const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!openAIApiKey) {
-    console.log('No OpenAI API key, returning zero embedding');
-    return new Array(1536).fill(0);
-  }
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-ada-002',
-        input: text.substring(0, 8000), // Limit input length
-      }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      return data.data[0].embedding;
-    }
-  } catch (error) {
-    console.error('Error generating embedding:', error);
-  }
-
-  return new Array(1536).fill(0);
+const generateSimpleEmbedding = (text: string): number[] => {
+  // Simple hash-based embedding as fallback
+  const words = text.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+  const embedding = new Array(1536).fill(0);
+  
+  words.forEach((word, index) => {
+    const hash = word.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const pos = hash % 1536;
+    embedding[pos] = Math.min(1, embedding[pos] + 0.1);
+  });
+  
+  return embedding;
 };
 
 const calculateQualityScore = (article: Article): number => {
@@ -145,9 +128,9 @@ const storeArticle = async (article: Article) => {
       source = newSource;
     }
 
-    // Generate embeddings
-    const titleEmbedding = await generateEmbedding(article.title);
-    const contentEmbedding = await generateEmbedding(
+    // Generate simple embeddings instead of OpenAI
+    const titleEmbedding = generateSimpleEmbedding(article.title);
+    const contentEmbedding = generateSimpleEmbedding(
       (article.content || article.description || article.title).substring(0, 2000)
     );
 
