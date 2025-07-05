@@ -1,3 +1,5 @@
+import { contextService } from './contextService';
+
 interface NewsSource {
   name: string;
   fetch: () => Promise<any[]>;
