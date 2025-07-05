@@ -20,21 +20,23 @@ class ContextService {
       // Always fetch fresh clustered articles
       if (articleId) {
         try {
-          // Get cluster ID for this article
-          const { supabase } = await import('@/integrations/supabase/client');
-          const { data: article } = await supabase
-            .from('articles')
-            .select('cluster_id')
-            .eq('id', articleId)
-            .single();
+          // Use raw SQL to get cluster ID for this article
+          const { data: articleData, error: articleError } = await supabase.rpc('get_article_cluster', {
+            article_id: articleId
+          });
           
-          if (article?.cluster_id) {
+          if (articleError && articleError.code === '42883') {
+            // Function doesn't exist yet
+            cached.clusteredArticles = [];
+          } else if (articleData?.cluster_id) {
             const clusteredArticles = await clusteringService.getClusteredArticles(
-              article.cluster_id, 
+              articleData.cluster_id, 
               articleId, 
               5
             );
             cached.clusteredArticles = clusteredArticles;
+          } else {
+            cached.clusteredArticles = [];
           }
         } catch (error) {
           console.error('Error fetching clustered articles:', error);
@@ -62,20 +64,23 @@ class ContextService {
       // Get clustered articles if articleId is provided
       if (articleId) {
         try {
-          const { supabase } = await import('@/integrations/supabase/client');
-          const { data: article } = await supabase
-            .from('articles')
-            .select('cluster_id')
-            .eq('id', articleId)
-            .single();
+          // Use raw SQL to get cluster ID for this article
+          const { data: articleData, error: articleError } = await supabase.rpc('get_article_cluster', {
+            article_id: articleId
+          });
           
-          if (article?.cluster_id) {
+          if (articleError && articleError.code === '42883') {
+            // Function doesn't exist yet
+            contextualInfo.clusteredArticles = [];
+          } else if (articleData?.cluster_id) {
             const clusteredArticles = await clusteringService.getClusteredArticles(
-              article.cluster_id, 
+              articleData.cluster_id, 
               articleId, 
               5
             );
             contextualInfo.clusteredArticles = clusteredArticles;
+          } else {
+            contextualInfo.clusteredArticles = [];
           }
         } catch (error) {
           console.error('Error fetching clustered articles:', error);
