@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -366,25 +367,84 @@ serve(async (req) => {
       fetchPromises.push(newsDataPromise);
     }
 
-    // Fetch from multiple RSS feeds for diversity
+    // Enhanced RSS feeds with more Indian sources
     const rssPromises = [
-      // BBC RSS
+      // International sources
       fetch('https://feeds.bbci.co.uk/news/rss.xml')
         .then(res => res.text())
         .then(text => ({ source: 'BBC', rss: text }))
         .catch(err => ({ source: 'BBC', error: err })),
       
-      // CNN RSS
       fetch('https://rss.cnn.com/rss/edition.rss')
         .then(res => res.text())
         .then(text => ({ source: 'CNN', rss: text }))
         .catch(err => ({ source: 'CNN', error: err })),
       
-      // Reuters RSS
       fetch('https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best')
         .then(res => res.text())
         .then(text => ({ source: 'Reuters', rss: text }))
-        .catch(err => ({ source: 'Reuters', error: err }))
+        .catch(err => ({ source: 'Reuters', error: err })),
+
+      // Indian news sources
+      fetch('https://www.news18.com/rss/india.xml')
+        .then(res => res.text())
+        .then(text => ({ source: 'News18', rss: text }))
+        .catch(err => ({ source: 'News18', error: err })),
+
+      fetch('https://timesofindia.indiatimes.com/rssfeedstopstories.cms')
+        .then(res => res.text())
+        .then(text => ({ source: 'Times of India', rss: text }))
+        .catch(err => ({ source: 'Times of India', error: err })),
+
+      fetch('https://www.ndtv.com/rss/latest')
+        .then(res => res.text())
+        .then(text => ({ source: 'NDTV', rss: text }))
+        .catch(err => ({ source: 'NDTV', error: err })),
+
+      fetch('https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml')
+        .then(res => res.text())
+        .then(text => ({ source: 'Hindustan Times', rss: text }))
+        .catch(err => ({ source: 'Hindustan Times', error: err })),
+
+      fetch('https://economictimes.indiatimes.com/rssfeedstopstories.cms')
+        .then(res => res.text())
+        .then(text => ({ source: 'Economic Times', rss: text }))
+        .catch(err => ({ source: 'Economic Times', error: err })),
+
+      fetch('https://www.indiatoday.in/rss/1206578')
+        .then(res => res.text())
+        .then(text => ({ source: 'India Today', rss: text }))
+        .catch(err => ({ source: 'India Today', error: err })),
+
+      fetch('https://www.deccanherald.com/rss/national.rss')
+        .then(res => res.text())
+        .then(text => ({ source: 'Deccan Herald', rss: text }))
+        .catch(err => ({ source: 'Deccan Herald', error: err })),
+
+      fetch('https://www.thehindu.com/news/national/feeder/default.rss')
+        .then(res => res.text())
+        .then(text => ({ source: 'The Hindu', rss: text }))
+        .catch(err => ({ source: 'The Hindu', error: err })),
+
+      fetch('https://indianexpress.com/section/india/feed/')
+        .then(res => res.text())
+        .then(text => ({ source: 'Indian Express', rss: text }))
+        .catch(err => ({ source: 'Indian Express', error: err })),
+
+      fetch('https://www.livemint.com/rss/news')
+        .then(res => res.text())
+        .then(text => ({ source: 'LiveMint', rss: text }))
+        .catch(err => ({ source: 'LiveMint', error: err })),
+
+      fetch('https://www.moneycontrol.com/rss/latestnews.xml')
+        .then(res => res.text())
+        .then(text => ({ source: 'MoneyControl', rss: text }))
+        .catch(err => ({ source: 'MoneyControl', error: err })),
+
+      fetch('https://www.business-standard.com/rss/latest.rss')
+        .then(res => res.text())
+        .then(text => ({ source: 'Business Standard', rss: text }))
+        .catch(err => ({ source: 'Business Standard', error: err }))
     ];
 
     fetchPromises.push(...rssPromises);
@@ -398,7 +458,7 @@ serve(async (req) => {
         
         if (data.articles && Array.isArray(data.articles)) {
           console.log(`${data.source} provided ${data.articles.length} articles`);
-          articles = articles.concat(data.articles.slice(0, 8));
+          articles = articles.concat(data.articles.slice(0, 6)); // Reduced per source to allow more diversity
         } else if (data.rss && typeof data.rss === 'string') {
           // Parse RSS
           try {
@@ -406,7 +466,7 @@ serve(async (req) => {
             const doc = parser.parseFromString(data.rss, 'text/xml');
             const items = doc.querySelectorAll('item');
             
-            const rssArticles = Array.from(items).slice(0, 6).map(item => ({
+            const rssArticles = Array.from(items).slice(0, 5).map(item => ({ // Reduced to 5 per RSS source
               title: item.querySelector('title')?.textContent || 'News Update',
               description: item.querySelector('description')?.textContent || '',
               url: item.querySelector('link')?.textContent || '',
@@ -429,7 +489,7 @@ serve(async (req) => {
       throw new Error('No articles found from any news source');
     }
 
-    console.log(`Total articles collected: ${articles.length}`);
+    console.log(`Total articles collected from ${results.length} sources: ${articles.length}`);
 
     const locationString = city && country ? `${city}, ${country}` : country || '';
 
@@ -469,7 +529,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} cleaned news articles from diverse sources`);
+    console.log(`Returning ${transformedNews.length} cleaned news articles from diverse Indian and international sources`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),

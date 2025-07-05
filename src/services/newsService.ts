@@ -28,7 +28,7 @@ class NewsService {
     ['CNN', 0.8],
     ['NewsAPI', 0.7],
     ['Times of India', 0.95],
-    ['Hindu', 0.92],
+    ['The Hindu', 0.92],
     ['Indian Express', 0.88],
     ['NDTV', 0.85],
     ['Hindustan Times', 0.82],
@@ -109,7 +109,7 @@ class NewsService {
         body: JSON.stringify({
           country: 'India',
           category: 'general',
-          pageSize: 80 // Increased for more content diversity
+          pageSize: 100 // Increased for more diverse content
         })
       });
 
@@ -132,13 +132,23 @@ class NewsService {
     // Fallback: Multiple direct sources in parallel for better performance
     const allNews: NewsItem[] = [];
     
-    // Fetch from multiple sources in parallel
+    // Fetch from multiple sources in parallel - expanded Indian sources
     const sourcePromises = [
       this.fetchFromGuardian(),
       this.fetchFromBBC(),
       this.fetchFromReuters(),
       this.fetchFromNews18(),
-      this.fetchFromTimesOfIndia()
+      this.fetchFromTimesOfIndia(),
+      this.fetchFromNDTV(),
+      this.fetchFromHindustanTimes(),
+      this.fetchFromEconomicTimes(),
+      this.fetchFromIndiaToday(),
+      this.fetchFromDeccanHerald(),
+      this.fetchFromTheHindu(),
+      this.fetchFromIndianExpress(),
+      this.fetchFromLiveMint(),
+      this.fetchFromMoneyControl(),
+      this.fetchFromBusinessStandard()
     ];
 
     const results = await Promise.allSettled(sourcePromises);
@@ -353,6 +363,116 @@ class NewsService {
       return this.parseRSSFeed(text, 'Times of India', 'toi');
     } catch (error) {
       console.warn('Times of India RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromNDTV(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.ndtv.com/rss/latest');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'NDTV', 'ndtv');
+    } catch (error) {
+      console.warn('NDTV RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromHindustanTimes(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Hindustan Times', 'ht');
+    } catch (error) {
+      console.warn('Hindustan Times RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromEconomicTimes(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://economictimes.indiatimes.com/rssfeedstopstories.cms');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Economic Times', 'et');
+    } catch (error) {
+      console.warn('Economic Times RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromIndiaToday(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.indiatoday.in/rss/1206578');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'India Today', 'indiatoday');
+    } catch (error) {
+      console.warn('India Today RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromDeccanHerald(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.deccanherald.com/rss/national.rss');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Deccan Herald', 'dh');
+    } catch (error) {
+      console.warn('Deccan Herald RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromTheHindu(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.thehindu.com/news/national/feeder/default.rss');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'The Hindu', 'thehindu');
+    } catch (error) {
+      console.warn('The Hindu RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromIndianExpress(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://indianexpress.com/section/india/feed/');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Indian Express', 'ie');
+    } catch (error) {
+      console.warn('Indian Express RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromLiveMint(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.livemint.com/rss/news');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'LiveMint', 'mint');
+    } catch (error) {
+      console.warn('LiveMint RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromMoneyControl(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.moneycontrol.com/rss/latestnews.xml');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'MoneyControl', 'mc');
+    } catch (error) {
+      console.warn('MoneyControl RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromBusinessStandard(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.business-standard.com/rss/latest.rss');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Business Standard', 'bs');
+    } catch (error) {
+      console.warn('Business Standard RSS failed:', error);
       return [];
     }
   }
