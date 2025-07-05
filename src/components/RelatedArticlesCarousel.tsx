@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ChevronLeft, Info, Lightbulb, BookOpen, Tags } from 'lucide-react';
+import { ChevronLeft, Lightbulb, BookOpen, Tags } from 'lucide-react';
 
 interface NewsItem {
   id: string;
@@ -35,19 +35,19 @@ const RelatedArticlesCarousel = ({
   const contextualInfo = currentNews.contextualInfo;
 
   return (
-    <div className="relative w-full h-full bg-black text-white overflow-y-auto">
+    <div className="relative w-full h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-y-auto">
       {/* Header with back button */}
-      <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-sm border-b border-gray-800 p-4">
+      <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700/50 p-4">
         <div className="flex items-center gap-3">
           <button
             onClick={onSwipeLeft}
-            className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+            className="p-2.5 bg-slate-700/50 hover:bg-slate-600/60 rounded-xl transition-all duration-200 hover:scale-105"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold">Additional Information</h2>
-            <p className="text-sm text-gray-400">Context and background details</p>
+            <h2 className="text-lg font-semibold text-slate-100">Additional Information</h2>
+            <p className="text-sm text-slate-400">Context and background details</p>
           </div>
         </div>
       </div>
@@ -56,25 +56,16 @@ const RelatedArticlesCarousel = ({
       <div className="p-4 space-y-6">
         {contextualInfo ? (
           <>
-            {/* Topic Header */}
-            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg p-4 border border-blue-500/30">
-              <div className="flex items-center gap-2 mb-2">
-                <Info className="w-5 h-5 text-blue-400" />
-                <h3 className="text-lg font-semibold text-blue-400">Topic</h3>
-              </div>
-              <p className="text-white font-medium">{contextualInfo.topic}</p>
-            </div>
-
             {/* Background Information */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-green-400" />
-                <h3 className="text-lg font-semibold text-green-400">Background Context</h3>
+                <BookOpen className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-lg font-semibold text-emerald-400">Background Context</h3>
               </div>
               <div className="space-y-3">
                 {contextualInfo.backgroundInfo.map((info, index) => (
-                  <div key={index} className="bg-gray-800/50 rounded-lg p-3 border-l-4 border-green-400">
-                    <p className="text-gray-200 leading-relaxed">{info}</p>
+                  <div key={index} className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/30 hover:border-emerald-500/30 transition-colors duration-200">
+                    <p className="text-slate-200 leading-relaxed">{info}</p>
                   </div>
                 ))}
               </div>
@@ -83,13 +74,13 @@ const RelatedArticlesCarousel = ({
             {/* Key Facts */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-yellow-400" />
-                <h3 className="text-lg font-semibold text-yellow-400">Key Facts</h3>
+                <Lightbulb className="w-5 h-5 text-amber-400" />
+                <h3 className="text-lg font-semibold text-amber-400">Key Facts</h3>
               </div>
               <div className="space-y-2">
                 {contextualInfo.keyFacts.map((fact, index) => (
-                  <div key={index} className="bg-gray-800/50 rounded-lg p-3 border-l-4 border-yellow-400">
-                    <p className="text-gray-200">{fact}</p>
+                  <div key={index} className="bg-slate-800/60 rounded-xl p-4 border border-slate-700/30 hover:border-amber-500/30 transition-colors duration-200">
+                    <p className="text-slate-200">{fact}</p>
                   </div>
                 ))}
               </div>
@@ -98,14 +89,14 @@ const RelatedArticlesCarousel = ({
             {/* Related Concepts */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Tags className="w-5 h-5 text-purple-400" />
-                <h3 className="text-lg font-semibold text-purple-400">Related Concepts</h3>
+                <Tags className="w-5 h-5 text-violet-400" />
+                <h3 className="text-lg font-semibold text-violet-400">Related Concepts</h3>
               </div>
               <div className="flex flex-wrap gap-2">
                 {contextualInfo.relatedConcepts.map((concept, index) => (
                   <span
                     key={index}
-                    className="px-3 py-1.5 bg-purple-600/20 border border-purple-500/30 rounded-full text-sm text-purple-300"
+                    className="px-4 py-2 bg-slate-700/50 hover:bg-violet-600/20 border border-slate-600/50 hover:border-violet-500/40 rounded-full text-sm text-slate-300 hover:text-violet-300 transition-all duration-200 cursor-default"
                   >
                     {concept}
                   </span>
@@ -114,9 +105,12 @@ const RelatedArticlesCarousel = ({
             </div>
           </>
         ) : (
-          <div className="text-center text-gray-400 mt-8">
-            <Info className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>Loading additional information...</p>
+          <div className="text-center text-slate-400 mt-12">
+            <div className="w-16 h-16 mx-auto mb-4 bg-slate-700/50 rounded-full flex items-center justify-center">
+              <BookOpen className="w-8 h-8 opacity-50" />
+            </div>
+            <p className="text-lg">Loading additional information...</p>
+            <p className="text-sm mt-2 opacity-75">Please wait while we gather context</p>
           </div>
         )}
       </div>

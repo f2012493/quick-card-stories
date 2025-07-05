@@ -20,12 +20,12 @@ class ContextService {
       // Extract main topic from headline
       const topic = this.extractMainTopic(headline);
       
-      // Generate contextual information
+      // Generate contextual information based on keywords and content analysis
       const contextualInfo: ContextualInfo = {
         topic,
-        backgroundInfo: this.generateBackgroundInfo(headline, description, topic),
-        keyFacts: this.generateKeyFacts(headline, description, topic),
-        relatedConcepts: this.generateRelatedConcepts(topic)
+        backgroundInfo: this.extractBackgroundInfo(headline, description),
+        keyFacts: this.extractKeyFacts(headline, description),
+        relatedConcepts: this.extractRelatedConcepts(headline, description)
       };
 
       this.cache.set(cacheKey, contextualInfo);
@@ -39,169 +39,160 @@ class ContextService {
   private extractMainTopic(headline: string): string {
     const words = headline.toLowerCase().split(' ');
     
-    // Political topics
-    if (words.some(w => ['modi', 'bjp', 'congress', 'election', 'minister', 'government'].includes(w))) {
-      return 'Indian Politics';
+    if (words.some(w => ['modi', 'bjp', 'congress', 'election', 'minister', 'government', 'parliament', 'policy'].includes(w))) {
+      return 'Politics';
     }
     
-    // Economic topics
-    if (words.some(w => ['economy', 'gdp', 'rupee', 'inflation', 'market', 'business'].includes(w))) {
-      return 'Indian Economy';
+    if (words.some(w => ['economy', 'gdp', 'rupee', 'inflation', 'market', 'business', 'trade', 'finance'].includes(w))) {
+      return 'Economy';
     }
     
-    // Technology topics
-    if (words.some(w => ['technology', 'ai', 'digital', 'startup', 'tech'].includes(w))) {
+    if (words.some(w => ['technology', 'ai', 'digital', 'startup', 'tech', 'software', 'app'].includes(w))) {
       return 'Technology';
     }
     
-    // Healthcare topics
-    if (words.some(w => ['health', 'medical', 'hospital', 'vaccine', 'disease'].includes(w))) {
+    if (words.some(w => ['health', 'medical', 'hospital', 'vaccine', 'disease', 'covid', 'medicine'].includes(w))) {
       return 'Healthcare';
     }
     
-    // Environmental topics
-    if (words.some(w => ['climate', 'environment', 'pollution', 'green', 'carbon'].includes(w))) {
+    if (words.some(w => ['climate', 'environment', 'pollution', 'green', 'carbon', 'energy', 'renewable'].includes(w))) {
       return 'Environment';
+    }
+
+    if (words.some(w => ['sports', 'cricket', 'football', 'olympics', 'match', 'tournament', 'player'].includes(w))) {
+      return 'Sports';
+    }
+
+    if (words.some(w => ['education', 'school', 'university', 'student', 'exam', 'learning'].includes(w))) {
+      return 'Education';
     }
     
     return 'General News';
   }
 
-  private generateBackgroundInfo(headline: string, description: string, topic: string): string[] {
+  private extractBackgroundInfo(headline: string, description: string): string[] {
     const content = `${headline} ${description}`.toLowerCase();
+    const backgroundInfo: string[] = [];
+
+    // Extract factual context based on content analysis
+    if (content.includes('inflation') || content.includes('price')) {
+      backgroundInfo.push('Inflation affects purchasing power and cost of living for consumers');
+    }
+
+    if (content.includes('election') || content.includes('vote')) {
+      backgroundInfo.push('Elections determine representation and policy direction');
+    }
+
+    if (content.includes('technology') || content.includes('digital')) {
+      backgroundInfo.push('Digital transformation is reshaping industries and daily life');
+    }
+
+    if (content.includes('climate') || content.includes('environment')) {
+      backgroundInfo.push('Environmental policies balance economic growth with sustainability');
+    }
+
+    if (content.includes('health') || content.includes('medical')) {
+      backgroundInfo.push('Healthcare access and quality impact public health outcomes');
+    }
+
+    // Add general context if no specific matches
+    if (backgroundInfo.length === 0) {
+      backgroundInfo.push('This development may have broader implications for stakeholders');
+      backgroundInfo.push('Context and timing are important factors to consider');
+    }
+
+    return backgroundInfo.slice(0, 3); // Limit to 3 items
+  }
+
+  private extractKeyFacts(headline: string, description: string): string[] {
+    const content = `${headline} ${description}`.toLowerCase();
+    const keyFacts: string[] = [];
+
+    // Extract numerical data and concrete facts
+    const numbers = content.match(/\d+/g);
+    if (numbers && numbers.length > 0) {
+      keyFacts.push(`Key figures mentioned: ${numbers.join(', ')}`);
+    }
+
+    // Location-based facts
+    const locations = this.extractLocations(content);
+    if (locations.length > 0) {
+      keyFacts.push(`Locations involved: ${locations.join(', ')}`);
+    }
+
+    // Time-based facts
+    if (content.includes('year') || content.includes('month') || content.includes('day')) {
+      keyFacts.push('Timeline and scheduling are key considerations');
+    }
+
+    // Add default facts if none extracted
+    if (keyFacts.length === 0) {
+      keyFacts.push('Multiple stakeholders may be affected');
+      keyFacts.push('Implementation details are important');
+    }
+
+    return keyFacts.slice(0, 3); // Limit to 3 items
+  }
+
+  private extractRelatedConcepts(headline: string, description: string): string[] {
+    const content = `${headline} ${description}`.toLowerCase();
+    const concepts: string[] = [];
+
+    // Economic concepts
+    if (content.includes('economy') || content.includes('market') || content.includes('business')) {
+      concepts.push('Economic Impact', 'Market Dynamics');
+    }
+
+    // Political concepts
+    if (content.includes('government') || content.includes('policy') || content.includes('minister')) {
+      concepts.push('Governance', 'Policy Implementation');
+    }
+
+    // Social concepts
+    if (content.includes('society') || content.includes('public') || content.includes('community')) {
+      concepts.push('Social Impact', 'Public Interest');
+    }
+
+    // Technology concepts
+    if (content.includes('technology') || content.includes('digital') || content.includes('innovation')) {
+      concepts.push('Innovation', 'Digital Transformation');
+    }
+
+    // Default concepts if none matched
+    if (concepts.length === 0) {
+      concepts.push('Current Affairs', 'Public Policy', 'Social Development');
+    }
+
+    return concepts.slice(0, 4); // Limit to 4 items
+  }
+
+  private extractLocations(content: string): string[] {
+    const locations: string[] = [];
+    const commonPlaces = ['delhi', 'mumbai', 'bangalore', 'chennai', 'kolkata', 'hyderabad', 'pune', 'india', 'gujarat', 'maharashtra', 'karnataka', 'tamil nadu'];
     
-    switch (topic) {
-      case 'Indian Politics':
-        return [
-          'India operates as a federal parliamentary democratic republic with multiple political parties',
-          'The Bharatiya Janata Party (BJP) and Indian National Congress are the two major national parties',
-          'Elections are conducted by the Election Commission of India, an independent constitutional body',
-          'Policy decisions at the central level affect implementation across 28 states and 8 union territories'
-        ];
-        
-      case 'Indian Economy':
-        return [
-          'India is the world\'s fifth-largest economy by nominal GDP and third-largest by purchasing power parity',
-          'The Reserve Bank of India (RBI) manages monetary policy and currency stability',
-          'Major economic sectors include services (IT, financial), manufacturing, and agriculture',
-          'Economic policies impact over 1.4 billion people across urban and rural areas'
-        ];
-        
-      case 'Technology':
-        return [
-          'India is a global hub for information technology services and software development',
-          'The country has over 700 million internet users, making it the second-largest online market',
-          'Government initiatives like Digital India aim to transform the country into a digitally empowered society',
-          'Bangalore, Hyderabad, and Pune are major technology centers in India'
-        ];
-        
-      case 'Healthcare':
-        return [
-          'India has a mixed healthcare system with both public and private providers',
-          'The Ayushman Bharat scheme provides health insurance coverage to over 500 million people',
-          'India is known as the "pharmacy of the world" for producing affordable generic medicines',
-          'Healthcare challenges include accessibility in rural areas and managing communicable diseases'
-        ];
-        
-      case 'Environment':
-        return [
-          'India is the world\'s third-largest carbon emitter but has committed to net-zero emissions by 2070',
-          'Air pollution is a major concern, especially in northern cities during winter months',
-          'The country has significant renewable energy potential, particularly in solar and wind power',
-          'Climate change impacts include irregular monsoons affecting agriculture and water resources'
-        ];
-        
-      default:
-        return [
-          'India is a diverse nation with 22 official languages and multiple cultural regions',
-          'As the world\'s largest democracy, developments here have global implications',
-          'The country balances traditional values with rapid modernization and urbanization'
-        ];
-    }
-  }
+    commonPlaces.forEach(place => {
+      if (content.includes(place)) {
+        locations.push(place.charAt(0).toUpperCase() + place.slice(1));
+      }
+    });
 
-  private generateKeyFacts(headline: string, description: string, topic: string): string[] {
-    switch (topic) {
-      case 'Indian Politics':
-        return [
-          'Parliamentary system with 543 Lok Sabha and 245 Rajya Sabha seats',
-          'Elections held every 5 years for Lok Sabha, staggered for state assemblies',
-          'Coalition governments are common due to multi-party system'
-        ];
-        
-      case 'Indian Economy':
-        return [
-          'GDP growth rate typically ranges between 6-8% annually',
-          'Services sector contributes about 55% to GDP',
-          'India is among the top 10 manufacturing countries globally'
-        ];
-        
-      case 'Technology':
-        return [
-          'India has the world\'s largest IT services industry',
-          'Over 4,750 technology startups as of 2023',
-          'UPI (Unified Payments Interface) processes over 10 billion transactions monthly'
-        ];
-        
-      case 'Healthcare':
-        return [
-          'Doctor-to-patient ratio is approximately 1:1,456',
-          'Life expectancy has increased from 32 years in 1947 to 70+ years today',
-          'India produces 60% of the world\'s vaccines'
-        ];
-        
-      case 'Environment':
-        return [
-          'India has 5% of global renewable energy capacity',
-          'Forest cover is about 21% of total geographical area',
-          'The country experiences 6 distinct seasons due to monsoon patterns'
-        ];
-        
-      default:
-        return [
-          'Population density: 464 people per square kilometer',
-          '65% of population lives in rural areas',
-          'Hindi and English are the most widely used languages for official purposes'
-        ];
-    }
-  }
-
-  private generateRelatedConcepts(topic: string): string[] {
-    switch (topic) {
-      case 'Indian Politics':
-        return ['Democratic Institutions', 'Federalism', 'Electoral Reforms', 'Governance'];
-        
-      case 'Indian Economy':
-        return ['Fiscal Policy', 'Trade Relations', 'Employment', 'Financial Markets'];
-        
-      case 'Technology':
-        return ['Digital Transformation', 'Innovation', 'Cybersecurity', 'Data Privacy'];
-        
-      case 'Healthcare':
-        return ['Public Health', 'Medical Research', 'Healthcare Access', 'Preventive Care'];
-        
-      case 'Environment':
-        return ['Sustainability', 'Climate Action', 'Conservation', 'Green Technology'];
-        
-      default:
-        return ['Social Development', 'Cultural Heritage', 'Economic Growth', 'Global Relations'];
-    }
+    return [...new Set(locations)]; // Remove duplicates
   }
 
   private getDefaultContext(headline: string): ContextualInfo {
     return {
       topic: 'General News',
       backgroundInfo: [
-        'This news event is part of ongoing developments in India',
-        'Understanding the broader context helps in making informed decisions',
-        'Local and national implications should be considered together'
+        'This news event is part of ongoing developments',
+        'Multiple factors contribute to this situation',
+        'Understanding context helps in making informed decisions'
       ],
       keyFacts: [
-        'India is home to 1.4+ billion people',
-        'Decisions at national level impact millions of families',
-        'Regional variations exist across different states'
+        'Stakeholder interests vary across different groups',
+        'Implementation timeline affects outcomes',
+        'Regional variations may apply'
       ],
-      relatedConcepts: ['Current Affairs', 'Social Impact', 'Policy Implications']
+      relatedConcepts: ['Current Affairs', 'Policy Impact', 'Social Development']
     };
   }
 }
