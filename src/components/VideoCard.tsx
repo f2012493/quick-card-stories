@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { analyticsService } from '@/services/analyticsService';
+import { contextService } from '@/services/contextService';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import VideoCardHeader from './VideoCardHeader';
 import VideoCardContent from './VideoCardContent';
@@ -18,6 +19,13 @@ interface NewsItem {
   sourceUrl?: string;
   trustScore?: number;
   localRelevance?: number;
+  contextualInfo?: {
+    topic: string;
+    backgroundInfo: string[];
+    keyFacts: string[];
+    relatedConcepts: string[];
+    clusteredArticles?: any[];
+  };
 }
 
 interface VideoCardProps {
@@ -33,10 +41,32 @@ const VideoCard = ({
 }: VideoCardProps) => {
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
+  const [enhancedNews, setEnhancedNews] = useState<NewsItem>(news);
 
   useEffect(() => {
     if (isActive) {
       analyticsService.startTracking(news.id, 'general');
+      
+      // Fetch enhanced contextual info with clustering
+      const fetchEnhancedContext = async () => {
+        try {
+          const contextualInfo = await contextService.fetchContextualInfo(
+            news.headline,
+            news.tldr,
+            news.quote, // Using quote as full content placeholder
+            news.id
+          );
+          
+          setEnhancedNews(prev => ({
+            ...prev,
+            contextualInfo
+          }));
+        } catch (error) {
+          console.error('Error fetching enhanced context:', error);
+        }
+      };
+      
+      fetchEnhancedContext();
     }
     
     return () => {
@@ -44,7 +74,7 @@ const VideoCard = ({
         analyticsService.endTracking(false);
       }
     };
-  }, [isActive, news.id]);
+  }, [isActive, news.id, news.headline, news.tldr, news.quote]);
 
   const handleSwipeRight = () => {
     setShowRelatedArticles(true);
@@ -73,7 +103,7 @@ const VideoCard = ({
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-60"
           style={{
-            backgroundImage: `url(${news.imageUrl})`,
+            backgroundImage: `url(${enhancedNews.imageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             filter: 'blur(2px) brightness(0.8) contrast(1.1) saturate(1.2)'
@@ -86,11 +116,11 @@ const VideoCard = ({
         {/* Content Overlay */}
         <div className="relative z-20 w-full h-full flex flex-col p-6 pointer-events-none">
           <VideoCardHeader 
-            readTime={news.readTime} 
-            publishedAt={news.publishedAt} 
+            readTime={enhancedNews.readTime} 
+            publishedAt={enhancedNews.publishedAt} 
           />
           <VideoCardContent 
-            news={news}
+            news={enhancedNews}
             showInsights={showInsights}
             onToggleInsights={handleToggleInsights}
           />
@@ -104,7 +134,7 @@ const VideoCard = ({
         }`}
       >
         <RelatedArticlesCarousel
-          currentNews={news}
+          currentNews={enhancedNews}
           onNavigateToArticle={onNavigateToArticle}
           onSwipeLeft={handleSwipeLeft}
         />

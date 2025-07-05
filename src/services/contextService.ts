@@ -1,28 +1,87 @@
+import { clusteringService } from './clusteringService';
 
 interface ContextualInfo {
   topic: string;
   backgroundInfo: string[];
   keyFacts: string[];
   relatedConcepts: string[];
+  clusteredArticles?: any[];
 }
 
 class ContextService {
   private cache = new Map<string, ContextualInfo>();
 
-  async fetchContextualInfo(headline: string, description: string, fullContent?: string): Promise<ContextualInfo> {
+  async fetchContextualInfo(headline: string, description: string, fullContent?: string, articleId?: string): Promise<ContextualInfo> {
     const cacheKey = `${headline}-${description}`.substring(0, 100);
     
     if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)!;
+      const cached = this.cache.get(cacheKey)!;
+      
+      // Always fetch fresh clustered articles
+      if (articleId) {
+        try {
+          // Get cluster ID for this article
+          const { supabase } = await import('@/integrations/supabase/client');
+          const { data: article } = await supabase
+            .from('articles')
+            .select('cluster_id')
+            .eq('id', articleId)
+            .single();
+          
+          if (article?.cluster_id) {
+            const clusteredArticles = await clusteringService.getClusteredArticles(
+              article.cluster_id, 
+              articleId, 
+              5
+            );
+            cached.clusteredArticles = clusteredArticles;
+          }
+        } catch (error) {
+          console.error('Error fetching clustered articles:', error);
+          cached.clusteredArticles = [];
+        }
+      }
+      
+      return cached;
     }
 
     try {
+      // Process article for clustering if articleId is provided
+      if (articleId && fullContent) {
+        await clusteringService.processArticle(articleId, headline, fullContent, description);
+      }
+      
       const contextualInfo: ContextualInfo = {
         topic: this.extractMainTopic(headline),
         backgroundInfo: this.extractRealBackgroundInfo(headline, description, fullContent),
         keyFacts: [],
-        relatedConcepts: []
+        relatedConcepts: [],
+        clusteredArticles: []
       };
+      
+      // Get clustered articles if articleId is provided
+      if (articleId) {
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          const { data: article } = await supabase
+            .from('articles')
+            .select('cluster_id')
+            .eq('id', articleId)
+            .single();
+          
+          if (article?.cluster_id) {
+            const clusteredArticles = await clusteringService.getClusteredArticles(
+              article.cluster_id, 
+              articleId, 
+              5
+            );
+            contextualInfo.clusteredArticles = clusteredArticles;
+          }
+        } catch (error) {
+          console.error('Error fetching clustered articles:', error);
+          contextualInfo.clusteredArticles = [];
+        }
+      }
 
       this.cache.set(cacheKey, contextualInfo);
       return contextualInfo;
@@ -32,7 +91,8 @@ class ContextService {
         topic: 'General News',
         backgroundInfo: [],
         keyFacts: [],
-        relatedConcepts: []
+        relatedConcepts: [],
+        clusteredArticles: []
       };
     }
   }
