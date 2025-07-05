@@ -142,6 +142,8 @@ const VideoFeed = () => {
             isPending={triggerIngestion.isPending}
           />
 
+          <ClusteringControls />
+
           <RevenueDashboard />
         </>
       )}

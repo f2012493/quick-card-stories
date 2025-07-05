@@ -6,40 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface DatabaseFunctions {
-  get_clusters_with_embeddings: { Args: {}; Returns: any[] }
-  create_article_cluster: { 
-    Args: { 
-      cluster_name: string
-      cluster_description: string
-      centroid_data: number[]
-    }
-    Returns: { id: string }
-  }
-  update_article_features: {
-    Args: {
-      article_id: string
-      entities_data: any[]
-      keywords_data: string[]
-      embedding_data: number[]
-      cluster_id_data: string | null
-    }
-    Returns: void
-  }
-  get_article_cluster: {
-    Args: { article_id: string }
-    Returns: { cluster_id: string | null }
-  }
-  get_clustered_articles: {
-    Args: {
-      cluster_id: string
-      exclude_id: string | null
-      article_limit: number
-    }
-    Returns: any[]
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -52,33 +18,86 @@ Deno.serve(async (req) => {
     )
 
     const { functionName, args } = await req.json()
+    console.log(`Executing clustering function: ${functionName}`, args)
 
     let result
     switch (functionName) {
       case 'get_clusters_with_embeddings':
-        // This would get clusters with their embeddings for similarity comparison
-        result = { data: [], error: null }
+        const { data: clusters, error: clustersError } = await supabaseClient
+          .rpc('get_clusters_with_embeddings')
+        
+        if (clustersError) {
+          console.error('Error fetching clusters:', clustersError)
+          result = { data: [], error: clustersError }
+        } else {
+          result = { data: clusters || [], error: null }
+        }
         break
         
       case 'create_article_cluster':
-        // This would create a new article cluster
-        result = { data: { id: 'temp-cluster-id' }, error: null }
+        const { data: newCluster, error: createError } = await supabaseClient
+          .rpc('create_article_cluster', {
+            cluster_name: args.cluster_name,
+            cluster_description: args.cluster_description,
+            centroid_data: args.centroid_data
+          })
+        
+        if (createError) {
+          console.error('Error creating cluster:', createError)
+          result = { data: null, error: createError }
+        } else {
+          console.log('Created new cluster:', newCluster)
+          result = { data: { id: newCluster[0]?.id }, error: null }
+        }
         break
         
       case 'update_article_features':
-        // This would update article with NER, keywords, embeddings, and cluster ID
-        console.log(`Updating article ${args.article_id} with clustering features`)
-        result = { data: null, error: null }
+        const { error: updateError } = await supabaseClient
+          .rpc('update_article_features', {
+            article_id: args.article_id,
+            entities_data: args.entities_data,
+            keywords_data: args.keywords_data,
+            embedding_data: args.embedding_data,
+            cluster_id_data: args.cluster_id_data
+          })
+        
+        if (updateError) {
+          console.error('Error updating article features:', updateError)
+          result = { data: null, error: updateError }
+        } else {
+          console.log(`Updated article ${args.article_id} with clustering features`)
+          result = { data: null, error: null }
+        }
         break
         
       case 'get_article_cluster':
-        // This would get the cluster ID for an article
-        result = { data: null, error: null }
+        const { data: articleCluster, error: articleError } = await supabaseClient
+          .rpc('get_article_cluster', {
+            article_id: args.article_id
+          })
+        
+        if (articleError) {
+          console.error('Error fetching article cluster:', articleError)
+          result = { data: null, error: articleError }
+        } else {
+          result = { data: articleCluster[0] || null, error: null }
+        }
         break
         
       case 'get_clustered_articles':
-        // This would get other articles in the same cluster
-        result = { data: [], error: null }
+        const { data: clusteredArticles, error: articlesError } = await supabaseClient
+          .rpc('get_clustered_articles', {
+            cluster_id: args.cluster_id,
+            exclude_id: args.exclude_id,
+            article_limit: args.article_limit
+          })
+        
+        if (articlesError) {
+          console.error('Error fetching clustered articles:', articlesError)
+          result = { data: [], error: articlesError }
+        } else {
+          result = { data: clusteredArticles || [], error: null }
+        }
         break
         
       default:
@@ -89,6 +108,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
+    console.error('Clustering helpers error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
