@@ -144,35 +144,40 @@ class ClusteringService {
   // Find or create cluster for an article
   async findOrCreateCluster(embedding: number[], keywords: string[], threshold: number = 0.7): Promise<ClusterResult> {
     try {
-      // Use raw SQL query to access article_clusters table
-      const { data: clusters, error } = await supabase.rpc('get_clusters_with_embeddings', {});
+      // Use the clustering-helpers edge function
+      const { data: clusters, error } = await supabase.functions.invoke('clustering-helpers', {
+        body: { functionName: 'get_clusters_with_embeddings', args: {} }
+      });
       
-      if (error && error.code !== '42883') { // Function doesn't exist yet
+      if (error) {
         console.log('Clusters function not available, creating new cluster');
       }
       
       // For now, always create a new cluster since we can't access the table directly
       const clusterName = this.generateClusterName(keywords);
       
-      // Use raw SQL to insert into article_clusters
-      const { data: newCluster, error: createError } = await supabase.rpc('create_article_cluster', {
-        cluster_name: clusterName,
-        cluster_description: `Cluster for articles about ${keywords.slice(0, 3).join(', ')}`,
-        centroid_data: embedding
+      // Use the edge function to create cluster
+      const { data: newClusterResult, error: createError } = await supabase.functions.invoke('clustering-helpers', {
+        body: {
+          functionName: 'create_article_cluster',
+          args: {
+            cluster_name: clusterName,
+            cluster_description: `Cluster for articles about ${keywords.slice(0, 3).join(', ')}`,
+            centroid_data: embedding
+          }
+        }
       });
       
-      if (createError && createError.code === '42883') {
-        // Function doesn't exist, we'll handle clustering later when the schema is updated
-        console.log('Clustering functions not available yet, skipping clustering');
-        return { clusterId: '', similarity: 0, isNewCluster: false };
-      }
-      
-      if (createError || !newCluster) {
+      if (createError) {
         console.error('Error creating cluster:', createError);
         return { clusterId: '', similarity: 0, isNewCluster: false };
       }
       
-      return { clusterId: newCluster.id, similarity: 1.0, isNewCluster: true };
+      if (newClusterResult?.data?.id) {
+        return { clusterId: newClusterResult.data.id, similarity: 1.0, isNewCluster: true };
+      }
+      
+      return { clusterId: '', similarity: 0, isNewCluster: false };
     } catch (error) {
       console.error('Error in findOrCreateCluster:', error);
       return { clusterId: '', similarity: 0, isNewCluster: false };
@@ -200,23 +205,25 @@ class ClusteringService {
       // Find or create cluster
       const clusterResult = await this.findOrCreateCluster(embedding, keywords);
       
-      // Use raw SQL to update article with extracted features
-      const { error } = await supabase.rpc('update_article_features', {
-        article_id: articleId,
-        entities_data: entities,
-        keywords_data: keywords,
-        embedding_data: embedding,
-        cluster_id_data: clusterResult.clusterId || null
+      // Use the edge function to update article with extracted features
+      const { error } = await supabase.functions.invoke('clustering-helpers', {
+        body: {
+          functionName: 'update_article_features',
+          args: {
+            article_id: articleId,
+            entities_data: entities,
+            keywords_data: keywords,
+            embedding_data: embedding,
+            cluster_id_data: clusterResult.clusterId || null
+          }
+        }
       });
       
-      if (error && error.code === '42883') {
-        // Function doesn't exist yet, log for now
+      if (error) {
         console.log(`Would update article ${articleId} with clustering data`);
         console.log('Entities:', entities.length);
         console.log('Keywords:', keywords.slice(0, 5));
         console.log('Cluster:', clusterResult.isNewCluster ? 'NEW' : 'EXISTING');
-      } else if (error) {
-        console.error('Error updating article:', error);
       } else {
         console.log(`Processed article ${articleId} - Cluster: ${clusterResult.isNewCluster ? 'NEW' : 'EXISTING'}`);
       }
@@ -228,25 +235,24 @@ class ClusteringService {
   // Get articles in the same cluster
   async getClusteredArticles(clusterId: string, excludeArticleId?: string, limit: number = 5): Promise<any[]> {
     try {
-      // Use raw SQL to get clustered articles
-      const { data, error } = await supabase.rpc('get_clustered_articles', {
-        cluster_id: clusterId,
-        exclude_id: excludeArticleId,
-        article_limit: limit
+      // Use the edge function to get clustered articles
+      const { data: result, error } = await supabase.functions.invoke('clustering-helpers', {
+        body: {
+          functionName: 'get_clustered_articles',
+          args: {
+            cluster_id: clusterId,
+            exclude_id: excludeArticleId,
+            article_limit: limit
+          }
+        }
       });
       
-      if (error && error.code === '42883') {
-        // Function doesn't exist yet, return empty array
+      if (error) {
         console.log('Clustering functions not available yet');
         return [];
       }
       
-      if (error) {
-        console.error('Error fetching clustered articles:', error);
-        return [];
-      }
-      
-      return data || [];
+      return result?.data || [];
     } catch (error) {
       console.error('Error in getClusteredArticles:', error);
       return [];
