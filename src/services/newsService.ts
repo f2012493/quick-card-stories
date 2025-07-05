@@ -23,6 +23,7 @@ class NewsService {
   private trustedSources = new Map([
     ['Guardian', 0.9],
     ['BBC News', 0.95],
+    ['BBC', 0.95],
     ['Reuters', 0.92],
     ['CNN', 0.8],
     ['NewsAPI', 0.7],
@@ -40,7 +41,15 @@ class NewsService {
     ['Scroll.in', 0.88],
     ['LiveMint', 0.87],
     ['MoneyControl', 0.82],
-    ['Business Standard', 0.84]
+    ['Business Standard', 0.84],
+    ['Associated Press', 0.93],
+    ['AP News', 0.93],
+    ['NPR', 0.88],
+    ['Wall Street Journal', 0.87],
+    ['New York Times', 0.85],
+    ['Washington Post', 0.83],
+    ['Financial Times', 0.86],
+    ['The Economist', 0.89]
   ]);
 
   // Categories to filter out for antiNews
@@ -50,12 +59,45 @@ class NewsService {
     'fashion', 'lifestyle', 'gaming', 'games', 'film', 'actor', 'actress'
   ];
 
+  // Garbage patterns to clean
+  private garbagePatterns = [
+    /n180c_[^-]*-?/gi,
+    /_indian18oc_[^-]*-?/gi,
+    /breaking-newsNews\d+/gi,
+    /Mobile App - [^"]+/gi,
+    /desc-youtube/gi,
+    /onelink\.to\/[^\s]*/gi,
+    /https?:\/\/[^\s]+/gi,
+    /www\.[^\s]+/gi,
+    /download.*app/gi,
+    /app store/gi,
+    /google play/gi
+  ];
+
   // Store seen articles to prevent duplicates
   private seenArticles = new Set<string>();
   private titleCache = new Set<string>();
 
+  private cleanGarbageText(text: string): string {
+    if (!text) return '';
+    
+    let cleaned = text.trim();
+    
+    // Apply garbage pattern cleaning
+    this.garbagePatterns.forEach(pattern => {
+      cleaned = cleaned.replace(pattern, '');
+    });
+    
+    // Clean up artifacts
+    cleaned = cleaned.replace(/[-_]{2,}/g, ' ');
+    cleaned = cleaned.replace(/\s{2,}/g, ' ');
+    cleaned = cleaned.replace(/^[-\s]+|[-\s]+$/g, '');
+    
+    return cleaned;
+  }
+
   async fetchAllNews(): Promise<NewsItem[]> {
-    console.log('Fetching optimized news from multiple sources...');
+    console.log('Fetching diverse and cleaned news from multiple sources...');
     
     try {
       // Primary: Use Supabase edge function for better performance and CORS handling
@@ -67,7 +109,7 @@ class NewsService {
         body: JSON.stringify({
           country: 'India',
           category: 'general',
-          pageSize: 60 // Increased for more content
+          pageSize: 80 // Increased for more content diversity
         })
       });
 
@@ -93,7 +135,10 @@ class NewsService {
     // Fetch from multiple sources in parallel
     const sourcePromises = [
       this.fetchFromGuardian(),
-      this.fetchFromNews18()
+      this.fetchFromBBC(),
+      this.fetchFromReuters(),
+      this.fetchFromNews18(),
+      this.fetchFromTimesOfIndia()
     ];
 
     const results = await Promise.allSettled(sourcePromises);
@@ -114,13 +159,26 @@ class NewsService {
   }
 
   private processAndDeduplicateNews(articles: NewsItem[]): NewsItem[] {
+    // Clean all articles first
+    const cleanedArticles = articles.map(article => ({
+      ...article,
+      headline: this.cleanGarbageText(article.headline),
+      tldr: this.cleanGarbageText(article.tldr),
+      quote: this.cleanGarbageText(article.quote)
+    }));
+
     // Filter out unwanted content and template articles
-    const filteredNews = articles.filter(article => {
+    const filteredNews = cleanedArticles.filter(article => {
       const content = `${article.headline} ${article.tldr}`.toLowerCase();
       
       // Skip template/system content
       if (article.author === 'antiNews System' || 
           article.headline.includes('Breaking: Real-time News Service')) {
+        return false;
+      }
+      
+      // Skip if headline is too short after cleaning
+      if (article.headline.length < 10) {
         return false;
       }
       
@@ -137,8 +195,15 @@ class NewsService {
     // Advanced deduplication
     const deduplicatedNews = this.deduplicateArticles(filteredNews);
     
-    // Prioritize Indian content
+    // Prioritize diverse sources and quality content
     const prioritizedNews = deduplicatedNews.sort((a, b) => {
+      // Prioritize diverse sources
+      const aIsMainstream = ['Guardian', 'BBC', 'Reuters', 'CNN', 'Associated Press'].includes(a.author);
+      const bIsMainstream = ['Guardian', 'BBC', 'Reuters', 'CNN', 'Associated Press'].includes(b.author);
+      
+      if (aIsMainstream && !bIsMainstream) return -1;
+      if (!aIsMainstream && bIsMainstream) return 1;
+      
       const aIsIndian = this.isIndianContent(a);
       const bIsIndian = this.isIndianContent(b);
       
@@ -153,7 +218,7 @@ class NewsService {
       return (bTrust + bRelevance) - (aTrust + aRelevance);
     });
 
-    return prioritizedNews.slice(0, 50); // Increased limit for more content
+    return prioritizedNews.slice(0, 60); // Increased limit for more content
   }
 
   private isTemplateContent(articles: NewsItem[]): boolean {
@@ -248,6 +313,28 @@ class NewsService {
     }));
   }
 
+  private async fetchFromBBC(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://feeds.bbci.co.uk/news/rss.xml');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'BBC News', 'bbc');
+    } catch (error) {
+      console.warn('BBC RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromReuters(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Reuters', 'reuters');
+    } catch (error) {
+      console.warn('Reuters RSS failed:', error);
+      return [];
+    }
+  }
+
   private async fetchFromNews18(): Promise<NewsItem[]> {
     try {
       const response = await fetch('https://www.news18.com/rss/india.xml');
@@ -255,6 +342,17 @@ class NewsService {
       return this.parseRSSFeed(text, 'News18', 'news18');
     } catch (error) {
       console.warn('News18 RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromTimesOfIndia(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://timesofindia.indiatimes.com/rssfeedstopstories.cms');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Times of India', 'toi');
+    } catch (error) {
+      console.warn('Times of India RSS failed:', error);
       return [];
     }
   }

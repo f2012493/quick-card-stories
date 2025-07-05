@@ -71,8 +71,49 @@ const unwantedPhrases = [
   'situation involving',
   'development in',
   'notable development',
-  'significant development'
+  'significant development',
+  'mobile app',
+  'onelink.to',
+  'youtube',
+  'download app',
+  'app store',
+  'google play',
+  'breaking-news',
+  'n180c_',
+  '_indian18oc_',
+  'desc-youtube'
 ];
+
+const cleanGarbageText = (text: string): string => {
+  if (!text) return '';
+  
+  let cleaned = text.trim();
+  
+  // Remove URLs and app links
+  cleaned = cleaned.replace(/https?:\/\/[^\s]+/gi, '');
+  cleaned = cleaned.replace(/www\.[^\s]+/gi, '');
+  
+  // Remove app-related garbage
+  cleaned = cleaned.replace(/n180c_[^-]*-?/gi, '');
+  cleaned = cleaned.replace(/_indian18oc_[^-]*-?/gi, '');
+  cleaned = cleaned.replace(/breaking-newsNews\d+/gi, '');
+  cleaned = cleaned.replace(/Mobile App - [^"]+/gi, '');
+  cleaned = cleaned.replace(/desc-youtube/gi, '');
+  cleaned = cleaned.replace(/onelink\.to\/[^\s]*/gi, '');
+  
+  // Remove garbage patterns
+  unwantedPhrases.forEach(phrase => {
+    const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    cleaned = cleaned.replace(regex, '');
+  });
+  
+  // Clean up remaining artifacts
+  cleaned = cleaned.replace(/[-_]{2,}/g, ' ');
+  cleaned = cleaned.replace(/\s{2,}/g, ' ');
+  cleaned = cleaned.replace(/^[-\s]+|[-\s]+$/g, '');
+  
+  return cleaned;
+};
 
 const capitalizeFirstLetter = (text: string): string => {
   if (!text) return text;
@@ -82,7 +123,9 @@ const capitalizeFirstLetter = (text: string): string => {
 const formatTLDR = (text: string): string => {
   if (!text) return text;
   
-  let cleanedText = text.trim();
+  let cleanedText = cleanGarbageText(text);
+  if (!cleanedText) return text;
+  
   const sentences = cleanedText.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
   
   const formattedSentences = sentences.map(sentence => {
@@ -133,12 +176,13 @@ const generateSmartFallback = (content: string, headline: string, description: s
   console.log(`Generating smart fallback for: "${headline}"`);
   
   const fullContent = `${description} ${content}`.trim();
+  const cleanedContent = cleanGarbageText(fullContent);
   
-  if (!fullContent || fullContent.length < 20) {
+  if (!cleanedContent || cleanedContent.length < 20) {
     return formatTLDR(extractFromHeadline(headline));
   }
 
-  let cleaned = fullContent.toLowerCase();
+  let cleaned = cleanedContent.toLowerCase();
   unwantedPhrases.forEach(phrase => {
     const regex = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
     cleaned = cleaned.replace(regex, '');
@@ -171,7 +215,7 @@ const generateSmartFallback = (content: string, headline: string, description: s
 };
 
 const extractFromHeadline = (headline: string): string => {
-  let summary = headline.trim();
+  let summary = cleanGarbageText(headline.trim());
   
   if (summary.startsWith('"') && summary.endsWith('"')) {
     summary = summary.slice(1, -1);
@@ -193,15 +237,14 @@ const extractFromHeadline = (headline: string): string => {
 const generateTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
   console.log(`Generating TL;DR for: "${headline}"`);
   
-  // Simple rule-based TL;DR generation instead of OpenAI
   const fullContent = `${description} ${content}`.trim();
+  const cleanedContent = cleanGarbageText(fullContent);
   
-  if (fullContent.length > 20) {
-    return generateSmartFallback(fullContent, headline, description);
+  if (cleanedContent.length > 20) {
+    return generateSmartFallback(cleanedContent, headline, description);
   }
   
-  // Fallback summary
-  return generateSmartFallback(fullContent, headline, description);
+  return generateSmartFallback(cleanedContent, headline, description);
 };
 
 const calculateTrustScore = (sourceName: string): number => {
@@ -280,9 +323,9 @@ serve(async (req) => {
   }
 
   try {
-    const { country, city, region, category = 'general', pageSize = 20 } = await req.json();
+    const { country, city, region, category = 'general', pageSize = 30 } = await req.json();
     
-    console.log('Fetching news with enhanced image search:', {
+    console.log('Fetching diverse news sources:', {
       country: country || 'Global',
       city: city || 'Unknown',
       region: region || 'Unknown',
@@ -295,61 +338,116 @@ serve(async (req) => {
 
     let articles: any[] = [];
 
-    // Try NewsAPI first
-    try {
-      const countryCode = country === 'India' ? 'in' : 'us';
-      const newsApiUrl = `https://newsapi.org/v2/top-headlines?country=${countryCode}&category=${category}&pageSize=${pageSize}&apiKey=${newsApiKey}`;
+    // Try multiple sources in parallel for diversity
+    const fetchPromises = [];
+
+    // NewsAPI - US and India
+    if (newsApiKey) {
+      const usNewsPromise = fetch(`https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=10&apiKey=${newsApiKey}`)
+        .then(res => res.json())
+        .then(data => ({ source: 'NewsAPI-US', articles: data.articles || [] }))
+        .catch(err => ({ source: 'NewsAPI-US', articles: [], error: err }));
       
-      console.log('Calling NewsAPI with URL:', newsApiUrl);
+      const inNewsPromise = fetch(`https://newsapi.org/v2/top-headlines?country=in&category=${category}&pageSize=10&apiKey=${newsApiKey}`)
+        .then(res => res.json())
+        .then(data => ({ source: 'NewsAPI-IN', articles: data.articles || [] }))
+        .catch(err => ({ source: 'NewsAPI-IN', articles: [], error: err }));
       
-      const newsApiResponse = await fetch(newsApiUrl);
-      const newsApiData = await newsApiResponse.json();
-      
-      if (newsApiData.articles && newsApiData.articles.length > 0) {
-        console.log(`NewsAPI returned ${newsApiData.articles.length} articles`);
-        articles = newsApiData.articles;
-      }
-    } catch (error) {
-      console.error('NewsAPI failed:', error);
+      fetchPromises.push(usNewsPromise, inNewsPromise);
     }
 
-    // If NewsAPI didn't provide enough articles, try NewsData.io
-    if (articles.length < 5) {
-      try {
-        const countryCode = country === 'India' ? 'in' : 'us';
-        const newsDataUrl = `https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${countryCode}&language=en&size=10&image=1`;
-        
-        console.log('Calling NewsData.io with URL:', newsDataUrl);
-        
-        const newsDataResponse = await fetch(newsDataUrl);
-        const newsDataData = await newsDataResponse.json();
-        
-        if (newsDataData.results && newsDataData.results.length > 0) {
-          console.log(`NewsData.io returned ${newsDataData.results.length} articles`);
-          articles = articles.concat(newsDataData.results.slice(0, 10));
-        }
-      } catch (error) {
-        console.error('NewsData.io failed:', error);
-      }
+    // NewsData.io - Multiple countries
+    if (newsDataApiKey) {
+      const newsDataPromise = fetch(`https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=us,in,gb,au,ca&language=en&size=15&image=1`)
+        .then(res => res.json())
+        .then(data => ({ source: 'NewsData', articles: data.results || [] }))
+        .catch(err => ({ source: 'NewsData', articles: [], error: err }));
+      
+      fetchPromises.push(newsDataPromise);
     }
+
+    // Fetch from multiple RSS feeds for diversity
+    const rssPromises = [
+      // BBC RSS
+      fetch('https://feeds.bbci.co.uk/news/rss.xml')
+        .then(res => res.text())
+        .then(text => ({ source: 'BBC', rss: text }))
+        .catch(err => ({ source: 'BBC', error: err })),
+      
+      // CNN RSS
+      fetch('https://rss.cnn.com/rss/edition.rss')
+        .then(res => res.text())
+        .then(text => ({ source: 'CNN', rss: text }))
+        .catch(err => ({ source: 'CNN', error: err })),
+      
+      // Reuters RSS
+      fetch('https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best')
+        .then(res => res.text())
+        .then(text => ({ source: 'Reuters', rss: text }))
+        .catch(err => ({ source: 'Reuters', error: err }))
+    ];
+
+    fetchPromises.push(...rssPromises);
+
+    const results = await Promise.allSettled(fetchPromises);
+    
+    // Process API results
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        const data = result.value;
+        
+        if (data.articles && Array.isArray(data.articles)) {
+          console.log(`${data.source} provided ${data.articles.length} articles`);
+          articles = articles.concat(data.articles.slice(0, 8));
+        } else if (data.rss && typeof data.rss === 'string') {
+          // Parse RSS
+          try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(data.rss, 'text/xml');
+            const items = doc.querySelectorAll('item');
+            
+            const rssArticles = Array.from(items).slice(0, 6).map(item => ({
+              title: item.querySelector('title')?.textContent || 'News Update',
+              description: item.querySelector('description')?.textContent || '',
+              url: item.querySelector('link')?.textContent || '',
+              source: { name: data.source },
+              urlToImage: item.querySelector('media\\:content, enclosure')?.getAttribute('url') || '',
+              publishedAt: item.querySelector('pubDate')?.textContent || new Date().toISOString(),
+              author: data.source
+            }));
+            
+            console.log(`${data.source} RSS provided ${rssArticles.length} articles`);
+            articles = articles.concat(rssArticles);
+          } catch (rssError) {
+            console.error(`Failed to parse RSS from ${data.source}:`, rssError);
+          }
+        }
+      }
+    });
 
     if (articles.length === 0) {
       throw new Error('No articles found from any news source');
     }
 
+    console.log(`Total articles collected: ${articles.length}`);
+
     const locationString = city && country ? `${city}, ${country}` : country || '';
 
-    // Transform articles with TL;DR generation and relevant images
+    // Transform articles with better cleaning
     const transformedNews: NewsItem[] = await Promise.all(
       articles.slice(0, pageSize).map(async (article, index) => {
-        const headline = article.title || article.headline || 'Breaking News';
-        const content = article.content || article.snippet || '';
-        const description = article.description || '';
+        const headline = cleanGarbageText(article.title || article.headline || 'Breaking News');
+        const content = cleanGarbageText(article.content || article.snippet || '');
+        const description = cleanGarbageText(article.description || '');
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
-        const sourceName = article.source?.name || 'News Source';
+        const sourceName = article.source?.name || article.author || 'News Source';
         
-        // Generate TL;DR without OpenAI
+        // Generate clean TL;DR
         const tldr = await generateTLDR(content, headline, description);
+        
+        // Clean quote
+        const cleanQuote = cleanGarbageText((description || content).substring(0, 200));
+        const finalQuote = cleanQuote + (cleanQuote.length >= 200 ? '...' : '');
         
         // Use original image or contextual placeholder
         const imageUrl = originalImage || getContextualPlaceholder(headline, description);
@@ -358,8 +456,8 @@ serve(async (req) => {
           id: `news-${Date.now()}-${index}`,
           headline: headline,
           tldr: tldr,
-          quote: (description || content).substring(0, 200) + ((description || content).length > 200 ? '...' : ''),
-          author: article.author || sourceName,
+          quote: finalQuote,
+          author: sourceName,
           category: '',
           imageUrl: imageUrl,
           readTime: '2 min read',
@@ -371,7 +469,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} news articles`);
+    console.log(`Returning ${transformedNews.length} cleaned news articles from diverse sources`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),
