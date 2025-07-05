@@ -10,6 +10,7 @@ import { useVideoFeedInteractions } from '@/hooks/useVideoFeedInteractions';
 import VideoFeedLoadingStates from './VideoFeedLoadingStates';
 import VideoFeedProgressIndicator from './VideoFeedProgressIndicator';
 import VideoFeedRefreshButton from './VideoFeedRefreshButton';
+import ClusteringControls from './features/ClusteringControls';
 
 const VideoFeed = () => {
   const {
