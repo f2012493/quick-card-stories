@@ -36,9 +36,6 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
       {/* Author */}
       <div className="mb-4">
         <p className="text-white/60 text-sm">By {news.author}</p>
-        {(news.localRelevance || 0) > 0.7 && (
-          <p className="text-green-400 text-xs mt-1">📍 High local relevance</p>
-        )}
       </div>
 
       {/* Source Reliability and Local Relevance */}
