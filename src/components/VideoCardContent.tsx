@@ -18,13 +18,25 @@ interface VideoCardContentProps {
 }
 
 const VideoCardContent = ({ news }: VideoCardContentProps) => {
-  const handleLinkClick = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleLinkClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
+    console.log('Link clicked, sourceUrl:', news.sourceUrl);
+    
     if (news.sourceUrl) {
-      // Use window.open for better mobile compatibility
-      window.open(news.sourceUrl, '_blank', 'noopener,noreferrer');
+      try {
+        // Open in new tab/window
+        const newWindow = window.open(news.sourceUrl, '_blank', 'noopener,noreferrer');
+        if (!newWindow) {
+          // Fallback if popup was blocked
+          window.location.href = news.sourceUrl;
+        }
+      } catch (error) {
+        console.error('Error opening link:', error);
+        // Final fallback
+        window.location.href = news.sourceUrl;
+      }
     }
   };
 
@@ -49,18 +61,19 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
       <div className="mb-4 flex items-center justify-between">
         <p className="text-white/60 text-sm">By {news.author}</p>
         {news.sourceUrl && (
-          <button
+          <a
+            href={news.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={handleLinkClick}
-            onTouchEnd={handleLinkClick}
-            className="pointer-events-auto inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 active:text-blue-200 transition-colors text-xs font-medium bg-transparent border-none cursor-pointer touch-manipulation min-h-[44px] px-2"
+            className="pointer-events-auto inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 active:text-blue-200 transition-colors text-xs font-medium underline decoration-blue-400/50 hover:decoration-blue-300 min-h-[44px] px-2 py-2 -mx-2 touch-manipulation"
             style={{ 
-              WebkitTapHighlightColor: 'transparent',
-              touchAction: 'manipulation'
+              WebkitTapHighlightColor: 'rgba(59, 130, 246, 0.3)',
             }}
           >
-            <ExternalLink className="w-3 h-3" />
-            Read Full
-          </button>
+            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+            <span>Read Full</span>
+          </a>
         )}
       </div>
 
