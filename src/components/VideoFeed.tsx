@@ -9,6 +9,7 @@ import { useVideoFeedData } from '@/hooks/useVideoFeedData';
 import { useVideoFeedInteractions } from '@/hooks/useVideoFeedInteractions';
 import VideoFeedLoadingStates from './VideoFeedLoadingStates';
 import VideoFeedProgressIndicator from './VideoFeedProgressIndicator';
+import VideoFeedRefreshButton from './VideoFeedRefreshButton';
 
 const VideoFeed = () => {
   const {
@@ -27,11 +28,8 @@ const VideoFeed = () => {
   const {
     currentIndex,
     isDragging,
-    showRelatedArticles,
     containerRef,
     navigateToArticle,
-    handleSwipeRight,
-    handleSwipeLeft,
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd,
@@ -82,58 +80,47 @@ const VideoFeed = () => {
 
       {hasContent && (
         <>
-          {!showRelatedArticles ? (
-            <div
-              ref={containerRef}
-              className="w-full h-full overflow-hidden snap-y snap-mandatory"
-              style={{
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-                WebkitOverflowScrolling: 'touch'
-              }}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onWheel={handleWheel}
-            >
-              {contentArray.map((item, index) => (
-                <div
-                  key={item.type === 'news' ? item.data.id : `ad-${item.data.adIndex}`}
-                  className="w-full h-screen snap-start snap-always flex-shrink-0"
-                  style={{
-                    transform: `translateY(${(index - currentIndex) * 100}vh)`,
-                    transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0
-                  }}
-                >
-                  {item.type === 'news' ? (
-                    <VideoCard
-                      news={item.data}
-                      isActive={index === currentIndex}
-                      onNavigateToArticle={navigateToArticle}
-                      onSwipeRight={handleSwipeRight}
-                      onSwipeLeft={handleSwipeLeft}
-                    />
-                  ) : (
-                    <Advertisement index={item.data.adIndex} />
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <RelatedArticlesCarousel
-              currentNews={contentArray[currentIndex]?.data}
-              relatedArticles={contentArray[currentIndex]?.data?.contextualInfo?.clusteredArticles || []}
-              onNavigateToArticle={navigateToArticle}
-              onSwipeLeft={handleSwipeLeft}
-            />
-          )}
+          <div
+            ref={containerRef}
+            className="w-full h-full overflow-hidden snap-y snap-mandatory"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              WebkitOverflowScrolling: 'touch'
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onWheel={handleWheel}
+          >
+            {contentArray.map((item, index) => (
+              <div
+                key={item.type === 'news' ? item.data.id : `ad-${item.data.adIndex}`}
+                className="w-full h-screen snap-start snap-always flex-shrink-0"
+                style={{
+                  transform: `translateY(${(index - currentIndex) * 100}vh)`,
+                  transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0
+                }}
+              >
+                {item.type === 'news' ? (
+                  <VideoCard
+                    news={item.data}
+                    isActive={index === currentIndex}
+                    onNavigateToArticle={navigateToArticle}
+                  />
+                ) : (
+                  <Advertisement index={item.data.adIndex} />
+                )}
+              </div>
+            ))}
+          </div>
           
           <VideoFeedProgressIndicator 
             currentIndex={currentIndex}
@@ -148,6 +135,11 @@ const VideoFeed = () => {
             hasMorePages={hasMorePages}
             allNewsLength={allNews.length}
             onRefreshNews={handleRefreshNews}
+          />
+
+          <VideoFeedRefreshButton
+            onRefresh={handleRefreshNews}
+            isPending={triggerIngestion.isPending}
           />
 
           <RevenueDashboard />
