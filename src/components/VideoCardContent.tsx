@@ -1,10 +1,12 @@
 
 import React from 'react';
+import { ExternalLink } from 'lucide-react';
 
 interface NewsItem {
   headline: string;
   tldr: string;
   author: string;
+  sourceUrl?: string;
   localRelevance?: number;
   trustScore?: number;
 }
@@ -33,9 +35,21 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
         </p>
       </div>
 
-      {/* Author */}
-      <div className="mb-4">
+      {/* Author and Source Link */}
+      <div className="mb-4 flex items-center justify-between">
         <p className="text-white/60 text-sm">By {news.author}</p>
+        {news.sourceUrl && (
+          <a 
+            href={news.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pointer-events-auto inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors text-xs font-medium"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ExternalLink className="w-3 h-3" />
+            Read Full
+          </a>
+        )}
       </div>
 
       {/* Source Reliability and Local Relevance */}
