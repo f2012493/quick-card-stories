@@ -544,7 +544,7 @@ class NewsService {
           imageUrl: imageUrl,
           readTime: '3 min read',
           publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-          sourceUrl: link,
+          sourceUrl: article.url || article.link || article.sourceUrl || '',
           trustScore: this.trustedSources.get(sourceName) || 0.8,
           localRelevance: this.calculateLocalRelevance(title, description),
           contextualInsights: this.generateContextualInsights(title, description)

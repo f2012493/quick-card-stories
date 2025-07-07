@@ -218,7 +218,7 @@ serve(async (req) => {
           imageUrl: imageUrl,
           readTime: '2 min read',
           publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
-          sourceUrl: article.url || article.link || '',
+          sourceUrl: article.url || article.link || article.sourceUrl || article.webUrl || '',
           trustScore: calculateTrustScore(sourceName),
           localRelevance: calculateLocalRelevance(headline, description, locationString)
         };

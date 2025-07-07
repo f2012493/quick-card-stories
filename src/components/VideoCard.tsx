@@ -5,6 +5,7 @@ import { contextService } from '@/services/contextService';
 import VideoCardHeader from './VideoCardHeader';
 import VideoCardContent from './VideoCardContent';
 import VideoCardSwipeHandler from './VideoCardSwipeHandler';
+import { shareArticle, saveArticle } from '@/utils/shareUtils';
 
 interface NewsItem {
   id: string;
@@ -129,8 +130,18 @@ const VideoCard = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Opening link:', enhancedNews.sourceUrl);
-                  window.open(enhancedNews.sourceUrl, '_blank', 'noopener,noreferrer');
+                  console.log('Article data:', {
+                    sourceUrl: enhancedNews.sourceUrl,
+                    headline: enhancedNews.headline,
+                    author: enhancedNews.author
+                  });
+                  
+                  if (enhancedNews.sourceUrl && enhancedNews.sourceUrl !== '') {
+                    console.log('Opening link:', enhancedNews.sourceUrl);
+                    window.open(enhancedNews.sourceUrl, '_blank', 'noopener,noreferrer');
+                  } else {
+                    alert('No source URL available for this article');
+                  }
                 }}
                 className="pointer-events-auto inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors text-xs font-medium underline decoration-blue-400/50 hover:decoration-blue-300 min-h-[44px] px-3 py-2 rounded touch-manipulation bg-black/20 backdrop-blur-sm border-0 cursor-pointer"
                 type="button"
@@ -140,6 +151,9 @@ const VideoCard = ({
                 </svg>
                 <span>Read Full</span>
               </button>
+            )}
+            {!enhancedNews.sourceUrl && (
+              <span className="text-white/40 text-xs italic">No source link available</span>
             )}
           </div>
 
@@ -180,22 +194,17 @@ const VideoCard = ({
 
           {/* Reading Time and Quick Actions */}
           <div className="flex items-center justify-between text-white/60 text-xs">
-            <span>2-3 min read</span>
+            <span></span>
             <div className="flex gap-3">
               <button 
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  // Share functionality
-                  if (navigator.share && enhancedNews.sourceUrl) {
-                    navigator.share({
-                      title: enhancedNews.headline,
-                      text: enhancedNews.tldr,
-                      url: enhancedNews.sourceUrl,
-                    }).catch(console.error);
-                  } else if (enhancedNews.sourceUrl) {
-                    navigator.clipboard.writeText(enhancedNews.sourceUrl);
-                  }
+                  shareArticle({
+                    title: enhancedNews.headline,
+                    text: enhancedNews.tldr,
+                    url: enhancedNews.sourceUrl || window.location.href,
+                  });
                 }}
                 className="hover:text-white transition-colors pointer-events-auto"
               >
@@ -205,8 +214,14 @@ const VideoCard = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  // Save functionality - could integrate with bookmarks
-                  console.log('Saving article:', enhancedNews.headline);
+                  saveArticle({
+                    id: enhancedNews.id,
+                    headline: enhancedNews.headline,
+                    tldr: enhancedNews.tldr,
+                    author: enhancedNews.author,
+                    imageUrl: enhancedNews.imageUrl,
+                    sourceUrl: enhancedNews.sourceUrl,
+                  });
                 }}
                 className="hover:text-white transition-colors pointer-events-auto"
               >

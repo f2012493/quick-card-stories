@@ -8,7 +8,7 @@ export const parseRSSFeed = (xmlText: string, sourceName: string): any[] => {
     return Array.from(items).slice(0, 5).map(item => ({
       title: item.querySelector('title')?.textContent || 'News Update',
       description: item.querySelector('description')?.textContent || '',
-      url: item.querySelector('link')?.textContent || '',
+      url: item.querySelector('link')?.textContent?.trim() || '',
       source: { name: sourceName },
       urlToImage: item.querySelector('media\\:content, enclosure')?.getAttribute('url') || '',
       publishedAt: item.querySelector('pubDate')?.textContent || new Date().toISOString(),
