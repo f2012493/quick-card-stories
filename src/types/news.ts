@@ -12,6 +12,7 @@ export interface NewsItem {
   sourceUrl?: string;
   trustScore?: number;
   localRelevance?: number;
+  clusterId?: string;
   contextualInsights?: string[];
   contextualInfo?: {
     topic: string;

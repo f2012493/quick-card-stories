@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
-import ValueAddedContent from './features/ValueAddedContent';
 
 interface NewsItem {
   headline: string;
@@ -37,9 +36,6 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
         </p>
       </div>
 
-      {/* Value Added Content */}
-      <ValueAddedContent headline={news.headline} category={news.category} />
-
       {/* Author and Source Link */}
       <div className="mb-4 flex items-center justify-between">
         <p className="text-white/60 text-sm">By {news.author}</p>
@@ -48,7 +44,12 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
             href={news.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="pointer-events-auto inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors text-xs font-medium underline decoration-blue-400/50 hover:decoration-blue-300 min-h-[44px] px-3 py-2 rounded touch-manipulation bg-black/20 backdrop-blur-sm"
+            className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors text-xs font-medium underline decoration-blue-400/50 hover:decoration-blue-300 min-h-[44px] px-3 py-2 rounded touch-manipulation bg-black/20 backdrop-blur-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Opening link:', news.sourceUrl);
+              window.open(news.sourceUrl, '_blank', 'noopener,noreferrer');
+            }}
           >
             <ExternalLink className="w-3 h-3 flex-shrink-0" />
             <span>Read Full</span>
