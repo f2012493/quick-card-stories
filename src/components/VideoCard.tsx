@@ -121,7 +121,7 @@ const VideoCard = ({
             </p>
           </div>
 
-          {/* Author and Source Link */}
+          {/* Real Backend Data */}
           <div className="mb-4 flex items-center justify-between">
             <p className="text-white/60 text-sm">By {enhancedNews.author}</p>
             {enhancedNews.sourceUrl && (
