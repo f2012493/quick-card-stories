@@ -108,43 +108,20 @@ class NewsService {
     console.log('Fetching diverse and cleaned news from multiple sources...');
     
     try {
-      // Primary: Use Supabase edge function for better performance and CORS handling
-      const response = await fetch('/functions/v1/fetch-news', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          country: 'India',
-          category: 'general',
-          pageSize: 100 // Increased for more diverse content
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.news && data.news.length > 0) {
-          console.log(`Fetched ${data.news.length} articles from edge function`);
-          const processedNews = await this.processAndDeduplicateNews(data.news);
-          
-          // Only return if we have real news, not template content
-          if (processedNews.length > 0 && !this.isTemplateContent(processedNews)) {
-            return processedNews;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Edge function failed, trying direct sources:', error);
-    }
-
-    // Fallback: Multiple direct sources in parallel for better performance
+    // Fetch from multiple sources in parallel for maximum diversity
     const allNews: NewsItem[] = [];
     
-    // Fetch from multiple sources in parallel - expanded Indian sources
+    // Fetch from diverse sources in parallel - prioritizing variety over single source
     const sourcePromises = [
+      // International sources
       this.fetchFromGuardian(),
       this.fetchFromBBC(),
       this.fetchFromReuters(),
+      this.fetchFromCNN(),
+      this.fetchFromAssociatedPress(),
+      this.fetchFromNPR(),
+      
+      // Indian sources
       this.fetchFromNews18(),
       this.fetchFromTimesOfIndia(),
       this.fetchFromNDTV(),
@@ -156,7 +133,10 @@ class NewsService {
       this.fetchFromIndianExpress(),
       this.fetchFromLiveMint(),
       this.fetchFromMoneyControl(),
-      this.fetchFromBusinessStandard()
+      this.fetchFromBusinessStandard(),
+      
+      // Additional diverse sources
+      this.fetchFromNewsAPI()
     ];
 
     const results = await Promise.allSettled(sourcePromises);
@@ -164,7 +144,7 @@ class NewsService {
     results.forEach((result, index) => {
       if (result.status === 'fulfilled' && result.value.length > 0) {
         allNews.push(...result.value);
-        console.log(`Source ${index + 1} provided ${result.value.length} articles`);
+        console.log(`Source ${index + 1} (${this.getSourceName(index)}) provided ${result.value.length} articles`);
       }
     });
 
@@ -174,6 +154,21 @@ class NewsService {
     }
 
     return await this.processAndDeduplicateNews(allNews);
+  }
+
+  private getSourceName(index: number): string {
+    const sources = [
+      'Guardian', 'BBC', 'Reuters', 'CNN', 'AP', 'NPR',
+      'News18', 'TOI', 'NDTV', 'HT', 'ET', 'India Today',
+      'Deccan Herald', 'The Hindu', 'Indian Express', 'LiveMint',
+      'MoneyControl', 'Business Standard', 'NewsAPI'
+    ];
+    return sources[index] || `Source ${index + 1}`;
+  }
+
+  private async fetchFromNewsAPI(): Promise<NewsItem[]> {
+    // This will use the edge function as one of many sources
+    return this.fetchFromEdgeFunction();
   }
 
   private async processAndDeduplicateNews(articles: NewsItem[]): Promise<NewsItem[]> {
@@ -234,25 +229,25 @@ class NewsService {
     
     // Prioritize diverse sources and quality content
     const prioritizedNews = newsWithContext.sort((a, b) => {
-      // Prioritize diverse sources
-      const aIsMainstream = ['Guardian', 'BBC', 'Reuters', 'CNN', 'Associated Press'].includes(a.author);
-      const bIsMainstream = ['Guardian', 'BBC', 'Reuters', 'CNN', 'Associated Press'].includes(b.author);
+      // Prioritize source diversity - avoid clustering by source
+      const aSource = a.author;
+      const bSource = b.author;
       
-      if (aIsMainstream && !bIsMainstream) return -1;
-      if (!aIsMainstream && bIsMainstream) return 1;
+      // Mix sources rather than grouping them
+      const sourceVariety = Math.random() > 0.5 ? -1 : 1;
       
+      // Balance international and Indian content
       const aIsIndian = this.isIndianContent(a);
       const bIsIndian = this.isIndianContent(b);
       
-      if (aIsIndian && !bIsIndian) return -1;
-      if (!aIsIndian && bIsIndian) return 1;
+      // Alternate between Indian and international content
+      const contentBalance = aIsIndian !== bIsIndian ? (aIsIndian ? -1 : 1) : 0;
       
       const aTrust = a.trustScore || 0.5;
       const bTrust = b.trustScore || 0.5;
-      const aRelevance = a.localRelevance || 0.5;
-      const bRelevance = b.localRelevance || 0.5;
       
-      return (bTrust + bRelevance) - (aTrust + aRelevance);
+      // Combine factors for final sorting
+      return contentBalance || sourceVariety || (bTrust - aTrust);
     });
 
     return prioritizedNews.slice(0, 60); // Increased limit for more content
@@ -263,6 +258,57 @@ class NewsService {
       article.author === 'antiNews System' || 
       article.headline.includes('Breaking: Real-time News Service')
     );
+  }
+
+  private async fetchFromEdgeFunction(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('/functions/v1/fetch-news', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: 'India', category: 'general', pageSize: 15 })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.news || [];
+      }
+    } catch (error) {
+      console.error('Edge function failed:', error);
+    }
+    return [];
+  }
+
+  private async fetchFromCNN(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://rss.cnn.com/rss/edition.rss');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'CNN', 'cnn');
+    } catch (error) {
+      console.warn('CNN RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromAssociatedPress(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://feeds.apnews.com/rss/apf-topnews');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'Associated Press', 'ap');
+    } catch (error) {
+      console.warn('Associated Press RSS failed:', error);
+      return [];
+    }
+  }
+
+  private async fetchFromNPR(): Promise<NewsItem[]> {
+    try {
+      const response = await fetch('https://feeds.npr.org/1001/rss.xml');
+      const text = await response.text();
+      return this.parseRSSFeed(text, 'NPR', 'npr');
+    } catch (error) {
+      console.warn('NPR RSS failed:', error);
+      return [];
+    }
   }
 
   private deduplicateArticles(articles: NewsItem[]): NewsItem[] {

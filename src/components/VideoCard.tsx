@@ -33,12 +33,16 @@ interface VideoCardProps {
   news: NewsItem;
   isActive: boolean;
   onNavigateToArticle: (articleId: string) => void;
+  onSwipeRight?: () => void;
+  onSwipeLeft?: () => void;
 }
 
 const VideoCard = ({ 
   news, 
   isActive, 
-  onNavigateToArticle
+  onNavigateToArticle,
+  onSwipeRight,
+  onSwipeLeft
 }: VideoCardProps) => {
   const [showInsights, setShowInsights] = useState(false);
   const [enhancedNews, setEnhancedNews] = useState<NewsItem>(news);
@@ -234,8 +238,9 @@ const VideoCard = ({
 
       <VideoCardSwipeHandler
         showRelatedArticles={false}
-        onSwipeRight={() => {}}
-        onSwipeLeft={() => {}}
+        onSwipeRight={onSwipeRight || (() => {})}
+        onSwipeLeft={onSwipeLeft || (() => {})}
+        hasRelatedArticles={enhancedNews.contextualInfo?.clusteredArticles?.length > 0}
       />
     </div>
   );

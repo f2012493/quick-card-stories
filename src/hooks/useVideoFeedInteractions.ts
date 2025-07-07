@@ -5,6 +5,7 @@ import { ContentItem } from './useVideoFeedData';
 export const useVideoFeedInteractions = (contentArray: ContentItem[]) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [showRelatedArticles, setShowRelatedArticles] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const startYRef = useRef(0);
@@ -80,8 +81,17 @@ export const useVideoFeedInteractions = (contentArray: ContentItem[]) => {
     );
     if (targetIndex !== -1) {
       setCurrentIndex(targetIndex);
+      setShowRelatedArticles(false); // Close related articles when navigating
     }
   }, [contentArray]);
+
+  const handleSwipeRight = useCallback(() => {
+    setShowRelatedArticles(true);
+  }, []);
+
+  const handleSwipeLeft = useCallback(() => {
+    setShowRelatedArticles(false);
+  }, []);
 
   // Event handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -181,8 +191,11 @@ export const useVideoFeedInteractions = (contentArray: ContentItem[]) => {
   return {
     currentIndex,
     isDragging,
+    showRelatedArticles,
     containerRef,
     navigateToArticle,
+    handleSwipeRight,
+    handleSwipeLeft,
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd,
