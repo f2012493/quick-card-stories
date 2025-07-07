@@ -18,6 +18,16 @@ interface VideoCardContentProps {
 }
 
 const VideoCardContent = ({ news }: VideoCardContentProps) => {
+  const handleLinkClick = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (news.sourceUrl) {
+      // Use window.open for better mobile compatibility
+      window.open(news.sourceUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col justify-end pb-32 md:pb-24">
       {/* Headline */}
@@ -39,16 +49,18 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
       <div className="mb-4 flex items-center justify-between">
         <p className="text-white/60 text-sm">By {news.author}</p>
         {news.sourceUrl && (
-          <a 
-            href={news.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="pointer-events-auto inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors text-xs font-medium"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            onClick={handleLinkClick}
+            onTouchEnd={handleLinkClick}
+            className="pointer-events-auto inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 active:text-blue-200 transition-colors text-xs font-medium bg-transparent border-none cursor-pointer touch-manipulation min-h-[44px] px-2"
+            style={{ 
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation'
+            }}
           >
             <ExternalLink className="w-3 h-3" />
             Read Full
-          </a>
+          </button>
         )}
       </div>
 
