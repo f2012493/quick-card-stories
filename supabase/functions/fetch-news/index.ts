@@ -27,34 +27,68 @@ interface NewsItem {
   localRelevance?: number;
 }
 
-// Enhanced RSS feed fetcher with better error handling
-async function fetchRSSWithFallback(url: string, sourceName: string, timeout = 10000): Promise<any[]> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+// Enhanced RSS feed fetcher with CORS proxy fallback
+async function fetchRSSWithFallback(url: string, sourceName: string, timeout = 15000): Promise<any[]> {
+  const corsProxies = [
+    '', // Direct fetch first
+    'https://api.allorigins.win/get?url=',
+    'https://corsproxy.io/?',
+  ];
   
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
-        'Accept': 'application/rss+xml, application/xml, text/xml',
+  for (let i = 0; i < corsProxies.length; i++) {
+    const proxyUrl = corsProxies[i] + encodeURIComponent(url);
+    const fetchUrl = i === 0 ? url : proxyUrl;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+      console.log(`Trying ${sourceName} with ${i === 0 ? 'direct fetch' : `proxy ${i}`}`);
+      
+      const response = await fetch(fetchUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0; +http://www.example.com/bot)',
+          'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache',
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.warn(`${sourceName} failed with status ${response.status} using ${i === 0 ? 'direct' : 'proxy'}`);
+        continue;
       }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      console.warn(`${sourceName} RSS failed with status ${response.status}`);
-      return [];
+      
+      let text;
+      if (i === 1) { // allorigins proxy
+        const data = await response.json();
+        text = data.contents;
+      } else {
+        text = await response.text();
+      }
+      
+      if (!text || text.length < 100) {
+        console.warn(`${sourceName} returned empty or too short content`);
+        continue;
+      }
+      
+      const articles = parseRSSFeed(text, sourceName);
+      if (articles.length > 0) {
+        console.log(`${sourceName} successfully fetched ${articles.length} articles`);
+        return articles;
+      }
+      
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.warn(`${sourceName} failed with ${i === 0 ? 'direct' : `proxy ${i}`}:`, error.message);
     }
-    
-    const text = await response.text();
-    return parseRSSFeed(text, sourceName);
-  } catch (error) {
-    clearTimeout(timeoutId);
-    console.warn(`${sourceName} RSS failed:`, error.message);
-    return [];
   }
+  
+  console.error(`All methods failed for ${sourceName}`);
+  return [];
 }
 
 serve(async (req) => {
@@ -106,14 +140,14 @@ serve(async (req) => {
       fetchPromises.push(newsDataPromise);
     }
 
-    // Enhanced RSS feeds with better error handling for Indian sources
+    // Enhanced RSS feeds with better error handling and CORS proxies
     const rssPromises = [
       // International sources
       fetchRSSWithFallback('https://feeds.bbci.co.uk/news/rss.xml', 'BBC'),
       fetchRSSWithFallback('https://rss.cnn.com/rss/edition.rss', 'CNN'),
-      fetchRSSWithFallback('https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best', 'Reuters'),
+      fetchRSSWithFallback('https://feeds.reuters.com/reuters/topNews', 'Reuters'),
 
-      // Indian news sources with enhanced error handling
+      // Indian news sources with enhanced error handling and CORS proxy fallback
       fetchRSSWithFallback('https://www.news18.com/rss/india.xml', 'News18'),
       fetchRSSWithFallback('https://timesofindia.indiatimes.com/rssfeedstopstories.cms', 'Times of India'),
       fetchRSSWithFallback('https://www.ndtv.com/rss/latest', 'NDTV'),
@@ -158,7 +192,11 @@ serve(async (req) => {
     });
 
     if (articles.length === 0) {
-      throw new Error('No articles found from any news source');
+      console.warn('No articles found from any news source, returning empty array');
+      return new Response(
+        JSON.stringify({ news: [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log(`Total articles collected: ${articles.length}`);
@@ -201,7 +239,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} cleaned news articles from diverse Indian and international sources`);
+    console.log(`Returning ${transformedNews.length} cleaned news articles from diverse sources`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),
