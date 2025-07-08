@@ -60,7 +60,10 @@ const VideoCard: React.FC<VideoCardProps> = ({ item, isActive, onSwipe, clusterI
         </div>
         
         <div className="relative z-10 h-full flex flex-col">
-          <VideoCardHeader />
+          <VideoCardHeader 
+            readTime={item.readTime}
+            publishedAt={item.publishedAt}
+          />
           <VideoCardContent 
             item={item} 
             clusterId={clusterId}

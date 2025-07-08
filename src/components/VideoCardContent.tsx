@@ -1,29 +1,19 @@
 
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
-
-interface NewsItem {
-  headline: string;
-  tldr: string;
-  author: string;
-  sourceUrl?: string;
-  localRelevance?: number;
-  trustScore?: number;
-  category?: string;
-}
+import { NewsItem } from '@/types/news';
 
 interface VideoCardContentProps {
-  news: NewsItem;
-  showInsights: boolean;
-  onToggleInsights: () => void;
+  item: NewsItem;
+  clusterId?: string;
 }
 
-const VideoCardContent = ({ news }: VideoCardContentProps) => {
+const VideoCardContent = ({ item, clusterId }: VideoCardContentProps) => {
   return (
     <div className="flex-1 flex flex-col justify-end pb-32 md:pb-24">
       {/* Headline */}
-      <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4 drop-shadow-2xl">
-        {news.headline}
+      <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight mb-4 drop-shadow-2xl" itemProp="headline">
+        {item.headline}
       </h1>
 
       {/* TL;DR */}
@@ -31,21 +21,21 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
         <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
           TL;DR
         </h2>
-        <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium">
-          {news.tldr}
+        <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium" itemProp="description">
+          {item.tldr}
         </p>
       </div>
 
       {/* Author and Source Link */}
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-white/60 text-sm">By {news.author}</p>
-        {news.sourceUrl && (
+        <p className="text-white/60 text-sm" itemProp="author">By {item.author}</p>
+        {item.sourceUrl && (
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log('Opening link:', news.sourceUrl);
-              window.open(news.sourceUrl, '_blank', 'noopener,noreferrer');
+              console.log('Opening link:', item.sourceUrl);
+              window.open(item.sourceUrl, '_blank', 'noopener,noreferrer');
             }}
             className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors text-xs font-medium underline decoration-blue-400/50 hover:decoration-blue-300 min-h-[44px] px-3 py-2 rounded touch-manipulation bg-black/20 backdrop-blur-sm border-0 cursor-pointer"
             type="button"
@@ -65,11 +55,11 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
             <div className="w-20 h-1.5 bg-black/30 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-green-400 transition-all duration-300"
-                style={{ width: `${Math.round((news.trustScore || 0.8) * 100)}%` }}
+                style={{ width: `${Math.round((item.trustScore || 0.8) * 100)}%` }}
               />
             </div>
             <span className="text-green-400 text-xs font-semibold min-w-[32px]">
-              {Math.round((news.trustScore || 0.8) * 100)}%
+              {Math.round((item.trustScore || 0.8) * 100)}%
             </span>
           </div>
         </div>
@@ -81,11 +71,11 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
             <div className="w-20 h-1.5 bg-black/30 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-blue-400 transition-all duration-300"
-                style={{ width: `${Math.round((news.localRelevance || 0.6) * 100)}%` }}
+                style={{ width: `${Math.round((item.localRelevance || 0.6) * 100)}%` }}
               />
             </div>
             <span className="text-blue-400 text-xs font-semibold min-w-[32px]">
-              {Math.round((news.localRelevance || 0.6) * 100)}%
+              {Math.round((item.localRelevance || 0.6) * 100)}%
             </span>
           </div>
         </div>
@@ -93,7 +83,7 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
 
       {/* Reading Time and Quick Actions */}
       <div className="flex items-center justify-between text-white/60 text-xs">
-        <span>2-3 min read</span>
+        <span>{item.readTime || "2-3 min read"}</span>
         <div className="flex gap-3">
           <button className="hover:text-white transition-colors">Share</button>
           <button className="hover:text-white transition-colors">Save</button>
