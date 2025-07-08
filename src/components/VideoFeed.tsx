@@ -64,14 +64,6 @@ const VideoFeed = () => {
     }
   };
 
-  const handleSwipe = (direction: 'up' | 'down') => {
-    if (direction === 'up' && currentIndex < contentArray.length - 1) {
-      // Navigate to next item
-    } else if (direction === 'down' && currentIndex > 0) {
-      // Navigate to previous item
-    }
-  };
-
   const hasContent = contentArray.length > 0 && allNews.length > 0;
 
   return (
@@ -119,10 +111,9 @@ const VideoFeed = () => {
               >
                 {item.type === 'news' ? (
                   <VideoCard
-                    item={item.data}
+                    news={item.data}
                     isActive={index === currentIndex}
-                    onSwipe={handleSwipe}
-                    clusterId={item.data.clusterId}
+                    onNavigateToArticle={navigateToArticle}
                   />
                 ) : (
                   <Advertisement index={item.data.adIndex} />

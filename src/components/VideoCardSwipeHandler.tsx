@@ -1,42 +1,41 @@
 
-import React, { ReactNode } from 'react';
+import React from 'react';
 
 interface VideoCardSwipeHandlerProps {
-  children: ReactNode;
-  onSwipe: (direction: 'up' | 'down') => void;
-  isActive: boolean;
+  showRelatedArticles: boolean;
+  onSwipeRight: () => void;
+  onSwipeLeft: () => void;
 }
 
 const VideoCardSwipeHandler = ({ 
-  children,
-  onSwipe,
-  isActive 
+  showRelatedArticles, 
+  onSwipeRight, 
+  onSwipeLeft 
 }: VideoCardSwipeHandlerProps) => {
   return (
-    <div className="relative w-full h-full">
+    <>
       {/* Touch handlers for swiping */}
       <div
         className="absolute inset-0 z-30 touch-manipulation"
         onTouchStart={(e) => {
           const touch = e.touches[0];
-          (e.target as any).startY = touch.clientY;
+          (e.target as any).startX = touch.clientX;
         }}
         onTouchEnd={(e) => {
           const touch = e.changedTouches[0];
-          const startY = (e.target as any).startY;
-          const deltaY = touch.clientY - startY;
+          const startX = (e.target as any).startX;
+          const deltaX = touch.clientX - startX;
           
-          if (Math.abs(deltaY) > 50) {
-            if (deltaY > 0) {
-              onSwipe('down');
-            } else {
-              onSwipe('up');
+          if (Math.abs(deltaX) > 50) {
+            if (deltaX > 0 && showRelatedArticles) {
+              onSwipeLeft();
+            } else if (deltaX < 0 && !showRelatedArticles) {
+              onSwipeRight();
             }
           }
         }}
       />
-      {children}
-    </div>
+    </>
   );
 };
 

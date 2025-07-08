@@ -2,11 +2,11 @@
 import React from 'react';
 
 interface VideoCardHeaderProps {
-  readTime?: string;
+  readTime: string;
   publishedAt?: string;
 }
 
-const VideoCardHeader = ({ readTime = "2-3 min read", publishedAt }: VideoCardHeaderProps) => {
+const VideoCardHeader = ({ readTime, publishedAt }: VideoCardHeaderProps) => {
   const formatPublishedDate = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
