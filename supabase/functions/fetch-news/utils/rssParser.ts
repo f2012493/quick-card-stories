@@ -5,7 +5,7 @@ export const parseRSSFeed = (xmlText: string, sourceName: string): any[] => {
     const doc = parser.parseFromString(xmlText, 'text/xml');
     const items = doc.querySelectorAll('item');
     
-    return Array.from(items).slice(0, 5).map(item => ({
+    return Array.from(items).slice(0, 5).map((item, index) => ({
       title: item.querySelector('title')?.textContent || 'News Update',
       description: item.querySelector('description')?.textContent || '',
       url: item.querySelector('link')?.textContent?.trim() || '',

@@ -27,6 +27,36 @@ interface NewsItem {
   localRelevance?: number;
 }
 
+// Enhanced RSS feed fetcher with better error handling
+async function fetchRSSWithFallback(url: string, sourceName: string, timeout = 10000): Promise<any[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
+        'Accept': 'application/rss+xml, application/xml, text/xml',
+      }
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      console.warn(`${sourceName} RSS failed with status ${response.status}`);
+      return [];
+    }
+    
+    const text = await response.text();
+    return parseRSSFeed(text, sourceName);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.warn(`${sourceName} RSS failed:`, error.message);
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -76,107 +106,53 @@ serve(async (req) => {
       fetchPromises.push(newsDataPromise);
     }
 
-    // Enhanced RSS feeds with more Indian sources
+    // Enhanced RSS feeds with better error handling for Indian sources
     const rssPromises = [
       // International sources
-      fetch('https://feeds.bbci.co.uk/news/rss.xml')
-        .then(res => res.text())
-        .then(text => ({ source: 'BBC', rss: text }))
-        .catch(err => ({ source: 'BBC', error: err })),
-      
-      fetch('https://rss.cnn.com/rss/edition.rss')
-        .then(res => res.text())
-        .then(text => ({ source: 'CNN', rss: text }))
-        .catch(err => ({ source: 'CNN', error: err })),
-      
-      fetch('https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best')
-        .then(res => res.text())
-        .then(text => ({ source: 'Reuters', rss: text }))
-        .catch(err => ({ source: 'Reuters', error: err })),
+      fetchRSSWithFallback('https://feeds.bbci.co.uk/news/rss.xml', 'BBC'),
+      fetchRSSWithFallback('https://rss.cnn.com/rss/edition.rss', 'CNN'),
+      fetchRSSWithFallback('https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best', 'Reuters'),
 
-      // Indian news sources
-      fetch('https://www.news18.com/rss/india.xml')
-        .then(res => res.text())
-        .then(text => ({ source: 'News18', rss: text }))
-        .catch(err => ({ source: 'News18', error: err })),
-
-      fetch('https://timesofindia.indiatimes.com/rssfeedstopstories.cms')
-        .then(res => res.text())
-        .then(text => ({ source: 'Times of India', rss: text }))
-        .catch(err => ({ source: 'Times of India', error: err })),
-
-      fetch('https://www.ndtv.com/rss/latest')
-        .then(res => res.text())
-        .then(text => ({ source: 'NDTV', rss: text }))
-        .catch(err => ({ source: 'NDTV', error: err })),
-
-      fetch('https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml')
-        .then(res => res.text())
-        .then(text => ({ source: 'Hindustan Times', rss: text }))
-        .catch(err => ({ source: 'Hindustan Times', error: err })),
-
-      fetch('https://economictimes.indiatimes.com/rssfeedstopstories.cms')
-        .then(res => res.text())
-        .then(text => ({ source: 'Economic Times', rss: text }))
-        .catch(err => ({ source: 'Economic Times', error: err })),
-
-      fetch('https://www.indiatoday.in/rss/1206578')
-        .then(res => res.text())
-        .then(text => ({ source: 'India Today', rss: text }))
-        .catch(err => ({ source: 'India Today', error: err })),
-
-      fetch('https://www.deccanherald.com/rss/national.rss')
-        .then(res => res.text())
-        .then(text => ({ source: 'Deccan Herald', rss: text }))
-        .catch(err => ({ source: 'Deccan Herald', error: err })),
-
-      fetch('https://www.thehindu.com/news/national/feeder/default.rss')
-        .then(res => res.text())
-        .then(text => ({ source: 'The Hindu', rss: text }))
-        .catch(err => ({ source: 'The Hindu', error: err })),
-
-      fetch('https://indianexpress.com/section/india/feed/')
-        .then(res => res.text())
-        .then(text => ({ source: 'Indian Express', rss: text }))
-        .catch(err => ({ source: 'Indian Express', error: err })),
-
-      fetch('https://www.livemint.com/rss/news')
-        .then(res => res.text())
-        .then(text => ({ source: 'LiveMint', rss: text }))
-        .catch(err => ({ source: 'LiveMint', error: err })),
-
-      fetch('https://www.moneycontrol.com/rss/latestnews.xml')
-        .then(res => res.text())
-        .then(text => ({ source: 'MoneyControl', rss: text }))
-        .catch(err => ({ source: 'MoneyControl', error: err })),
-
-      fetch('https://www.business-standard.com/rss/latest.rss')
-        .then(res => res.text())
-        .then(text => ({ source: 'Business Standard', rss: text }))
-        .catch(err => ({ source: 'Business Standard', error: err }))
+      // Indian news sources with enhanced error handling
+      fetchRSSWithFallback('https://www.news18.com/rss/india.xml', 'News18'),
+      fetchRSSWithFallback('https://timesofindia.indiatimes.com/rssfeedstopstories.cms', 'Times of India'),
+      fetchRSSWithFallback('https://www.ndtv.com/rss/latest', 'NDTV'),
+      fetchRSSWithFallback('https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml', 'Hindustan Times'),
+      fetchRSSWithFallback('https://economictimes.indiatimes.com/rssfeedstopstories.cms', 'Economic Times'),
+      fetchRSSWithFallback('https://www.indiatoday.in/rss/1206578', 'India Today'),
+      fetchRSSWithFallback('https://www.deccanherald.com/rss/national.rss', 'Deccan Herald'),
+      fetchRSSWithFallback('https://www.thehindu.com/news/national/feeder/default.rss', 'The Hindu'),
+      fetchRSSWithFallback('https://indianexpress.com/section/india/feed/', 'Indian Express'),
+      fetchRSSWithFallback('https://www.livemint.com/rss/news', 'LiveMint'),
+      fetchRSSWithFallback('https://www.moneycontrol.com/rss/latestnews.xml', 'MoneyControl'),
+      fetchRSSWithFallback('https://www.business-standard.com/rss/latest.rss', 'Business Standard')
     ];
 
-    fetchPromises.push(...rssPromises);
-
-    const results = await Promise.allSettled(fetchPromises);
+    // Execute all API calls
+    const apiResults = await Promise.allSettled(fetchPromises);
     
     // Process API results
-    results.forEach((result, index) => {
+    apiResults.forEach((result, index) => {
       if (result.status === 'fulfilled' && result.value) {
         const data = result.value;
         
         if (data.articles && Array.isArray(data.articles)) {
           console.log(`${data.source} provided ${data.articles.length} articles`);
           articles = articles.concat(data.articles.slice(0, 6));
-        } else if (data.rss && typeof data.rss === 'string') {
-          // Parse RSS
-          try {
-            const rssArticles = parseRSSFeed(data.rss, data.source);
-            console.log(`${data.source} RSS provided ${rssArticles.length} articles`);
-            articles = articles.concat(rssArticles);
-          } catch (rssError) {
-            console.error(`Failed to parse RSS from ${data.source}:`, rssError);
-          }
+        }
+      }
+    });
+
+    // Execute RSS calls
+    const rssResults = await Promise.allSettled(rssPromises);
+    
+    // Process RSS results
+    rssResults.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
+        const rssArticles = result.value;
+        if (rssArticles.length > 0) {
+          console.log(`RSS source ${index + 1} provided ${rssArticles.length} articles`);
+          articles = articles.concat(rssArticles);
         }
       }
     });
@@ -185,7 +161,7 @@ serve(async (req) => {
       throw new Error('No articles found from any news source');
     }
 
-    console.log(`Total articles collected from ${results.length} sources: ${articles.length}`);
+    console.log(`Total articles collected: ${articles.length}`);
 
     const locationString = city && country ? `${city}, ${country}` : country || '';
 

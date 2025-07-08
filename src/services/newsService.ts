@@ -325,29 +325,34 @@ class NewsService {
   }
 
   private async fetchFromGuardian(): Promise<NewsItem[]> {
-    const response = await fetch(
-      'https://content.guardianapis.com/search?api-key=test&show-fields=thumbnail,trailText,body&page-size=15'
-    );
-    
-    if (!response.ok) throw new Error('Guardian API failed');
-    
-    const data = await response.json();
-    
-    return data.response.results.map((article: any, index: number): NewsItem => ({
-      id: `guardian-${article.id}`,
-      headline: article.webTitle,
-      tldr: article.fields?.trailText || this.generateTldr(article.webTitle),
-      quote: article.fields?.trailText || '',
-      author: 'The Guardian',
-      category: '',
-      imageUrl: article.fields?.thumbnail || this.getRelevantImageUrl(article.webTitle, article.fields?.trailText || '', index),
-      readTime: '3 min read',
-      publishedAt: article.webPublicationDate,
-      sourceUrl: article.webUrl,
-      trustScore: this.trustedSources.get('Guardian') || 0.8,
-      localRelevance: this.calculateLocalRelevance(article.webTitle, article.fields?.trailText || ''),
-      contextualInsights: this.generateContextualInsights(article.webTitle, article.fields?.trailText || '')
-    }));
+    try {
+      const response = await fetch(
+        'https://content.guardianapis.com/search?api-key=test&show-fields=thumbnail,trailText,body&page-size=15'
+      );
+      
+      if (!response.ok) throw new Error('Guardian API failed');
+      
+      const data = await response.json();
+      
+      return data.response.results.map((article: any, index: number): NewsItem => ({
+        id: `guardian-${article.id}`,
+        headline: article.webTitle,
+        tldr: article.fields?.trailText || this.generateTldr(article.webTitle),
+        quote: article.fields?.trailText || '',
+        author: 'The Guardian',
+        category: '',
+        imageUrl: article.fields?.thumbnail || this.getRelevantImageUrl(article.webTitle, article.fields?.trailText || '', index),
+        readTime: '3 min read',
+        publishedAt: article.webPublicationDate,
+        sourceUrl: article.webUrl,
+        trustScore: this.trustedSources.get('Guardian') || 0.8,
+        localRelevance: this.calculateLocalRelevance(article.webTitle, article.fields?.trailText || ''),
+        contextualInsights: this.generateContextualInsights(article.webTitle, article.fields?.trailText || '')
+      }));
+    } catch (error) {
+      console.warn('Guardian API failed:', error);
+      return [];
+    }
   }
 
   private async fetchFromBBC(): Promise<NewsItem[]> {
@@ -544,7 +549,7 @@ class NewsService {
           imageUrl: imageUrl,
           readTime: '3 min read',
           publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-          sourceUrl: article.url || article.link || article.sourceUrl || '',
+          sourceUrl: link || '',
           trustScore: this.trustedSources.get(sourceName) || 0.8,
           localRelevance: this.calculateLocalRelevance(title, description),
           contextualInsights: this.generateContextualInsights(title, description)
