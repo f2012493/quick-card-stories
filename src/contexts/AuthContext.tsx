@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('*')
+        .select('id, phone_number, subscription_status, subscribed_at')
         .eq('id', userId)
         .maybeSingle();
 
@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             id: userId,
             subscription_status: 'free'
           })
-          .select()
+          .select('id, phone_number, subscription_status, subscribed_at')
           .single();
 
         if (insertError) {

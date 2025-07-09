@@ -281,7 +281,10 @@ export type Database = {
           location_city: string | null
           location_country: string | null
           location_region: string | null
+          phone_number: string | null
           preferred_categories: string[] | null
+          subscribed_at: string | null
+          subscription_status: string | null
           updated_at: string | null
         }
         Insert: {
@@ -291,7 +294,10 @@ export type Database = {
           location_city?: string | null
           location_country?: string | null
           location_region?: string | null
+          phone_number?: string | null
           preferred_categories?: string[] | null
+          subscribed_at?: string | null
+          subscription_status?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -301,7 +307,10 @@ export type Database = {
           location_city?: string | null
           location_country?: string | null
           location_region?: string | null
+          phone_number?: string | null
           preferred_categories?: string[] | null
+          subscribed_at?: string | null
+          subscription_status?: string | null
           updated_at?: string | null
         }
         Relationships: []

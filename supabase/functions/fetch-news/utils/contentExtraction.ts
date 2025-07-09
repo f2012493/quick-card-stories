@@ -16,7 +16,7 @@ export const extractFullContent = async (url: string, sourceName: string): Promi
             'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           },
-          signal: AbortSignal.timeout(10000)
+          signal: AbortSignal.timeout(15000) // Increased timeout
         });
         
         if (!response.ok) continue;
@@ -56,7 +56,10 @@ const extractContentFromHTML = (html: string, sourceName: string): string => {
     const unwantedSelectors = [
       'script', 'style', 'nav', 'header', 'footer', 
       '.advertisement', '.ad', '.social-share',
-      '.related-articles', '.comments', '.sidebar'
+      '.related-articles', '.comments', '.sidebar',
+      '.newsletter-signup', '.social-media',
+      '[class*="ad-"]', '[id*="ad-"]',
+      '.cookie-banner', '.subscription-popup'
     ];
     
     unwantedSelectors.forEach(selector => {
@@ -73,7 +76,11 @@ const extractContentFromHTML = (html: string, sourceName: string): string => {
       '.entry-content p',
       '.content p',
       '[data-testid="article-body"] p',
-      '.article-body p'
+      '.article-body p',
+      '.main-content p',
+      '.news-content p',
+      '.article-text p',
+      '.story-content p'
     ];
     
     for (const selector of contentSelectors) {
@@ -82,12 +89,12 @@ const extractContentFromHTML = (html: string, sourceName: string): string => {
         let content = '';
         paragraphs.forEach(p => {
           const text = p.textContent?.trim();
-          if (text && text.length > 50) {
+          if (text && text.length > 30 && !isUnwantedContent(text)) {
             content += text + '\n\n';
           }
         });
         
-        if (content.length > 300) {
+        if (content.length > 500) {
           return cleanExtractedContent(content);
         }
       }
@@ -98,7 +105,7 @@ const extractContentFromHTML = (html: string, sourceName: string): string => {
     let content = '';
     allParagraphs.forEach(p => {
       const text = p.textContent?.trim();
-      if (text && text.length > 50 && !isUnwantedContent(text)) {
+      if (text && text.length > 30 && !isUnwantedContent(text)) {
         content += text + '\n\n';
       }
     });
@@ -119,16 +126,24 @@ const isUnwantedContent = (text: string): boolean => {
     /share this/i,
     /read more/i,
     /click here/i,
-    /download app/i
+    /download app/i,
+    /sign up/i,
+    /newsletter/i,
+    /email/i,
+    /login/i,
+    /register/i
   ];
   
-  return unwantedPatterns.some(pattern => pattern.test(text));
+  return unwantedPatterns.some(pattern => pattern.test(text)) || 
+         text.length < 30 || 
+         text.split(' ').length < 5;
 };
 
 const cleanExtractedContent = (content: string): string => {
   return content
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
+    .replace(/\s{2,}/g, ' ') // Remove excessive spaces
+    .replace(/^\s+|\s+$/gm, '') // Trim each line
     .trim()
-    .substring(0, 2000); // Limit content length
+    .substring(0, 5000); // Increased content length limit for full articles
 };

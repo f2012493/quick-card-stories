@@ -1,143 +1,142 @@
 
 import React from 'react';
-import { ChevronLeft, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
-interface NewsItem {
+interface Article {
   id: string;
-  headline: string;
-  tldr: string;
-  quote: string;
-  author: string;
-  imageUrl: string;
-  readTime: string;
-  publishedAt?: string;
-  sourceUrl?: string;
-  trustScore?: number;
-  localRelevance?: number;
-  fullContent?: string;
-  contextualInfo?: {
-    topic: string;
-    backgroundInfo: string[];
-    keyFacts: string[];
-    relatedConcepts: string[];
-    clusteredArticles?: any[];
-  };
+  title: string;
+  content?: string;
+  description?: string;
+  url: string;
+  image_url?: string;
+  author?: string;
+  published_at: string;
 }
 
 interface RelatedArticlesCarouselProps {
-  currentNews: NewsItem;
-  onNavigateToArticle: (articleId: string) => void;
-  onSwipeLeft: () => void;
+  articles: Article[];
+  onClose?: () => void;
 }
 
-const RelatedArticlesCarousel = ({ 
-  currentNews, 
-  onSwipeLeft 
-}: RelatedArticlesCarouselProps) => {
-  // Get the full article content, prioritizing extracted content
-  const getFullArticleContent = () => {
-    // Use extracted full content if available
-    if (currentNews.fullContent && currentNews.fullContent.length > 200) {
-      return currentNews.fullContent;
-    }
-    
-    // Fallback to combining available information
-    let content = '';
-    
-    // Start with the quote/main content
-    if (currentNews.quote && currentNews.quote !== currentNews.tldr) {
-      content += currentNews.quote;
-    } else if (currentNews.tldr) {
-      content += currentNews.tldr;
-    }
-    
-    // Add contextual information if available
-    if (currentNews.contextualInfo) {
-      if (currentNews.contextualInfo.backgroundInfo?.length > 0) {
-        content += '\n\nBackground Context:\n';
-        content += currentNews.contextualInfo.backgroundInfo.join('\n\n');
-      }
-      
-      if (currentNews.contextualInfo.keyFacts?.length > 0) {
-        content += '\n\nKey Facts:\n';
-        content += currentNews.contextualInfo.keyFacts.map(fact => `• ${fact}`).join('\n');
-      }
-    }
-    
-    return content || 'Full article content is being extracted. Please visit the original source for the complete article.';
+const RelatedArticlesCarousel = ({ articles, onClose }: RelatedArticlesCarouselProps) => {
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+
+  const nextArticle = () => {
+    setCurrentIndex((prev) => (prev + 1) % articles.length);
   };
 
-  const articleContent = getFullArticleContent();
+  const prevArticle = () => {
+    setCurrentIndex((prev) => (prev - 1 + articles.length) % articles.length);
+  };
+
+  if (!articles.length) return null;
+
+  const currentArticle = articles[currentIndex];
 
   return (
-    <div className="relative w-full h-full bg-slate-950 text-white overflow-y-auto">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-sm border-b border-slate-800 p-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onSwipeLeft}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h2 className="text-lg font-medium text-slate-200">Full Article</h2>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-6 space-y-6">
-        {/* Article Title */}
-        <div className="border-b border-slate-800 pb-4">
-          <h1 className="text-xl font-bold text-white mb-2">{currentNews.headline}</h1>
-          <div className="flex items-center gap-4 text-sm text-slate-400">
-            <span>{currentNews.author}</span>
-            <span>{currentNews.readTime}</span>
-            {currentNews.publishedAt && (
-              <span>{new Date(currentNews.publishedAt).toLocaleDateString()}</span>
+    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl max-h-[80vh] bg-white">
+        <CardContent className="p-6 overflow-y-auto">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                <span>{currentIndex + 1} of {articles.length}</span>
+                {currentArticle.author && <span>• {currentArticle.author}</span>}
+                <span>• {new Date(currentArticle.published_at).toLocaleDateString()}</span>
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                {currentArticle.title}
+              </h2>
+            </div>
+            {onClose && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onClose}
+                className="ml-4"
+              >
+                ×
+              </Button>
             )}
           </div>
-        </div>
 
-        {/* Full Article Content */}
-        <div className="prose prose-invert prose-slate max-w-none">
-          <div className="text-slate-300 leading-relaxed text-base whitespace-pre-wrap">
-            {articleContent}
+          {/* Image */}
+          {currentArticle.image_url && (
+            <div className="mb-4">
+              <img 
+                src={currentArticle.image_url} 
+                alt={currentArticle.title}
+                className="w-full h-48 object-cover rounded-lg"
+              />
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="prose prose-sm max-w-none mb-6">
+            {currentArticle.content ? (
+              <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                {currentArticle.content}
+              </div>
+            ) : (
+              <p className="text-gray-700 leading-relaxed">
+                {currentArticle.description}
+              </p>
+            )}
           </div>
-        </div>
 
-        {/* Source Link */}
-        {currentNews.sourceUrl && (
-          <div className="pt-6 border-t border-slate-800">
-            <a 
-              href={currentNews.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
+          {/* External Link */}
+          <div className="mb-6">
+            <Button 
+              variant="outline"
+              onClick={() => window.open(currentArticle.url, '_blank')}
+              className="flex items-center gap-2"
             >
               <ExternalLink className="w-4 h-4" />
               Read Original Article
-            </a>
+            </Button>
           </div>
-        )}
 
-        {/* Trust Score Indicator */}
-        {currentNews.trustScore && (
-          <div className="pt-4 border-t border-slate-800">
-            <div className="flex items-center gap-2 text-sm text-slate-400">
-              <span>Trust Score:</span>
-              <div className="flex items-center gap-1">
-                <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-green-500 rounded-full transition-all duration-300"
-                    style={{ width: `${(currentNews.trustScore * 100)}%` }}
+          {/* Navigation */}
+          {articles.length > 1 && (
+            <div className="flex justify-between items-center">
+              <Button 
+                variant="outline" 
+                onClick={prevArticle}
+                disabled={currentIndex === 0}
+                className="flex items-center gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </Button>
+              
+              <div className="flex gap-1">
+                {articles.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentIndex(index)}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      index === currentIndex ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
                   />
-                </div>
-                <span>{Math.round(currentNews.trustScore * 100)}%</span>
+                ))}
               </div>
+
+              <Button 
+                variant="outline" 
+                onClick={nextArticle}
+                disabled={currentIndex === articles.length - 1}
+                className="flex items-center gap-2"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

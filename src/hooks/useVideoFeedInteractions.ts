@@ -1,182 +1,117 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { ContentItem } from './useVideoFeedData';
+
+interface ContentItem {
+  type: 'news' | 'ad';
+  data: any;
+}
 
 export const useVideoFeedInteractions = (contentArray: ContentItem[]) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  
+  const [startY, setStartY] = useState(0);
+  const [currentY, setCurrentY] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const startYRef = useRef(0);
-  const lastYRef = useRef(0);
-  const velocityRef = useRef(0);
-  const lastTimeRef = useRef(0);
-  const animationFrameRef = useRef<number>();
+  const dragThreshold = 50; // Minimum distance to trigger navigation
+  const velocityThreshold = 0.5; // Minimum velocity to trigger navigation
 
-  const scrollToIndex = useCallback((index: number, smooth = true) => {
-    if (containerRef.current) {
-      const targetY = index * window.innerHeight;
-      containerRef.current.scrollTo({
-        top: targetY,
-        behavior: smooth ? 'smooth' : 'instant'
-      });
-    }
-  }, []);
-
-  const handleStart = useCallback((clientY: number) => {
+  // Touch event handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     setIsDragging(true);
-    startYRef.current = clientY;
-    lastYRef.current = clientY;
-    lastTimeRef.current = Date.now();
-    velocityRef.current = 0;
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
+    setStartY(e.touches[0].clientY);
+    setCurrentY(e.touches[0].clientY);
   }, []);
 
-  const handleMove = useCallback((clientY: number) => {
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDragging) return;
     
-    const now = Date.now();
-    const timeDelta = now - lastTimeRef.current;
-    const yDelta = clientY - lastYRef.current;
-    
-    if (timeDelta > 0) {
-      velocityRef.current = yDelta / timeDelta;
-    }
-    
-    lastYRef.current = clientY;
-    lastTimeRef.current = now;
+    e.preventDefault(); // Prevent scrolling
+    const touchY = e.touches[0].clientY;
+    setCurrentY(touchY);
   }, [isDragging]);
 
-  const handleEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!isDragging) return;
     
-    setIsDragging(false);
+    const endY = e.changedTouches[0].clientY;
+    const deltaY = endY - startY;
+    const velocity = Math.abs(deltaY) / 100; // Simple velocity calculation
     
-    const totalDelta = lastYRef.current - startYRef.current;
-    const velocity = velocityRef.current;
-    
-    const minDistance = 50;
-    const minVelocity = 0.3;
-    
-    let newIndex = currentIndex;
-    
-    if (Math.abs(totalDelta) > minDistance || Math.abs(velocity) > minVelocity) {
-      if (totalDelta > 0 || velocity > minVelocity) {
-        newIndex = Math.max(0, currentIndex - 1);
-      } else if (totalDelta < 0 || velocity < -minVelocity) {
-        newIndex = Math.min(contentArray.length - 1, currentIndex + 1);
+    // Determine navigation direction
+    if (Math.abs(deltaY) > dragThreshold || velocity > velocityThreshold) {
+      if (deltaY > 0 && currentIndex > 0) {
+        // Swiping down - go to previous
+        setCurrentIndex(prev => Math.max(0, prev - 1));
+      } else if (deltaY < 0 && currentIndex < contentArray.length - 1) {
+        // Swiping up - go to next
+        setCurrentIndex(prev => Math.min(contentArray.length - 1, prev + 1));
       }
     }
     
-    setCurrentIndex(newIndex);
-  }, [isDragging, currentIndex, contentArray.length]);
+    setIsDragging(false);
+    setStartY(0);
+    setCurrentY(0);
+  }, [isDragging, startY, currentIndex, contentArray.length]);
 
-  const navigateToArticle = useCallback((articleId: string) => {
-    const targetIndex = contentArray.findIndex(item => 
-      item.type === 'news' && item.data.id === articleId
-    );
-    if (targetIndex !== -1) {
-      setCurrentIndex(targetIndex);
-    }
-  }, [contentArray]);
-
-  // Event handlers
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    handleStart(e.touches[0].clientY);
-  }, [handleStart]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    handleMove(e.touches[0].clientY);
-  }, [handleMove]);
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    handleEnd();
-  }, [handleEnd]);
-
+  // Mouse event handlers for desktop
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    handleStart(e.clientY);
-  }, [handleStart]);
+    setIsDragging(true);
+    setStartY(e.clientY);
+    setCurrentY(e.clientY);
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      handleMove(e.clientY);
-    }
-  }, [isDragging, handleMove]);
+    if (!isDragging) return;
+    setCurrentY(e.clientY);
+  }, [isDragging]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      handleEnd();
+    if (!isDragging) return;
+    
+    const endY = e.clientY;
+    const deltaY = endY - startY;
+    
+    if (Math.abs(deltaY) > dragThreshold) {
+      if (deltaY > 0 && currentIndex > 0) {
+        setCurrentIndex(prev => Math.max(0, prev - 1));
+      } else if (deltaY < 0 && currentIndex < contentArray.length - 1) {
+        setCurrentIndex(prev => Math.min(contentArray.length - 1, prev + 1));
+      }
     }
-  }, [isDragging, handleEnd]);
+    
+    setIsDragging(false);
+    setStartY(0);
+    setCurrentY(0);
+  }, [isDragging, startY, currentIndex, contentArray.length]);
 
+  // Wheel event handler
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     
-    const now = Date.now();
-    if (now - (handleWheel as any).lastWheelTime < 100) return;
-    (handleWheel as any).lastWheelTime = now;
-    
     if (e.deltaY > 0 && currentIndex < contentArray.length - 1) {
-      setCurrentIndex(prev => prev + 1);
+      setCurrentIndex(prev => Math.min(contentArray.length - 1, prev + 1));
     } else if (e.deltaY < 0 && currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
+      setCurrentIndex(prev => Math.max(0, prev - 1));
     }
   }, [currentIndex, contentArray.length]);
-
-  // Auto-scroll to current index
-  useEffect(() => {
-    scrollToIndex(currentIndex, true);
-  }, [currentIndex, scrollToIndex]);
-
-  // Global mouse event handlers
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        handleMove(e.clientY);
-      }
-    };
-
-    const handleGlobalMouseUp = (e: MouseEvent) => {
-      if (isDragging) {
-        handleEnd();
-      }
-    };
-
-    if (isDragging) {
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove);
-      document.removeEventListener('mouseup', handleGlobalMouseUp);
-    };
-  }, [isDragging, handleMove, handleEnd]);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp' && currentIndex > 0) {
-        e.preventDefault();
-        setCurrentIndex(prev => prev - 1);
+        setCurrentIndex(prev => Math.max(0, prev - 1));
       } else if (e.key === 'ArrowDown' && currentIndex < contentArray.length - 1) {
-        e.preventDefault();
-        setCurrentIndex(prev => prev + 1);
+        setCurrentIndex(prev => Math.min(contentArray.length - 1, prev + 1));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, contentArray.length]);
+
+  const navigateToArticle = useCallback((url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, []);
 
   return {
     currentIndex,
@@ -189,6 +124,7 @@ export const useVideoFeedInteractions = (contentArray: ContentItem[]) => {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
-    handleWheel
+    handleWheel,
+    setCurrentIndex
   };
 };
