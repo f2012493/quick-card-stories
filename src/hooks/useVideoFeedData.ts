@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNews } from '@/hooks/useNews';
 import { useLocation } from '@/hooks/useLocation';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 export interface ContentItem {
@@ -18,6 +19,7 @@ export const useVideoFeedData = () => {
   const [hasMorePages, setHasMorePages] = useState(true);
 
   const { locationData } = useLocation();
+  const { userProfile } = useAuth();
 
   const { data: newsData = [], isLoading } = useNews({
     category: 'general',
@@ -77,21 +79,23 @@ export const useVideoFeedData = () => {
     }
   }, [isLoadingMore, hasMorePages, page, newsData]);
 
-  // Create combined content array with ads inserted every 8 news items
+  // Create combined content array with ads inserted every 8 news items (only for non-subscribers)
   const createContentArray = useCallback((): ContentItem[] => {
     const contentArray: ContentItem[] = [];
     let adIndex = 0;
+    const isSubscribed = userProfile?.subscription_status === 'subscribed';
     
     allNews.forEach((newsItem, index) => {
       contentArray.push({ type: 'news', data: newsItem, originalIndex: index });
       
-      if ((index + 1) % 8 === 0) {
+      // Only insert ads if user is not subscribed
+      if (!isSubscribed && (index + 1) % 8 === 0) {
         contentArray.push({ type: 'ad', data: { adIndex: adIndex++ } });
       }
     });
     
     return contentArray;
-  }, [allNews]);
+  }, [allNews, userProfile]);
 
   const resetPagination = () => {
     setPage(1);

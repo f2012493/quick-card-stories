@@ -460,6 +460,10 @@ export type Database = {
         Args: { "": unknown[] }
         Returns: number
       }
+      update_subscription_status: {
+        Args: { user_id: string; status: string }
+        Returns: undefined
+      }
       vector_avg: {
         Args: { "": number[] }
         Returns: string
