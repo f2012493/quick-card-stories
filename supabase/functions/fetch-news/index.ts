@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { cleanGarbageText } from './utils/textCleaning.ts';
@@ -6,6 +5,7 @@ import { generateTLDR } from './utils/contentGeneration.ts';
 import { getContextualPlaceholder } from './utils/imageHandling.ts';
 import { calculateTrustScore, calculateLocalRelevance } from './utils/scoring.ts';
 import { parseRSSFeed } from './utils/rssParser.ts';
+import { extractFullContent } from './utils/contentExtraction.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -203,7 +203,7 @@ serve(async (req) => {
 
     const locationString = city && country ? `${city}, ${country}` : country || '';
 
-    // Transform articles with better cleaning
+    // Transform articles with full content extraction
     const transformedNews: NewsItem[] = await Promise.all(
       articles.slice(0, pageSize).map(async (article, index) => {
         const headline = cleanGarbageText(article.title || article.headline || 'Breaking News');
@@ -211,12 +211,26 @@ serve(async (req) => {
         const description = cleanGarbageText(article.description || '');
         const originalImage = article.urlToImage || article.image_url || article.imageUrl || '';
         const sourceName = article.source?.name || article.author || 'News Source';
+        const sourceUrl = article.url || article.link || article.sourceUrl || article.webUrl || '';
+        
+        // Extract full article content
+        let fullContent = content || description;
+        if (sourceUrl && fullContent.length < 500) {
+          try {
+            const extractedContent = await extractFullContent(sourceUrl, sourceName);
+            if (extractedContent.length > fullContent.length) {
+              fullContent = extractedContent;
+            }
+          } catch (error) {
+            console.warn(`Failed to extract full content for ${headline}:`, error);
+          }
+        }
         
         // Generate clean TL;DR
-        const tldr = await generateTLDR(content, headline, description);
+        const tldr = await generateTLDR(fullContent, headline, description);
         
         // Clean quote
-        const cleanQuote = cleanGarbageText((description || content).substring(0, 200));
+        const cleanQuote = cleanGarbageText((description || fullContent).substring(0, 200));
         const finalQuote = cleanQuote + (cleanQuote.length >= 200 ? '...' : '');
         
         // Use original image or contextual placeholder
@@ -232,14 +246,15 @@ serve(async (req) => {
           imageUrl: imageUrl,
           readTime: '2 min read',
           publishedAt: article.publishedAt || article.pubDate || new Date().toISOString(),
-          sourceUrl: article.url || article.link || article.sourceUrl || article.webUrl || '',
+          sourceUrl: sourceUrl,
           trustScore: calculateTrustScore(sourceName),
-          localRelevance: calculateLocalRelevance(headline, description, locationString)
+          localRelevance: calculateLocalRelevance(headline, description, locationString),
+          fullContent: fullContent // Add full content for carousel display
         };
       })
     );
 
-    console.log(`Returning ${transformedNews.length} cleaned news articles from diverse sources`);
+    console.log(`Returning ${transformedNews.length} cleaned news articles with full content`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),

@@ -14,6 +14,7 @@ export interface NewsItem {
   localRelevance?: number;
   clusterId?: string;
   contextualInsights?: string[];
+  fullContent?: string; // Add full article content
   contextualInfo?: {
     topic: string;
     backgroundInfo: string[];
