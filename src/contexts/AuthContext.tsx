@@ -86,19 +86,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data) {
-        setUserProfile(data);
+        setUserProfile({
+          id: data.id,
+          phone_number: data.phone_number,
+          subscription_status: data.subscription_status || 'free',
+          subscribed_at: data.subscribed_at
+        });
       } else {
         // Create profile if it doesn't exist
         const { data: newProfile, error: insertError } = await supabase
           .from('user_profiles')
-          .insert({ id: userId })
+          .insert({ 
+            id: userId,
+            subscription_status: 'free'
+          })
           .select()
           .single();
 
         if (insertError) {
           console.error('Error creating user profile:', insertError);
         } else {
-          setUserProfile(newProfile);
+          setUserProfile({
+            id: newProfile.id,
+            phone_number: newProfile.phone_number,
+            subscription_status: newProfile.subscription_status || 'free',
+            subscribed_at: newProfile.subscribed_at
+          });
         }
       }
     } catch (error) {
