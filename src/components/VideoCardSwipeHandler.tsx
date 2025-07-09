@@ -28,9 +28,11 @@ const VideoCardSwipeHandler = ({
           
           if (Math.abs(deltaX) > 50) {
             if (deltaX > 0 && showRelatedArticles) {
-              onSwipeLeft();
-            } else if (deltaX < 0 && !showRelatedArticles) {
+              // Swipe right when showing related articles - go back to main card
               onSwipeRight();
+            } else if (deltaX < 0 && !showRelatedArticles) {
+              // Swipe left when showing main card - show related articles
+              onSwipeLeft();
             }
           }
         }}

@@ -5,6 +5,7 @@ import { contextService } from '@/services/contextService';
 import VideoCardHeader from './VideoCardHeader';
 import VideoCardContent from './VideoCardContent';
 import VideoCardSwipeHandler from './VideoCardSwipeHandler';
+import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { shareArticle, saveArticle } from '@/utils/shareUtils';
 
 interface NewsItem {
@@ -20,6 +21,7 @@ interface NewsItem {
   trustScore?: number;
   localRelevance?: number;
   clusterId?: string;
+  fullContent?: string;
   contextualInfo?: {
     topic: string;
     backgroundInfo: string[];
@@ -41,6 +43,7 @@ const VideoCard = ({
   onNavigateToArticle
 }: VideoCardProps) => {
   const [showInsights, setShowInsights] = useState(false);
+  const [showRelatedArticles, setShowRelatedArticles] = useState(false);
   const [enhancedNews, setEnhancedNews] = useState<NewsItem>(news);
 
   useEffect(() => {
@@ -79,6 +82,25 @@ const VideoCard = ({
   const handleToggleInsights = () => {
     setShowInsights(!showInsights);
   };
+
+  const handleSwipeLeft = () => {
+    setShowRelatedArticles(true);
+  };
+
+  const handleSwipeRight = () => {
+    setShowRelatedArticles(false);
+  };
+
+  // If showing related articles, render the carousel
+  if (showRelatedArticles) {
+    return (
+      <RelatedArticlesCarousel
+        currentNews={enhancedNews}
+        onNavigateToArticle={onNavigateToArticle}
+        onSwipeLeft={handleSwipeRight} // Swipe left on carousel goes back to main card
+      />
+    );
+  }
 
   return (
     <div className="relative w-full h-screen flex items-center justify-center">
@@ -233,9 +255,9 @@ const VideoCard = ({
       </div>
 
       <VideoCardSwipeHandler
-        showRelatedArticles={false}
-        onSwipeRight={() => {}}
-        onSwipeLeft={() => {}}
+        showRelatedArticles={showRelatedArticles}
+        onSwipeRight={handleSwipeRight}
+        onSwipeLeft={handleSwipeLeft}
       />
     </div>
   );
