@@ -9,13 +9,13 @@ import {
   Volume2, 
   VolumeX, 
   Info,
-  ExternalLink,
   Clock,
   MapPin,
   User
 } from 'lucide-react';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface News {
   id: string;
@@ -55,6 +55,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { trackInteraction } = useUserTracking();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (isActive && isPlaying && videoRef.current) {
@@ -65,10 +66,14 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   }, [isActive, isPlaying]);
 
   useEffect(() => {
-    if (isActive) {
-      trackInteraction(news.id, 'view');
+    if (isActive && user) {
+      trackInteraction.mutate({
+        userId: user.id,
+        articleId: news.id,
+        interactionType: 'view'
+      });
     }
-  }, [isActive, news.id, trackInteraction]);
+  }, [isActive, news.id, trackInteraction, user]);
 
   const togglePlayPause = () => {
     setIsPlaying(!isPlaying);
@@ -87,12 +92,24 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
     } else {
       window.open(news.url, '_blank');
     }
-    trackInteraction(news.id, 'click');
+    if (user) {
+      trackInteraction.mutate({
+        userId: user.id,
+        articleId: news.id,
+        interactionType: 'click'
+      });
+    }
   };
 
   const handleShowRelated = () => {
     setShowRelatedArticles(true);
-    trackInteraction(news.id, 'related_articles');
+    if (user) {
+      trackInteraction.mutate({
+        userId: user.id,
+        articleId: news.id,
+        interactionType: 'view'
+      });
+    }
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -203,16 +220,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                   </div>
                 )}
               </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleReadOriginal}
-                className="bg-white/10 text-white border-white/20 hover:bg-white/20 flex items-center gap-2"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Read Original
-              </Button>
             </div>
           </div>
         </div>

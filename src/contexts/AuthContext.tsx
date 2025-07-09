@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,7 +88,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUserProfile({
           id: data.id,
           phone_number: data.phone_number,
-          subscription_status: data.subscription_status || 'free',
+          subscription_status: (data.subscription_status === 'subscribed' ? 'subscribed' : 'free') as 'free' | 'subscribed',
           subscribed_at: data.subscribed_at
         });
       } else {
@@ -109,7 +108,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUserProfile({
             id: newProfile.id,
             phone_number: newProfile.phone_number,
-            subscription_status: newProfile.subscription_status || 'free',
+            subscription_status: (newProfile.subscription_status === 'subscribed' ? 'subscribed' : 'free') as 'free' | 'subscribed',
             subscribed_at: newProfile.subscribed_at
           });
         }
