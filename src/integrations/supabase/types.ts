@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_placements: {
+        Row: {
+          ad_position: number
+          ad_sponsor: string | null
+          ad_title: string | null
+          ad_video_url: string | null
+          click_count: number | null
+          contextual_tags: string[] | null
+          created_at: string | null
+          id: string
+          impression_count: number | null
+          user_id: string | null
+        }
+        Insert: {
+          ad_position: number
+          ad_sponsor?: string | null
+          ad_title?: string | null
+          ad_video_url?: string | null
+          click_count?: number | null
+          contextual_tags?: string[] | null
+          created_at?: string | null
+          id?: string
+          impression_count?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          ad_position?: number
+          ad_sponsor?: string | null
+          ad_title?: string | null
+          ad_video_url?: string | null
+          click_count?: number | null
+          contextual_tags?: string[] | null
+          created_at?: string | null
+          id?: string
+          impression_count?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_placements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       articles: {
         Row: {
           author: string | null
@@ -22,11 +69,13 @@ export type Database = {
           content: string | null
           content_embedding: string | null
           content_hash: string | null
+          content_type: string | null
           created_at: string | null
           description: string | null
           id: string
           image_url: string | null
           ingested_at: string | null
+          local_relevance_score: number | null
           published_at: string
           quality_score: number | null
           region_tags: string[] | null
@@ -34,8 +83,11 @@ export type Database = {
           status: Database["public"]["Enums"]["article_status"] | null
           title: string
           title_embedding: string | null
+          trust_score: number | null
           updated_at: string | null
           url: string
+          video_generated: boolean | null
+          video_processing_started_at: string | null
         }
         Insert: {
           author?: string | null
@@ -44,11 +96,13 @@ export type Database = {
           content?: string | null
           content_embedding?: string | null
           content_hash?: string | null
+          content_type?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           ingested_at?: string | null
+          local_relevance_score?: number | null
           published_at: string
           quality_score?: number | null
           region_tags?: string[] | null
@@ -56,8 +110,11 @@ export type Database = {
           status?: Database["public"]["Enums"]["article_status"] | null
           title: string
           title_embedding?: string | null
+          trust_score?: number | null
           updated_at?: string | null
           url: string
+          video_generated?: boolean | null
+          video_processing_started_at?: string | null
         }
         Update: {
           author?: string | null
@@ -66,11 +123,13 @@ export type Database = {
           content?: string | null
           content_embedding?: string | null
           content_hash?: string | null
+          content_type?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
           ingested_at?: string | null
+          local_relevance_score?: number | null
           published_at?: string
           quality_score?: number | null
           region_tags?: string[] | null
@@ -78,8 +137,11 @@ export type Database = {
           status?: Database["public"]["Enums"]["article_status"] | null
           title?: string
           title_embedding?: string | null
+          trust_score?: number | null
           updated_at?: string | null
           url?: string
+          video_generated?: boolean | null
+          video_processing_started_at?: string | null
         }
         Relationships: [
           {
@@ -129,6 +191,44 @@ export type Database = {
             columns: ["cluster_id"]
             isOneToOne: false
             referencedRelation: "story_clusters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_summaries: {
+        Row: {
+          abstractive_summary: string | null
+          article_id: string | null
+          created_at: string | null
+          extractive_summary: string | null
+          id: string
+          summary_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          abstractive_summary?: string | null
+          article_id?: string | null
+          created_at?: string | null
+          extractive_summary?: string | null
+          id?: string
+          summary_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          abstractive_summary?: string | null
+          article_id?: string | null
+          created_at?: string | null
+          extractive_summary?: string | null
+          id?: string
+          summary_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_summaries_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
             referencedColumns: ["id"]
           },
         ]
@@ -273,44 +373,104 @@ export type Database = {
         }
         Relationships: []
       }
-      user_profiles: {
+      trust_scores: {
         Row: {
+          article_id: string | null
           created_at: string | null
           id: string
+          trust_vote: boolean
+          user_id: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          created_at?: string | null
+          id?: string
+          trust_vote: boolean
+          user_id?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          created_at?: string | null
+          id?: string
+          trust_vote?: boolean
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trust_scores_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trust_scores_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          ad_personalization_consent: boolean | null
+          articles_consumed_today: number | null
+          content_preferences: Json | null
+          created_at: string | null
+          daily_article_limit: number | null
+          id: string
           language_preferences: string[] | null
+          last_consumption_reset: string | null
           location_city: string | null
           location_country: string | null
           location_region: string | null
           phone_number: string | null
           preferred_categories: string[] | null
+          preferred_summary_type: string | null
           subscribed_at: string | null
           subscription_status: string | null
+          trust_voting_count: number | null
           updated_at: string | null
         }
         Insert: {
+          ad_personalization_consent?: boolean | null
+          articles_consumed_today?: number | null
+          content_preferences?: Json | null
           created_at?: string | null
+          daily_article_limit?: number | null
           id: string
           language_preferences?: string[] | null
+          last_consumption_reset?: string | null
           location_city?: string | null
           location_country?: string | null
           location_region?: string | null
           phone_number?: string | null
           preferred_categories?: string[] | null
+          preferred_summary_type?: string | null
           subscribed_at?: string | null
           subscription_status?: string | null
+          trust_voting_count?: number | null
           updated_at?: string | null
         }
         Update: {
+          ad_personalization_consent?: boolean | null
+          articles_consumed_today?: number | null
+          content_preferences?: Json | null
           created_at?: string | null
+          daily_article_limit?: number | null
           id?: string
           language_preferences?: string[] | null
+          last_consumption_reset?: string | null
           location_city?: string | null
           location_country?: string | null
           location_region?: string | null
           phone_number?: string | null
           preferred_categories?: string[] | null
+          preferred_summary_type?: string | null
           subscribed_at?: string | null
           subscription_status?: string | null
+          trust_voting_count?: number | null
           updated_at?: string | null
         }
         Relationships: []
@@ -396,6 +556,53 @@ export type Database = {
         }
         Relationships: []
       }
+      video_content: {
+        Row: {
+          article_id: string | null
+          audio_url: string | null
+          background_music_url: string | null
+          created_at: string | null
+          id: string
+          processing_status: string | null
+          subtitle_data: Json | null
+          updated_at: string | null
+          video_duration_seconds: number | null
+          video_url: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          audio_url?: string | null
+          background_music_url?: string | null
+          created_at?: string | null
+          id?: string
+          processing_status?: string | null
+          subtitle_data?: Json | null
+          updated_at?: string | null
+          video_duration_seconds?: number | null
+          video_url?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          audio_url?: string | null
+          background_music_url?: string | null
+          created_at?: string | null
+          id?: string
+          processing_status?: string | null
+          subtitle_data?: Json | null
+          updated_at?: string | null
+          video_duration_seconds?: number | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_content_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -404,6 +611,10 @@ export type Database = {
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
+      }
+      calculate_trust_score: {
+        Args: { article_uuid: string }
+        Returns: number
       }
       halfvec_avg: {
         Args: { "": number[] }
@@ -456,6 +667,10 @@ export type Database = {
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: string
+      }
+      reset_daily_consumption: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       sparsevec_out: {
         Args: { "": unknown }

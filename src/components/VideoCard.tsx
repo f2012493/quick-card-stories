@@ -1,69 +1,64 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Info,
+  Heart, 
+  Share2, 
+  MessageCircle, 
   Clock,
   MapPin,
-  User
+  User,
+  ExternalLink
 } from 'lucide-react';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
 import { useAuth } from '@/contexts/AuthContext';
+import ValueAddedContent from './features/ValueAddedContent';
+import TrustScoring from './features/TrustScoring';
+import SummarySelector from './features/SummarySelector';
+import VideoPlayer from './VideoPlayer';
+import { useVideoContent } from '@/hooks/useVideoContent';
 
 interface News {
   id: string;
-  title: string;
-  description?: string;
-  content?: string;
-  url: string;
-  image_url?: string;
-  published_at: string;
-  category?: string;
-  author?: string;
-  source?: {
-    name: string;
-    domain: string;
+  headline: string;
+  tldr: string;
+  quote: string;
+  author: string;
+  category: string;
+  imageUrl: string;
+  readTime: string;
+  publishedAt?: string;
+  sourceUrl?: string;
+  trustScore?: number;
+  localRelevance?: number;
+  clusterId?: string;
+  contextualInsights?: string[];
+  fullContent?: string;
+  contextualInfo?: {
+    topic: string;
+    backgroundInfo: string[];
+    keyFacts: string[];
+    relatedConcepts: string[];
   };
-  related_articles?: Array<{
-    id: string;
-    title: string;
-    content?: string;
-    description?: string;
-    url: string;
-    image_url?: string;
-    author?: string;
-    published_at: string;
-  }>;
 }
 
 interface VideoCardProps {
   news: News;
   isActive: boolean;
-  onNavigateToArticle?: (url: string) => void;
+  onNavigateToArticle: (url: string) => void;
 }
 
 const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [currentContent, setCurrentContent] = useState(news.fullContent || news.tldr);
+  const [summaryType, setSummaryType] = useState('original');
+  
   const { trackInteraction } = useUserTracking();
   const { user } = useAuth();
-
-  useEffect(() => {
-    if (isActive && isPlaying && videoRef.current) {
-      videoRef.current.play();
-    } else if (videoRef.current) {
-      videoRef.current.pause();
-    }
-  }, [isActive, isPlaying]);
+  const { data: videoContent } = useVideoContent(news.id);
 
   useEffect(() => {
     if (isActive && user) {
@@ -79,18 +74,49 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
     setIsPlaying(!isPlaying);
   };
 
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
+  const toggleLike = () => {
+    setIsLiked(!isLiked);
+    if (user) {
+      trackInteraction.mutate({
+        userId: user.id,
+        articleId: news.id,
+        interactionType: 'like'
+      });
+    }
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: news.headline,
+          text: news.tldr,
+          url: news.sourceUrl || window.location.href,
+        });
+      } catch (error) {
+        console.log('Error sharing:', error);
+      }
+    } else {
+      await navigator.clipboard.writeText(news.sourceUrl || window.location.href);
+      // Could add toast notification here
+    }
+    
+    if (user) {
+      trackInteraction.mutate({
+        userId: user.id,
+        articleId: news.id,
+        interactionType: 'share'
+      });
     }
   };
 
   const handleReadOriginal = () => {
-    if (onNavigateToArticle) {
-      onNavigateToArticle(news.url);
-    } else {
-      window.open(news.url, '_blank');
+    if (news.sourceUrl) {
+      if (onNavigateToArticle) {
+        onNavigateToArticle(news.sourceUrl);
+      } else {
+        window.open(news.sourceUrl, '_blank');
+      }
     }
     if (user) {
       trackInteraction.mutate({
@@ -107,141 +133,152 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       trackInteraction.mutate({
         userId: user.id,
         articleId: news.id,
-        interactionType: 'view'
+        interactionType: 'related_articles'
       });
     }
+  };
+
+  const handleSummaryChange = (summary: string, type: string) => {
+    setCurrentContent(summary);
+    setSummaryType(type);
   };
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
     
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays}d ago`;
-    return date.toLocaleDateString();
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
   return (
-    <>
-      <Card className="relative w-full h-full bg-gradient-to-br from-slate-900 to-black overflow-hidden">
-        {/* Background Image */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: news.image_url ? `url(${news.image_url})` : 'none',
-            filter: 'brightness(0.4)'
-          }}
-        />
-        
-        {/* Overlay Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+    <div className="relative w-full h-screen bg-black overflow-hidden">
+      {/* Video Player Background */}
+      <VideoPlayer
+        videoUrl={videoContent?.video_url}
+        audioUrl={videoContent?.audio_url}
+        isActive={isActive}
+        isPlaying={isPlaying}
+        onPlayPause={togglePlayPause}
+        subtitleData={videoContent?.subtitle_data}
+        className="absolute inset-0"
+      />
 
-        {/* Content */}
-        <div className="relative z-10 h-full flex flex-col justify-between p-6">
-          {/* Top Section */}
-          <div className="flex justify-between items-start">
-            <div className="flex flex-col gap-2">
-              {news.category && (
-                <Badge variant="secondary" className="w-fit bg-white/20 text-white">
-                  {news.category}
-                </Badge>
-              )}
-              <div className="flex items-center gap-2 text-white/70 text-sm">
-                <Clock className="w-4 h-4" />
-                {formatTimeAgo(news.published_at)}
-              </div>
+      {/* Content Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent">
+        <div className="absolute bottom-0 left-0 right-0 p-6 space-y-4">
+          
+          {/* Value Added Content */}
+          <ValueAddedContent 
+            headline={news.headline}
+            category={news.category}
+            clusterId={news.clusterId}
+          />
+
+          {/* Summary Selector */}
+          <SummarySelector
+            articleId={news.id}
+            content={news.fullContent || news.tldr}
+            onSummaryChange={handleSummaryChange}
+          />
+
+          {/* Article Content */}
+          <div className="space-y-4">
+            <h1 className="text-white text-xl font-bold leading-tight">
+              {news.headline}
+            </h1>
+            
+            <div className="text-white/90 text-base leading-relaxed max-h-40 overflow-y-auto">
+              {currentContent}
             </div>
 
-            {/* Control Buttons */}
-            <div className="flex gap-2">
+            {/* Article Meta */}
+            <div className="flex items-center gap-4 text-white/70 text-sm">
+              {news.author && (
+                <div className="flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  <span>{news.author}</span>
+                </div>
+              )}
+              {news.publishedAt && (
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>{formatTimeAgo(news.publishedAt)}</span>
+                </div>
+              )}
+              {news.localRelevance && news.localRelevance > 0.5 && (
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  <span>Local</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Trust Scoring */}
+          <TrustScoring articleId={news.id} userId={user?.id} />
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={toggleMute}
-                className="bg-black/40 text-white hover:bg-black/60"
+                onClick={toggleLike}
+                className={`flex items-center gap-2 ${
+                  isLiked ? 'text-red-400' : 'text-white/70'
+                } hover:text-red-400`}
               >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+                <span className="text-sm">Like</span>
               </Button>
               
-              {news.related_articles && news.related_articles.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleShare}
+                className="flex items-center gap-2 text-white/70 hover:text-white"
+              >
+                <Share2 className="w-5 h-5" />
+                <span className="text-sm">Share</span>
+              </Button>
+              
+              {news.clusterId && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleShowRelated}
-                  className="bg-black/40 text-white hover:bg-black/60"
+                  className="flex items-center gap-2 text-white/70 hover:text-white"
                 >
-                  <Info className="w-4 h-4" />
+                  <MessageCircle className="w-5 h-5" />
+                  <span className="text-sm">More Coverage</span>
                 </Button>
               )}
             </div>
-          </div>
 
-          {/* Center Play Button */}
-          <div className="flex-1 flex items-center justify-center">
             <Button
-              variant="ghost"
-              size="lg"
-              onClick={togglePlayPause}
-              className="bg-black/40 text-white hover:bg-black/60 p-6 rounded-full"
+              variant="outline"
+              size="sm"
+              onClick={handleReadOriginal}
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 flex items-center gap-2"
             >
-              {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
+              <ExternalLink className="w-3 h-3" />
+              Original
             </Button>
           </div>
-
-          {/* Bottom Section */}
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-white text-xl font-bold leading-tight mb-2">
-                {news.title}
-              </h2>
-              {news.description && (
-                <p className="text-white/80 text-sm leading-relaxed line-clamp-3">
-                  {news.description}
-                </p>
-              )}
-            </div>
-
-            {/* Source Info */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 text-white/70 text-sm">
-                {news.source && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    {news.source.name}
-                  </div>
-                )}
-                {news.author && (
-                  <div className="flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    {news.author}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
-
-        {/* Hidden Video Element */}
-        <video
-          ref={videoRef}
-          className="hidden"
-          muted={isMuted}
-          loop
-          playsInline
-        />
-      </Card>
+      </div>
 
       {/* Related Articles Modal */}
-      {showRelatedArticles && news.related_articles && (
+      {showRelatedArticles && news.clusterId && (
         <RelatedArticlesCarousel
-          articles={news.related_articles}
+          clusterId={news.clusterId}
           onClose={() => setShowRelatedArticles(false)}
         />
       )}
-    </>
+    </div>
   );
 };
 
