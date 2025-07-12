@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -13,7 +12,6 @@ import {
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
 import { useAuth } from '@/contexts/AuthContext';
-import ValueAddedContent from './features/ValueAddedContent';
 import TrustScoring from './features/TrustScoring';
 import SummarySelector from './features/SummarySelector';
 import VideoPlayer from './VideoPlayer';
@@ -170,14 +168,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
 
       {/* Content Overlay - Optimized for mobile */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20">
-        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 pb-safe">
-          
-          {/* Value Added Content */}
-          <ValueAddedContent 
-            headline={news.headline}
-            category={news.category}
-            clusterId={news.clusterId}
-          />
+        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-4 pb-safe">
 
           {/* Summary Selector */}
           <SummarySelector
@@ -192,7 +183,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
               {news.headline}
             </h1>
             
-            <div className="text-white/90 text-sm md:text-base leading-relaxed max-h-32 md:max-h-40 overflow-y-auto">
+            <div className="text-white/90 text-sm md:text-base leading-relaxed max-h-36 md:max-h-44 overflow-y-auto">
               {currentContent}
             </div>
 
