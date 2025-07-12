@@ -98,7 +98,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       }
     } else {
       await navigator.clipboard.writeText(news.sourceUrl || window.location.href);
-      // Could add toast notification here
     }
     
     if (user) {
@@ -152,6 +151,9 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
+
+  // Check if related articles are available
+  const hasRelatedArticles = news.clusterId && relatedArticles && relatedArticles.length > 0;
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -243,15 +245,17 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                   <span className="text-xs hidden sm:inline">Share</span>
                 </Button>
                 
-                {news.clusterId && relatedArticles && relatedArticles.length > 0 && (
+                {hasRelatedArticles && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleShowRelated}
-                    className="flex items-center gap-1 px-2 py-1 h-8 text-white/70 hover:text-white"
+                    className="flex items-center gap-1 px-2 py-1 h-8 text-white/70 hover:text-white relative"
                   >
                     <MessageCircle className="w-4 h-4" />
-                    <span className="text-xs hidden sm:inline">More</span>
+                    <span className="text-xs hidden sm:inline">Related</span>
+                    {/* Small indicator for related content */}
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></div>
                   </Button>
                 )}
               </div>
@@ -271,7 +275,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       </div>
 
       {/* Related Articles Modal */}
-      {showRelatedArticles && relatedArticles && relatedArticles.length > 0 && (
+      {showRelatedArticles && hasRelatedArticles && (
         <RelatedArticlesCarousel
           articles={relatedArticles}
           onClose={() => setShowRelatedArticles(false)}
