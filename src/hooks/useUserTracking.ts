@@ -28,15 +28,23 @@ export const useUserTracking = () => {
       
       // Update user consumption count for views
       if (params.interactionType === 'view') {
-        const { error: updateError } = await supabase
+        // First get current count
+        const { data: profile } = await supabase
           .from('user_profiles')
-          .update({ 
-            articles_consumed_today: supabase.sql`articles_consumed_today + 1`
-          })
-          .eq('id', params.userId);
+          .select('articles_consumed_today')
+          .eq('id', params.userId)
+          .single();
         
-        if (updateError) {
-          console.error('Error updating consumption count:', updateError);
+        if (profile) {
+          const newCount = (profile.articles_consumed_today || 0) + 1;
+          const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update({ articles_consumed_today: newCount })
+            .eq('id', params.userId);
+          
+          if (updateError) {
+            console.error('Error updating consumption count:', updateError);
+          }
         }
       }
     },
