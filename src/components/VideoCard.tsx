@@ -168,9 +168,9 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         className="absolute inset-0"
       />
 
-      {/* Content Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent">
-        <div className="absolute bottom-0 left-0 right-0 p-6 space-y-4">
+      {/* Content Overlay - Optimized for mobile */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20">
+        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3 pb-safe">
           
           {/* Value Added Content */}
           <ValueAddedContent 
@@ -187,21 +187,21 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
           />
 
           {/* Article Content */}
-          <div className="space-y-4">
-            <h1 className="text-white text-xl font-bold leading-tight">
+          <div className="space-y-3">
+            <h1 className="text-white text-lg md:text-xl font-bold leading-tight">
               {news.headline}
             </h1>
             
-            <div className="text-white/90 text-base leading-relaxed max-h-40 overflow-y-auto">
+            <div className="text-white/90 text-sm md:text-base leading-relaxed max-h-32 md:max-h-40 overflow-y-auto">
               {currentContent}
             </div>
 
-            {/* Article Meta */}
-            <div className="flex items-center gap-4 text-white/70 text-sm">
+            {/* Article Meta - Compact for mobile */}
+            <div className="flex items-center gap-3 text-white/70 text-xs">
               {news.author && (
                 <div className="flex items-center gap-1">
                   <User className="w-3 h-3" />
-                  <span>{news.author}</span>
+                  <span className="truncate max-w-20">{news.author}</span>
                 </div>
               )}
               {news.publishedAt && (
@@ -222,29 +222,29 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
           {/* Trust Scoring */}
           <TrustScoring articleId={news.id} userId={user?.id} />
 
-          {/* Action Buttons */}
+          {/* Action Buttons - Mobile optimized */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={toggleLike}
-                className={`flex items-center gap-2 ${
+                className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 ${
                   isLiked ? 'text-red-400' : 'text-white/70'
                 } hover:text-red-400`}
               >
-                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
-                <span className="text-sm">Like</span>
+                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                <span className="text-xs md:text-sm">Like</span>
               </Button>
               
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleShare}
-                className="flex items-center gap-2 text-white/70 hover:text-white"
+                className="flex items-center gap-1 md:gap-2 px-2 md:px-3 text-white/70 hover:text-white"
               >
-                <Share2 className="w-5 h-5" />
-                <span className="text-sm">Share</span>
+                <Share2 className="w-4 h-4" />
+                <span className="text-xs md:text-sm">Share</span>
               </Button>
               
               {news.clusterId && relatedArticles && relatedArticles.length > 0 && (
@@ -252,10 +252,11 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                   variant="ghost"
                   size="sm"
                   onClick={handleShowRelated}
-                  className="flex items-center gap-2 text-white/70 hover:text-white"
+                  className="flex items-center gap-1 md:gap-2 px-2 md:px-3 text-white/70 hover:text-white"
                 >
-                  <MessageCircle className="w-5 h-5" />
-                  <span className="text-sm">More Coverage</span>
+                  <MessageCircle className="w-4 h-4" />
+                  <span className="text-xs md:text-sm hidden md:inline">More Coverage</span>
+                  <span className="text-xs md:text-sm md:hidden">More</span>
                 </Button>
               )}
             </div>
@@ -264,10 +265,10 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
               variant="outline"
               size="sm"
               onClick={handleReadOriginal}
-              className="bg-white/10 text-white border-white/20 hover:bg-white/20 flex items-center gap-2"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 flex items-center gap-1 md:gap-2 px-2 md:px-3"
             >
               <ExternalLink className="w-3 h-3" />
-              Original
+              <span className="text-xs md:text-sm">Original</span>
             </Button>
           </div>
         </div>
