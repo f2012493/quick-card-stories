@@ -18,6 +18,7 @@ import TrustScoring from './features/TrustScoring';
 import SummarySelector from './features/SummarySelector';
 import VideoPlayer from './VideoPlayer';
 import { useVideoContent } from '@/hooks/useVideoContent';
+import { useRelatedArticles } from '@/hooks/useRelatedArticles';
 
 interface News {
   id: string;
@@ -59,6 +60,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const { trackInteraction } = useUserTracking();
   const { user } = useAuth();
   const { data: videoContent } = useVideoContent(news.id);
+  const { data: relatedArticles } = useRelatedArticles(news.clusterId);
 
   useEffect(() => {
     if (isActive && user) {
@@ -245,7 +247,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                 <span className="text-sm">Share</span>
               </Button>
               
-              {news.clusterId && (
+              {news.clusterId && relatedArticles && relatedArticles.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -272,9 +274,9 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       </div>
 
       {/* Related Articles Modal */}
-      {showRelatedArticles && news.clusterId && (
+      {showRelatedArticles && relatedArticles && relatedArticles.length > 0 && (
         <RelatedArticlesCarousel
-          clusterId={news.clusterId}
+          articles={relatedArticles}
           onClose={() => setShowRelatedArticles(false)}
         />
       )}
