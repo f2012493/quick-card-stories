@@ -10,11 +10,13 @@ interface SummarySelectorProps {
   onSummaryChange: (summary: string, type: string) => void;
 }
 
+type SummaryType = 'original' | 'extractive' | 'abstractive';
+
 const SummarySelector = ({ articleId, content, onSummaryChange }: SummarySelectorProps) => {
-  const [activeType, setActiveType] = useState<'original' | 'extractive' | 'abstractive'>('original');
+  const [activeType, setActiveType] = useState<SummaryType>('original');
   const { data: summaries } = useContentSummaries(articleId);
 
-  const handleSummarySelect = (type: 'original' | 'extractive' | 'abstractive') => {
+  const handleSummarySelect = (type: SummaryType) => {
     setActiveType(type);
     
     let summaryText = content; // Default to original
