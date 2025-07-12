@@ -30,16 +30,16 @@ const SummarySelector = ({ articleId, content, onSummaryChange }: SummarySelecto
   };
 
   const getSummaryOptions = () => {
-    const options = [
-      { type: 'original' as const, label: 'Full', icon: FileText, available: true }
+    const options: Array<{ type: SummaryType; label: string; icon: typeof FileText; available: boolean }> = [
+      { type: 'original', label: 'Full', icon: FileText, available: true }
     ];
     
     if (summaries?.extractive_summary) {
-      options.push({ type: 'extractive' as const, label: 'Key Points', icon: Zap, available: true });
+      options.push({ type: 'extractive', label: 'Key Points', icon: Zap, available: true });
     }
     
     if (summaries?.abstractive_summary) {
-      options.push({ type: 'abstractive' as const, label: 'AI Summary', icon: Bot, available: true });
+      options.push({ type: 'abstractive', label: 'AI Summary', icon: Bot, available: true });
     }
     
     return options;
