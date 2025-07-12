@@ -64,6 +64,17 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    /* Prevent pull-to-refresh and ensure proper mobile viewport */
+    overscroll-behavior: none;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+    overflow: hidden;
+    /* Support for safe areas on mobile devices */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  
   body {
     @apply bg-background text-foreground;
     /* Disable overscroll behavior */
@@ -71,13 +82,11 @@
     /* Prevent pull-to-refresh on mobile */
     overflow: hidden;
     background: linear-gradient(135deg, hsl(222 84% 4.9%) 0%, hsl(263 70% 8%) 50%, hsl(222 84% 4.9%) 100%);
-  }
-  
-  html {
-    /* Prevent pull-to-refresh */
-    overscroll-behavior: none;
+    /* Use dynamic viewport height for mobile */
     height: 100vh;
-    overflow: hidden;
+    height: 100dvh;
+    position: fixed;
+    width: 100%;
   }
 }
 
@@ -109,6 +118,7 @@ body {
   position: fixed;
   width: 100%;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -251,4 +261,19 @@ textarea:focus-visible {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Mobile-specific utilities */
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh;
+  }
+}
+
+/* Line clamp utility */
+.line-clamp-3 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }

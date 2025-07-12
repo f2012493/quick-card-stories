@@ -28,24 +28,34 @@ const VideoPlayer = ({
   const [progress, setProgress] = useState(0);
   const [currentSubtitle, setCurrentSubtitle] = useState('');
 
-  // Auto-play when active
+  // Auto-play when active - with better error handling
   useEffect(() => {
-    if (isActive && isPlaying) {
-      if (videoRef.current) {
-        videoRef.current.play().catch(console.error);
+    const playMedia = async () => {
+      if (isActive && isPlaying) {
+        try {
+          if (videoRef.current && videoUrl) {
+            videoRef.current.currentTime = 0; // Reset to beginning
+            await videoRef.current.play();
+          }
+          if (audioRef.current && audioUrl) {
+            audioRef.current.currentTime = 0; // Reset to beginning
+            await audioRef.current.play();
+          }
+        } catch (error) {
+          console.log('Auto-play prevented:', error);
+        }
+      } else {
+        if (videoRef.current) {
+          videoRef.current.pause();
+        }
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
       }
-      if (audioRef.current) {
-        audioRef.current.play().catch(console.error);
-      }
-    } else {
-      if (videoRef.current) {
-        videoRef.current.pause();
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    }
-  }, [isActive, isPlaying]);
+    };
+
+    playMedia();
+  }, [isActive, isPlaying, videoUrl, audioUrl]);
 
   // Update progress and subtitles
   useEffect(() => {
@@ -86,7 +96,7 @@ const VideoPlayer = ({
   return (
     <div className={`relative w-full h-full ${className}`}>
       {/* Video Element */}
-      {videoUrl ? (
+      {videoUrl && !videoUrl.includes('example.com') ? (
         <video
           ref={videoRef}
           src={videoUrl}
@@ -94,6 +104,7 @@ const VideoPlayer = ({
           muted={isMuted}
           loop
           playsInline
+          autoPlay={isActive && isPlaying}
         />
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
@@ -107,7 +118,7 @@ const VideoPlayer = ({
       )}
 
       {/* Audio Element (separate for voiceover) */}
-      {audioUrl && (
+      {audioUrl && !audioUrl.includes('example.com') && (
         <audio
           ref={audioRef}
           src={audioUrl}

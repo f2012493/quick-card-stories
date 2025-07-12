@@ -166,101 +166,106 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         className="absolute inset-0"
       />
 
-      {/* Content Overlay - Optimized for mobile */}
+      {/* Content Overlay - Fixed mobile layout with proper safe areas */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20">
-        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-4 pb-safe">
+        <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 md:pb-4" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
+          <div className="space-y-3 max-h-[60vh] flex flex-col">
 
-          {/* Summary Selector */}
-          <SummarySelector
-            articleId={news.id}
-            content={news.fullContent || news.tldr}
-            onSummaryChange={handleSummaryChange}
-          />
-
-          {/* Article Content */}
-          <div className="space-y-3">
-            <h1 className="text-white text-lg md:text-xl font-bold leading-tight">
-              {news.headline}
-            </h1>
-            
-            <div className="text-white/90 text-sm md:text-base leading-relaxed max-h-36 md:max-h-44 overflow-y-auto">
-              {currentContent}
+            {/* Summary Selector */}
+            <div className="flex-shrink-0">
+              <SummarySelector
+                articleId={news.id}
+                content={news.fullContent || news.tldr}
+                onSummaryChange={handleSummaryChange}
+              />
             </div>
 
-            {/* Article Meta - Compact for mobile */}
-            <div className="flex items-center gap-3 text-white/70 text-xs">
-              {news.author && (
-                <div className="flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  <span className="truncate max-w-20">{news.author}</span>
-                </div>
-              )}
-              {news.publishedAt && (
-                <div className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  <span>{formatTimeAgo(news.publishedAt)}</span>
-                </div>
-              )}
-              {news.localRelevance && news.localRelevance > 0.5 && (
-                <div className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  <span>Local</span>
-                </div>
-              )}
+            {/* Article Content - Scrollable area */}
+            <div className="flex-1 min-h-0 space-y-3">
+              <h1 className="text-white text-lg md:text-xl font-bold leading-tight line-clamp-3">
+                {news.headline}
+              </h1>
+              
+              <div className="text-white/90 text-sm md:text-base leading-relaxed overflow-y-auto max-h-32 md:max-h-40 scrollbar-hide">
+                {currentContent}
+              </div>
+
+              {/* Article Meta - More compact */}
+              <div className="flex items-center gap-2 text-white/70 text-xs flex-wrap">
+                {news.author && (
+                  <div className="flex items-center gap-1">
+                    <User className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate max-w-24">{news.author}</span>
+                  </div>
+                )}
+                {news.publishedAt && (
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-3 h-3 flex-shrink-0" />
+                    <span className="whitespace-nowrap">{formatTimeAgo(news.publishedAt)}</span>
+                  </div>
+                )}
+                {news.localRelevance && news.localRelevance > 0.5 && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                    <span>Local</span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Trust Scoring */}
-          <TrustScoring articleId={news.id} userId={user?.id} />
+            {/* Trust Scoring */}
+            <div className="flex-shrink-0">
+              <TrustScoring articleId={news.id} userId={user?.id} />
+            </div>
 
-          {/* Action Buttons - Mobile optimized */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 md:gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleLike}
-                className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 ${
-                  isLiked ? 'text-red-400' : 'text-white/70'
-                } hover:text-red-400`}
-              >
-                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                <span className="text-xs md:text-sm">Like</span>
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleShare}
-                className="flex items-center gap-1 md:gap-2 px-2 md:px-3 text-white/70 hover:text-white"
-              >
-                <Share2 className="w-4 h-4" />
-                <span className="text-xs md:text-sm">Share</span>
-              </Button>
-              
-              {news.clusterId && relatedArticles && relatedArticles.length > 0 && (
+            {/* Action Buttons - Compact mobile layout */}
+            <div className="flex items-center justify-between flex-shrink-0 pt-2">
+              <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleShowRelated}
-                  className="flex items-center gap-1 md:gap-2 px-2 md:px-3 text-white/70 hover:text-white"
+                  onClick={toggleLike}
+                  className={`flex items-center gap-1 px-2 py-1 h-8 ${
+                    isLiked ? 'text-red-400' : 'text-white/70'
+                  } hover:text-red-400`}
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  <span className="text-xs md:text-sm hidden md:inline">More Coverage</span>
-                  <span className="text-xs md:text-sm md:hidden">More</span>
+                  <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                  <span className="text-xs hidden sm:inline">Like</span>
                 </Button>
-              )}
-            </div>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShare}
+                  className="flex items-center gap-1 px-2 py-1 h-8 text-white/70 hover:text-white"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span className="text-xs hidden sm:inline">Share</span>
+                </Button>
+                
+                {news.clusterId && relatedArticles && relatedArticles.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleShowRelated}
+                    className="flex items-center gap-1 px-2 py-1 h-8 text-white/70 hover:text-white"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span className="text-xs hidden sm:inline">More</span>
+                  </Button>
+                )}
+              </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReadOriginal}
-              className="bg-white/10 text-white border-white/20 hover:bg-white/20 flex items-center gap-1 md:gap-2 px-2 md:px-3"
-            >
-              <ExternalLink className="w-3 h-3" />
-              <span className="text-xs md:text-sm">Original</span>
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReadOriginal}
+                className="bg-white/10 text-white border-white/20 hover:bg-white/20 flex items-center gap-1 px-2 py-1 h-8"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span className="text-xs">Read</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
