@@ -14,12 +14,9 @@ export class AudioService {
   private currentPlaybackId: string | null = null;
   private audioContext: AudioContext | null = null;
 
-  // Free background music URLs
+  // Free background music URLs (using more reliable sources)
   private backgroundTracks = [
-    'https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3',
-    'https://cdn.pixabay.com/audio/2022/08/02/audio_2165f1a07b.mp3',
-    'https://cdn.pixabay.com/audio/2022/03/10/audio_df9bd7e2eb.mp3',
-    'https://cdn.pixabay.com/audio/2022/01/18/audio_84c1117a1c.mp3',
+    'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmUhBSuBzvLZiTUIGmm98OScTgwOUarm7bllHgU2jdXzzn0vBSF+zO/eizEIHm3A7+OZURE='
   ];
 
   private async initializeAudioContext() {
@@ -31,6 +28,7 @@ export class AudioService {
         if (this.audioContext.state === 'suspended') {
           await this.audioContext.resume();
         }
+        console.log('AudioContext initialized:', this.audioContext.state);
       } catch (error) {
         console.log('AudioContext initialization failed:', error);
       }
@@ -44,8 +42,11 @@ export class AudioService {
       
       // Force load voices
       const voices = speechSynthesis.getVoices();
+      console.log('Available voices:', voices.length);
+      
       if (voices.length === 0) {
         speechSynthesis.addEventListener('voiceschanged', () => {
+          console.log('Voices loaded:', speechSynthesis.getVoices().length);
           this.isInitialized = true;
         });
       } else {
@@ -56,6 +57,7 @@ export class AudioService {
 
   private getPreferredVoice(): SpeechSynthesisVoice | null {
     const voices = speechSynthesis.getVoices();
+    console.log('Getting preferred voice from', voices.length, 'available voices');
     
     // Prefer English voices with natural sounding names
     const preferredVoices = voices.filter(voice => 
@@ -68,7 +70,9 @@ export class AudioService {
       )
     );
 
-    return preferredVoices[0] || voices.find(v => v.lang.includes('en-US')) || voices[0] || null;
+    const selectedVoice = preferredVoices[0] || voices.find(v => v.lang.includes('en-US')) || voices[0] || null;
+    console.log('Selected voice:', selectedVoice?.name, selectedVoice?.lang);
+    return selectedVoice;
   }
 
   private async startBackgroundMusic(volume: number): Promise<void> {
@@ -80,31 +84,38 @@ export class AudioService {
     try {
       await this.initializeAudioContext();
       
-      const trackUrl = this.backgroundTracks[Math.floor(Math.random() * this.backgroundTracks.length)];
-      this.backgroundAudio = new Audio(trackUrl);
-      this.backgroundAudio.volume = Math.max(0, Math.min(1, volume));
-      this.backgroundAudio.loop = true;
-      this.backgroundAudio.crossOrigin = 'anonymous';
-      
-      // Add event listeners for mobile compatibility
-      this.backgroundAudio.addEventListener('canplaythrough', () => {
-        console.log('Background music ready to play');
-      });
-      
-      this.backgroundAudio.addEventListener('error', (e) => {
-        console.log('Background music error:', e);
-      });
-      
-      // For mobile: play after user interaction
-      await this.backgroundAudio.play();
-      console.log('Background music started');
+      // Use a simple tone instead of external URLs for reliability
+      const audioContext = this.audioContext;
+      if (audioContext) {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(220, audioContext.currentTime); // A3 note
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(volume * 0.1, audioContext.currentTime); // Very low volume
+        
+        oscillator.start();
+        
+        // Store reference for cleanup
+        this.backgroundAudio = { 
+          pause: () => oscillator.stop(),
+          currentTime: 0,
+          paused: false 
+        } as any;
+        
+        console.log('Background tone started');
+      }
     } catch (error) {
-      console.log('Background music failed to load:', error);
+      console.log('Background music failed to start:', error);
       this.backgroundAudio = null;
     }
   }
 
   async playNarration(config: AudioConfig): Promise<string> {
+    console.log('Starting narration with config:', config);
     await this.initializeSpeechSynthesis();
     
     const playbackId = Math.random().toString(36).substr(2, 9);
@@ -143,7 +154,7 @@ export class AudioService {
         this.utterance.onend = () => {
           console.log('Speech synthesis ended');
           if (this.currentPlaybackId === playbackId) {
-            this.stop();
+            setTimeout(() => this.stop(), 100); // Small delay before cleanup
             resolve(playbackId);
           }
         };
@@ -161,8 +172,8 @@ export class AudioService {
           speechSynthesis.resume();
         }
 
+        console.log('Starting speech synthesis with text:', config.text.substring(0, 50) + '...');
         speechSynthesis.speak(this.utterance);
-        console.log('Speech synthesis queued');
       });
     } catch (error) {
       if (this.currentPlaybackId === playbackId) {
@@ -173,6 +184,7 @@ export class AudioService {
   }
 
   stop(): void {
+    console.log('Stopping audio service');
     this.currentPlaybackId = null;
 
     // Stop speech synthesis
@@ -184,7 +196,6 @@ export class AudioService {
     // Stop background music
     if (this.backgroundAudio) {
       this.backgroundAudio.pause();
-      this.backgroundAudio.currentTime = 0;
       this.backgroundAudio = null;
     }
   }

@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Play, Pause, Volume2, VolumeX, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { audioService } from '@/services/audioService';
 
 interface VideoPlayerProps {
   videoUrl?: string;
@@ -25,17 +26,26 @@ const VideoPlayer = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false); // Start unmuted
   const [progress, setProgress] = useState(0);
   const [currentSubtitle, setCurrentSubtitle] = useState('');
   const [currentTime, setCurrentTime] = useState(0);
-  const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [audioEnabled, setAudioEnabled] = useState(false);
 
   // Determine if we have real content or need client-side assembly
   const hasClientAssembly = videoUrl === 'client-assembled';
   const hasClientTTS = audioUrl === 'client-side-tts';
   const hasRealVideo = videoUrl && !videoUrl.includes('example.com') && !hasClientAssembly;
   const hasRealAudio = audioUrl && !audioUrl.includes('example.com') && !hasClientTTS;
+
+  // Enable audio on first user interaction
+  const enableAudio = async () => {
+    if (!audioEnabled) {
+      await audioService.enableAudioForMobile();
+      setAudioEnabled(true);
+      console.log('Audio enabled by user interaction');
+    }
+  };
 
   // Client-side video assembly
   useEffect(() => {
@@ -65,24 +75,29 @@ const VideoPlayer = ({
       );
 
       if (currentScene) {
-        // Draw background image (simulate)
-        ctx.fillStyle = '#1a1a1a';
+        // Draw background gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#1a1a2e');
+        gradient.addColorStop(1, '#16213e');
+        ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         // Draw text content
         ctx.fillStyle = '#fff';
-        ctx.font = '24px Arial';
+        ctx.font = 'bold 28px Arial';
         ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
         
         const lines = currentScene.text.split(' ');
         const wordsPerLine = 6;
         for (let i = 0; i < lines.length; i += wordsPerLine) {
           const line = lines.slice(i, i + wordsPerLine).join(' ');
-          ctx.fillText(line, canvas.width / 2, 300 + (i / wordsPerLine) * 40);
+          ctx.fillText(line, canvas.width / 2, 280 + (i / wordsPerLine) * 45);
         }
 
         // Update subtitles
-        const currentWord = currentScene.words.find((word: any) => 
+        const currentWord = currentScene.words?.find((word: any) => 
           elapsed >= word.start && elapsed <= word.end
         );
         if (currentWord) {
@@ -107,48 +122,41 @@ const VideoPlayer = ({
     };
   }, [hasClientAssembly, subtitleData, isActive, isPlaying]);
 
-  // Client-side TTS
+  // Client-side TTS with improved audio handling
   useEffect(() => {
     if (!hasClientTTS || !isActive || !subtitleData?.subtitles) return;
 
-    const speak = () => {
-      if ('speechSynthesis' in window) {
-        const text = subtitleData.subtitles.map((word: any) => word.text).join(' ');
-        const utterance = new SpeechSynthesisUtterance(text);
-        
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        utterance.volume = isMuted ? 0 : 1;
-        
-        utterance.onboundary = (event) => {
-          if (event.name === 'word') {
-            const wordIndex = Math.floor(event.charIndex / 6); // Approximate
-            const word = subtitleData.subtitles[wordIndex];
-            if (word) {
-              setCurrentSubtitle(word.text);
-            }
-          }
-        };
+    const playAudio = async () => {
+      if (!audioEnabled) {
+        console.log('Audio not enabled yet, waiting for user interaction');
+        return;
+      }
 
-        utterance.onend = () => {
-          setProgress(100);
-        };
-
-        speechSynthRef.current = utterance;
-        window.speechSynthesis.speak(utterance);
+      if (isPlaying && !isMuted) {
+        try {
+          const text = subtitleData.subtitles.map((word: any) => word.text).join(' ');
+          console.log('Starting TTS for text:', text.substring(0, 100) + '...');
+          
+          await audioService.playNarration({
+            text,
+            speechVolume: 0.8,
+            backgroundMusic: true,
+            musicVolume: 0.1
+          });
+        } catch (error) {
+          console.error('TTS playback failed:', error);
+        }
+      } else {
+        audioService.stop();
       }
     };
 
-    if (isPlaying) {
-      speak();
-    } else {
-      window.speechSynthesis.cancel();
-    }
+    playAudio();
 
     return () => {
-      window.speechSynthesis.cancel();
+      audioService.stop();
     };
-  }, [hasClientTTS, isActive, isPlaying, isMuted, subtitleData]);
+  }, [hasClientTTS, isActive, isPlaying, isMuted, subtitleData, audioEnabled]);
 
   // Regular video/audio handling
   useEffect(() => {
@@ -220,14 +228,26 @@ const VideoPlayer = ({
     if (videoRef.current) {
       videoRef.current.muted = !isMuted;
     }
-    if (hasClientTTS && speechSynthRef.current) {
-      // Restart speech with new volume
-      window.speechSynthesis.cancel();
-    }
+  };
+
+  const handlePlayPause = async () => {
+    await enableAudio(); // Enable audio on first interaction
+    onPlayPause();
   };
 
   return (
-    <div className={`relative w-full h-full ${className}`}>
+    <div className={`relative w-full h-full ${className}`} onClick={enableAudio}>
+      {/* Audio permission notice */}
+      {!audioEnabled && (hasClientTTS || hasRealAudio) && (
+        <div className="absolute top-4 left-4 right-4 z-20">
+          <div className="bg-black/70 backdrop-blur-sm rounded-lg p-3 text-center">
+            <p className="text-white text-sm">
+              🔊 Tap anywhere to enable audio
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Client-assembled video canvas */}
       {hasClientAssembly && (
         <canvas
@@ -302,7 +322,7 @@ const VideoPlayer = ({
             <Button
               size="lg"
               variant="ghost"
-              onClick={onPlayPause}
+              onClick={handlePlayPause}
               className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70"
             >
               {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
