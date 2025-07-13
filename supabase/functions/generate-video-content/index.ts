@@ -173,14 +173,19 @@ serve(async (req) => {
   try {
     const { articleId, title, content, imageUrl }: VideoGenerationRequest = await req.json();
     
-    console.log('Generating video content for article:', articleId);
+    console.log('Generating video content for article ID:', articleId, 'Type:', typeof articleId);
 
-    // Check if video content already exists using the string-based article_id
-    const { data: existing } = await supabase
+    // Check if video content already exists using the TEXT-based article_id
+    const { data: existing, error: queryError } = await supabase
       .from('video_content')
       .select('id')
       .eq('article_id', articleId)
       .maybeSingle();
+
+    if (queryError) {
+      console.error('Error querying existing video content:', queryError);
+      // Continue with generation even if query fails
+    }
 
     if (existing) {
       console.log('Video content already exists for article:', articleId);
@@ -215,11 +220,11 @@ serve(async (req) => {
     const videoMetadata = await createVideoMetadata(images, audioData, backgroundMusic, content);
     console.log('Created video metadata with', videoMetadata.scenes.length, 'scenes');
 
-    // Store video content with the string-based article ID (no foreign key constraint)
+    // Store video content with the TEXT-based article ID
     const { data: videoRecord, error: insertError } = await supabase
       .from('video_content')
       .insert({
-        article_id: articleId, // Use the string ID directly
+        article_id: articleId, // This is now TEXT type and supports string IDs
         video_url: 'client-assembled',
         audio_url: audioData.audioUrl,
         background_music_url: backgroundMusic,

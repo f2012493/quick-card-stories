@@ -593,15 +593,7 @@ export type Database = {
           video_duration_seconds?: number | null
           video_url?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "video_content_article_id_fkey"
-            columns: ["article_id"]
-            isOneToOne: false
-            referencedRelation: "articles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
