@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -7,7 +8,8 @@ import {
   Clock,
   MapPin,
   User,
-  ExternalLink
+  ExternalLink,
+  Play
 } from 'lucide-react';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
@@ -17,6 +19,7 @@ import SummarySelector from './features/SummarySelector';
 import VideoPlayer from './VideoPlayer';
 import { useVideoContent } from '@/hooks/useVideoContent';
 import { useRelatedArticles } from '@/hooks/useRelatedArticles';
+import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 
 interface News {
   id: string;
@@ -57,8 +60,9 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   
   const { trackInteraction } = useUserTracking();
   const { user } = useAuth();
-  const { data: videoContent } = useVideoContent(news.id);
+  const { data: videoContent, refetch: refetchVideoContent } = useVideoContent(news.id);
   const { data: relatedArticles } = useRelatedArticles(news.clusterId);
+  const videoGeneration = useVideoGeneration();
 
   useEffect(() => {
     if (isActive && user) {
@@ -69,6 +73,28 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       });
     }
   }, [isActive, news.id, trackInteraction, user]);
+
+  // Auto-generate video content when card becomes active
+  useEffect(() => {
+    if (isActive && !videoContent && !videoGeneration.isPending) {
+      console.log('Auto-generating video for active article:', news.id);
+      videoGeneration.mutate({
+        articleId: news.id,
+        title: news.headline,
+        content: currentContent,
+        imageUrl: news.imageUrl
+      });
+    }
+  }, [isActive, videoContent, news, currentContent, videoGeneration]);
+
+  // Refetch video content when generation completes
+  useEffect(() => {
+    if (videoGeneration.isSuccess) {
+      setTimeout(() => {
+        refetchVideoContent();
+      }, 1000);
+    }
+  }, [videoGeneration.isSuccess, refetchVideoContent]);
 
   const togglePlayPause = () => {
     setIsPlaying(!isPlaying);
@@ -140,6 +166,16 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const handleSummaryChange = (summary: string, type: string) => {
     setCurrentContent(summary);
     setSummaryType(type);
+    
+    // Regenerate video with new content
+    if (isActive) {
+      videoGeneration.mutate({
+        articleId: news.id,
+        title: news.headline,
+        content: summary,
+        imageUrl: news.imageUrl
+      });
+    }
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -152,8 +188,8 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
-  // Check if related articles are available
   const hasRelatedArticles = news.clusterId && relatedArticles && relatedArticles.length > 0;
+  const isGeneratingVideo = videoGeneration.isPending;
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -168,7 +204,20 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         className="absolute inset-0"
       />
 
-      {/* Content Overlay - Fixed mobile layout with proper safe areas */}
+      {/* Video generation loading overlay */}
+      {isGeneratingVideo && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+          <div className="text-white text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
+              <Play className="w-8 h-8" />
+            </div>
+            <p className="text-lg font-medium">Generating Video...</p>
+            <p className="text-sm text-white/70 mt-2">Creating visuals, narration, and effects</p>
+          </div>
+        </div>
+      )}
+
+      {/* Content Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20">
         <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 md:pb-4" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
           <div className="space-y-3 max-h-[60vh] flex flex-col">
@@ -182,7 +231,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
               />
             </div>
 
-            {/* Article Content - Scrollable area */}
+            {/* Article Content */}
             <div className="flex-1 min-h-0 space-y-3">
               <h1 className="text-white text-lg md:text-xl font-bold leading-tight line-clamp-3">
                 {news.headline}
@@ -192,7 +241,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                 {currentContent}
               </div>
 
-              {/* Article Meta - More compact */}
+              {/* Article Meta */}
               <div className="flex items-center gap-2 text-white/70 text-xs flex-wrap">
                 {news.author && (
                   <div className="flex items-center gap-1">
@@ -220,7 +269,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
               <TrustScoring articleId={news.id} userId={user?.id} />
             </div>
 
-            {/* Action Buttons - Compact mobile layout */}
+            {/* Action Buttons */}
             <div className="flex items-center justify-between flex-shrink-0 pt-2">
               <div className="flex items-center gap-1">
                 <Button
@@ -254,7 +303,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                   >
                     <MessageCircle className="w-4 h-4" />
                     <span className="text-xs hidden sm:inline">Related</span>
-                    {/* Small indicator for related content */}
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></div>
                   </Button>
                 )}
