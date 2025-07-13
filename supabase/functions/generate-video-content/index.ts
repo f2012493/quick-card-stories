@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -83,12 +84,6 @@ const getFallbackImages = (query: string) => {
 // Generate TTS using free services (Web Speech API simulation)
 const generateAudioNarration = async (text: string): Promise<{ audioUrl: string; duration: number; wordTimings: any[] }> => {
   try {
-    // For now, we'll generate timing data and return a placeholder
-    // In a real implementation, you could use:
-    // - Google Cloud TTS (free tier: 1M chars/month)
-    // - Amazon Polly (free tier: 5M chars/month)
-    // - ElevenLabs (free tier: 10k chars/month)
-    
     const words = text.split(' ');
     const avgWordsPerMinute = 150;
     const secondsPerWord = 60 / avgWordsPerMinute;
@@ -124,11 +119,6 @@ const getBackgroundMusic = async (mood: string) => {
     'upbeat': 'https://www.soundjay.com/misc/sounds-1181.mp3',
     'calm': 'https://www.soundjay.com/misc/sounds-1182.mp3'
   };
-  
-  // For production, you could use:
-  // - Freesound.org API (free with attribution)
-  // - YouTube Audio Library
-  // - Pixabay Music API
   
   return musicTracks[mood as keyof typeof musicTracks] || musicTracks.calm;
 };
@@ -185,10 +175,7 @@ serve(async (req) => {
     
     console.log('Generating video content for article:', articleId);
 
-    // Since we're dealing with mock data IDs that aren't UUIDs, we'll use a simple storage approach
-    // that doesn't rely on foreign key relationships to the articles table
-    
-    // Check if video content already exists using a simple text-based lookup
+    // Check if video content already exists using the string-based article_id
     const { data: existing } = await supabase
       .from('video_content')
       .select('id')
@@ -228,7 +215,7 @@ serve(async (req) => {
     const videoMetadata = await createVideoMetadata(images, audioData, backgroundMusic, content);
     console.log('Created video metadata with', videoMetadata.scenes.length, 'scenes');
 
-    // Store video content with the string-based article ID
+    // Store video content with the string-based article ID (no foreign key constraint)
     const { data: videoRecord, error: insertError } = await supabase
       .from('video_content')
       .insert({
