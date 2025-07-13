@@ -13,7 +13,14 @@ export class AudioService {
   private isInitialized = false;
   private currentPlaybackId: string | null = null;
   private audioContext: AudioContext | null = null;
-  private backgroundOscillator: OscillatorNode | null = null;
+
+  // Free background music URLs
+  private backgroundTracks = [
+    'https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3',
+    'https://cdn.pixabay.com/audio/2022/08/02/audio_2165f1a07b.mp3',
+    'https://cdn.pixabay.com/audio/2022/03/10/audio_df9bd7e2eb.mp3',
+    'https://cdn.pixabay.com/audio/2022/01/18/audio_84c1117a1c.mp3',
+  ];
 
   private async initializeAudioContext() {
     if (!this.audioContext) {
@@ -24,7 +31,6 @@ export class AudioService {
         if (this.audioContext.state === 'suspended') {
           await this.audioContext.resume();
         }
-        console.log('AudioContext initialized:', this.audioContext.state);
       } catch (error) {
         console.log('AudioContext initialization failed:', error);
       }
@@ -38,16 +44,10 @@ export class AudioService {
       
       // Force load voices
       const voices = speechSynthesis.getVoices();
-      console.log('Available voices:', voices.length);
-      
       if (voices.length === 0) {
         speechSynthesis.addEventListener('voiceschanged', () => {
-          console.log('Voices loaded:', speechSynthesis.getVoices().length);
           this.isInitialized = true;
         });
-        
-        // Wait a bit for voices to load
-        await new Promise(resolve => setTimeout(resolve, 100));
       } else {
         this.isInitialized = true;
       }
@@ -56,7 +56,6 @@ export class AudioService {
 
   private getPreferredVoice(): SpeechSynthesisVoice | null {
     const voices = speechSynthesis.getVoices();
-    console.log('Getting preferred voice from', voices.length, 'available voices');
     
     // Prefer English voices with natural sounding names
     const preferredVoices = voices.filter(voice => 
@@ -65,51 +64,47 @@ export class AudioService {
         voice.name.includes('Microsoft') ||
         voice.name.includes('Natural') ||
         voice.name.includes('Samantha') ||
-        voice.name.includes('Alex') ||
-        voice.name.includes('Karen') ||
-        voice.name.includes('Daniel')
+        voice.name.includes('Alex')
       )
     );
 
-    const selectedVoice = preferredVoices[0] || voices.find(v => v.lang.includes('en-US')) || voices[0] || null;
-    console.log('Selected voice:', selectedVoice?.name, selectedVoice?.lang);
-    return selectedVoice;
+    return preferredVoices[0] || voices.find(v => v.lang.includes('en-US')) || voices[0] || null;
   }
 
   private async startBackgroundMusic(volume: number): Promise<void> {
-    if (this.backgroundOscillator) {
-      this.backgroundOscillator.stop();
-      this.backgroundOscillator = null;
+    if (this.backgroundAudio) {
+      this.backgroundAudio.pause();
+      this.backgroundAudio = null;
     }
 
     try {
       await this.initializeAudioContext();
       
-      const audioContext = this.audioContext;
-      if (audioContext) {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        // Create a subtle ambient tone
-        oscillator.frequency.setValueAtTime(110, audioContext.currentTime); // A2 note
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(volume * 0.05, audioContext.currentTime); // Very subtle
-        
-        oscillator.start();
-        this.backgroundOscillator = oscillator;
-        
-        console.log('Background music started with volume:', volume * 0.05);
-      }
+      const trackUrl = this.backgroundTracks[Math.floor(Math.random() * this.backgroundTracks.length)];
+      this.backgroundAudio = new Audio(trackUrl);
+      this.backgroundAudio.volume = Math.max(0, Math.min(1, volume));
+      this.backgroundAudio.loop = true;
+      this.backgroundAudio.crossOrigin = 'anonymous';
+      
+      // Add event listeners for mobile compatibility
+      this.backgroundAudio.addEventListener('canplaythrough', () => {
+        console.log('Background music ready to play');
+      });
+      
+      this.backgroundAudio.addEventListener('error', (e) => {
+        console.log('Background music error:', e);
+      });
+      
+      // For mobile: play after user interaction
+      await this.backgroundAudio.play();
+      console.log('Background music started');
     } catch (error) {
-      console.log('Background music failed to start:', error);
+      console.log('Background music failed to load:', error);
+      this.backgroundAudio = null;
     }
   }
 
   async playNarration(config: AudioConfig): Promise<string> {
-    console.log('Starting narration with config:', config);
     await this.initializeSpeechSynthesis();
     
     const playbackId = Math.random().toString(36).substr(2, 9);
@@ -126,14 +121,13 @@ export class AudioService {
 
       // Create and configure speech utterance
       this.utterance = new SpeechSynthesisUtterance(config.text);
-      this.utterance.rate = 0.95; // Slightly slower for better comprehension
+      this.utterance.rate = 0.9;
       this.utterance.pitch = 1.0;
       this.utterance.volume = config.speechVolume || 1.0;
 
       const preferredVoice = this.getPreferredVoice();
       if (preferredVoice) {
         this.utterance.voice = preferredVoice;
-        console.log('Using voice:', preferredVoice.name);
       }
 
       return new Promise((resolve, reject) => {
@@ -149,7 +143,7 @@ export class AudioService {
         this.utterance.onend = () => {
           console.log('Speech synthesis ended');
           if (this.currentPlaybackId === playbackId) {
-            setTimeout(() => this.stop(), 100);
+            this.stop();
             resolve(playbackId);
           }
         };
@@ -162,13 +156,13 @@ export class AudioService {
           }
         };
 
-        // Ensure speech synthesis is ready
+        // For mobile compatibility, ensure speech synthesis is ready
         if (speechSynthesis.paused) {
           speechSynthesis.resume();
         }
 
-        console.log('Starting speech synthesis with text:', config.text.substring(0, 50) + '...');
         speechSynthesis.speak(this.utterance);
+        console.log('Speech synthesis queued');
       });
     } catch (error) {
       if (this.currentPlaybackId === playbackId) {
@@ -179,7 +173,6 @@ export class AudioService {
   }
 
   stop(): void {
-    console.log('Stopping audio service');
     this.currentPlaybackId = null;
 
     // Stop speech synthesis
@@ -189,23 +182,24 @@ export class AudioService {
     this.utterance = null;
 
     // Stop background music
-    if (this.backgroundOscillator) {
-      try {
-        this.backgroundOscillator.stop();
-      } catch (error) {
-        console.log('Error stopping background oscillator:', error);
-      }
-      this.backgroundOscillator = null;
+    if (this.backgroundAudio) {
+      this.backgroundAudio.pause();
+      this.backgroundAudio.currentTime = 0;
+      this.backgroundAudio = null;
     }
   }
 
   isPlaying(): boolean {
-    return speechSynthesis.speaking;
+    return speechSynthesis.speaking || (this.backgroundAudio && !this.backgroundAudio.paused);
   }
 
   setVolume(speechVolume: number, musicVolume?: number): void {
     if (this.utterance) {
       this.utterance.volume = Math.max(0, Math.min(1, speechVolume));
+    }
+    
+    if (this.backgroundAudio && musicVolume !== undefined) {
+      this.backgroundAudio.volume = Math.max(0, Math.min(1, musicVolume));
     }
   }
 
@@ -214,24 +208,14 @@ export class AudioService {
     try {
       await this.initializeAudioContext();
       
-      // Initialize speech synthesis
-      await this.initializeSpeechSynthesis();
+      // Play a silent audio to unlock mobile audio
+      const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAAAAAABAAA=');
+      await silentAudio.play();
+      silentAudio.pause();
       
-      // Try to play a very short silent utterance to unlock audio
-      if ('speechSynthesis' in window) {
-        const testUtterance = new SpeechSynthesisUtterance(' ');
-        testUtterance.volume = 0.01;
-        testUtterance.rate = 2;
-        speechSynthesis.speak(testUtterance);
-        
-        // Wait a moment then cancel
-        setTimeout(() => speechSynthesis.cancel(), 100);
-      }
-      
-      console.log('Mobile audio unlocked successfully');
+      console.log('Mobile audio unlocked');
     } catch (error) {
       console.log('Failed to unlock mobile audio:', error);
-      throw error;
     }
   }
 }

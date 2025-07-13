@@ -27,18 +27,6 @@ interface NewsItem {
   localRelevance?: number;
 }
 
-// Filter function to exclude lottery-related articles
-const isLotteryRelated = (title: string, description: string = '', content: string = ''): boolean => {
-  const lotteryKeywords = [
-    'lottery', 'lotto', 'jackpot', 'powerball', 'mega millions', 
-    'scratch card', 'scratch-off', 'lucky numbers', 'winning numbers',
-    'lottery winner', 'lottery jackpot', 'lottery draw', 'lottery ticket'
-  ];
-  
-  const textToCheck = `${title} ${description} ${content}`.toLowerCase();
-  return lotteryKeywords.some(keyword => textToCheck.includes(keyword));
-};
-
 // Enhanced RSS feed fetcher with CORS proxy fallback
 async function fetchRSSWithFallback(url: string, sourceName: string, timeout = 15000): Promise<any[]> {
   const corsProxies = [
@@ -124,6 +112,7 @@ serve(async (req) => {
 
     let articles: any[] = [];
 
+    // Try multiple sources in parallel for diversity
     const fetchPromises = [];
 
     // NewsAPI - US and India
@@ -202,34 +191,21 @@ serve(async (req) => {
       }
     });
 
-    // Filter out lottery-related articles
-    const filteredArticles = articles.filter(article => {
-      const title = article.title || article.headline || '';
-      const description = article.description || '';
-      const content = article.content || '';
-      
-      const isLottery = isLotteryRelated(title, description, content);
-      if (isLottery) {
-        console.log(`Filtered out lottery article: ${title}`);
-      }
-      return !isLottery;
-    });
-
-    if (filteredArticles.length === 0) {
-      console.warn('No articles found after filtering, returning empty array');
+    if (articles.length === 0) {
+      console.warn('No articles found from any news source, returning empty array');
       return new Response(
         JSON.stringify({ news: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Total articles after filtering: ${filteredArticles.length} (filtered out ${articles.length - filteredArticles.length} lottery articles)`);
+    console.log(`Total articles collected: ${articles.length}`);
 
     const locationString = city && country ? `${city}, ${country}` : country || '';
 
     // Transform articles with full content extraction
     const transformedNews: NewsItem[] = await Promise.all(
-      filteredArticles.slice(0, pageSize).map(async (article, index) => {
+      articles.slice(0, pageSize).map(async (article, index) => {
         const headline = cleanGarbageText(article.title || article.headline || 'Breaking News');
         const content = cleanGarbageText(article.content || article.snippet || '');
         const description = cleanGarbageText(article.description || '');
@@ -257,7 +233,7 @@ serve(async (req) => {
         const cleanQuote = cleanGarbageText((description || fullContent).substring(0, 200));
         const finalQuote = cleanQuote + (cleanQuote.length >= 200 ? '...' : '');
         
-        // ALWAYS prefer original image, only use placeholder as absolute fallback
+        // Use original image or contextual placeholder
         const imageUrl = originalImage || getContextualPlaceholder(headline, description);
         
         return {
@@ -278,7 +254,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Returning ${transformedNews.length} cleaned news articles with full content (lottery articles filtered out)`);
+    console.log(`Returning ${transformedNews.length} cleaned news articles with full content`);
 
     return new Response(
       JSON.stringify({ news: transformedNews }),

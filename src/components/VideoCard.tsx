@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -8,8 +7,7 @@ import {
   Clock,
   MapPin,
   User,
-  ExternalLink,
-  Play
+  ExternalLink
 } from 'lucide-react';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
@@ -19,7 +17,6 @@ import SummarySelector from './features/SummarySelector';
 import VideoPlayer from './VideoPlayer';
 import { useVideoContent } from '@/hooks/useVideoContent';
 import { useRelatedArticles } from '@/hooks/useRelatedArticles';
-import { useVideoGeneration } from '@/hooks/useVideoGeneration';
 
 interface News {
   id: string;
@@ -60,9 +57,8 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   
   const { trackInteraction } = useUserTracking();
   const { user } = useAuth();
-  const { data: videoContent, refetch: refetchVideoContent } = useVideoContent(news.id);
+  const { data: videoContent } = useVideoContent(news.id);
   const { data: relatedArticles } = useRelatedArticles(news.clusterId);
-  const videoGeneration = useVideoGeneration();
 
   useEffect(() => {
     if (isActive && user) {
@@ -73,28 +69,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       });
     }
   }, [isActive, news.id, trackInteraction, user]);
-
-  // Auto-generate video content when card becomes active
-  useEffect(() => {
-    if (isActive && !videoContent && !videoGeneration.isPending) {
-      console.log('Auto-generating video for active article:', news.id);
-      videoGeneration.mutate({
-        articleId: news.id,
-        title: news.headline,
-        content: currentContent,
-        imageUrl: news.imageUrl
-      });
-    }
-  }, [isActive, videoContent, news, currentContent, videoGeneration]);
-
-  // Refetch video content when generation completes
-  useEffect(() => {
-    if (videoGeneration.isSuccess) {
-      setTimeout(() => {
-        refetchVideoContent();
-      }, 1000);
-    }
-  }, [videoGeneration.isSuccess, refetchVideoContent]);
 
   const togglePlayPause = () => {
     setIsPlaying(!isPlaying);
@@ -124,6 +98,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       }
     } else {
       await navigator.clipboard.writeText(news.sourceUrl || window.location.href);
+      // Could add toast notification here
     }
     
     if (user) {
@@ -166,16 +141,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const handleSummaryChange = (summary: string, type: string) => {
     setCurrentContent(summary);
     setSummaryType(type);
-    
-    // Regenerate video with new content
-    if (isActive) {
-      videoGeneration.mutate({
-        articleId: news.id,
-        title: news.headline,
-        content: summary,
-        imageUrl: news.imageUrl
-      });
-    }
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -187,9 +152,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
-
-  const hasRelatedArticles = news.clusterId && relatedArticles && relatedArticles.length > 0;
-  const isGeneratingVideo = videoGeneration.isPending;
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -204,126 +166,107 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         className="absolute inset-0"
       />
 
-      {/* Video generation loading overlay */}
-      {isGeneratingVideo && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
-          <div className="text-white text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
-              <Play className="w-8 h-8" />
-            </div>
-            <p className="text-lg font-medium">Generating Video...</p>
-            <p className="text-sm text-white/70 mt-2">Creating visuals, narration, and effects</p>
-          </div>
-        </div>
-      )}
-
-      {/* Content Overlay */}
+      {/* Content Overlay - Optimized for mobile */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20">
-        <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 md:pb-4" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
-          <div className="space-y-3 max-h-[60vh] flex flex-col">
+        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-4 pb-safe">
 
-            {/* Summary Selector */}
-            <div className="flex-shrink-0">
-              <SummarySelector
-                articleId={news.id}
-                content={news.fullContent || news.tldr}
-                onSummaryChange={handleSummaryChange}
-              />
+          {/* Summary Selector */}
+          <SummarySelector
+            articleId={news.id}
+            content={news.fullContent || news.tldr}
+            onSummaryChange={handleSummaryChange}
+          />
+
+          {/* Article Content */}
+          <div className="space-y-3">
+            <h1 className="text-white text-lg md:text-xl font-bold leading-tight">
+              {news.headline}
+            </h1>
+            
+            <div className="text-white/90 text-sm md:text-base leading-relaxed max-h-36 md:max-h-44 overflow-y-auto">
+              {currentContent}
             </div>
 
-            {/* Article Content */}
-            <div className="flex-1 min-h-0 space-y-3">
-              <h1 className="text-white text-lg md:text-xl font-bold leading-tight line-clamp-3">
-                {news.headline}
-              </h1>
-              
-              <div className="text-white/90 text-sm md:text-base leading-relaxed overflow-y-auto max-h-32 md:max-h-40 scrollbar-hide">
-                {currentContent}
-              </div>
-
-              {/* Article Meta */}
-              <div className="flex items-center gap-2 text-white/70 text-xs flex-wrap">
-                {news.author && (
-                  <div className="flex items-center gap-1">
-                    <User className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate max-w-24">{news.author}</span>
-                  </div>
-                )}
-                {news.publishedAt && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 flex-shrink-0" />
-                    <span className="whitespace-nowrap">{formatTimeAgo(news.publishedAt)}</span>
-                  </div>
-                )}
-                {news.localRelevance && news.localRelevance > 0.5 && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 flex-shrink-0" />
-                    <span>Local</span>
-                  </div>
-                )}
-              </div>
+            {/* Article Meta - Compact for mobile */}
+            <div className="flex items-center gap-3 text-white/70 text-xs">
+              {news.author && (
+                <div className="flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  <span className="truncate max-w-20">{news.author}</span>
+                </div>
+              )}
+              {news.publishedAt && (
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  <span>{formatTimeAgo(news.publishedAt)}</span>
+                </div>
+              )}
+              {news.localRelevance && news.localRelevance > 0.5 && (
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  <span>Local</span>
+                </div>
+              )}
             </div>
+          </div>
 
-            {/* Trust Scoring */}
-            <div className="flex-shrink-0">
-              <TrustScoring articleId={news.id} userId={user?.id} />
-            </div>
+          {/* Trust Scoring */}
+          <TrustScoring articleId={news.id} userId={user?.id} />
 
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between flex-shrink-0 pt-2">
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleLike}
-                  className={`flex items-center gap-1 px-2 py-1 h-8 ${
-                    isLiked ? 'text-red-400' : 'text-white/70'
-                  } hover:text-red-400`}
-                >
-                  <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                  <span className="text-xs hidden sm:inline">Like</span>
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleShare}
-                  className="flex items-center gap-1 px-2 py-1 h-8 text-white/70 hover:text-white"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span className="text-xs hidden sm:inline">Share</span>
-                </Button>
-                
-                {hasRelatedArticles && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleShowRelated}
-                    className="flex items-center gap-1 px-2 py-1 h-8 text-white/70 hover:text-white relative"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span className="text-xs hidden sm:inline">Related</span>
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></div>
-                  </Button>
-                )}
-              </div>
-
+          {/* Action Buttons - Mobile optimized */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 md:gap-4">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={handleReadOriginal}
-                className="bg-white/10 text-white border-white/20 hover:bg-white/20 flex items-center gap-1 px-2 py-1 h-8"
+                onClick={toggleLike}
+                className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 ${
+                  isLiked ? 'text-red-400' : 'text-white/70'
+                } hover:text-red-400`}
               >
-                <ExternalLink className="w-3 h-3" />
-                <span className="text-xs">Read</span>
+                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                <span className="text-xs md:text-sm">Like</span>
               </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleShare}
+                className="flex items-center gap-1 md:gap-2 px-2 md:px-3 text-white/70 hover:text-white"
+              >
+                <Share2 className="w-4 h-4" />
+                <span className="text-xs md:text-sm">Share</span>
+              </Button>
+              
+              {news.clusterId && relatedArticles && relatedArticles.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShowRelated}
+                  className="flex items-center gap-1 md:gap-2 px-2 md:px-3 text-white/70 hover:text-white"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span className="text-xs md:text-sm hidden md:inline">More Coverage</span>
+                  <span className="text-xs md:text-sm md:hidden">More</span>
+                </Button>
+              )}
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReadOriginal}
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 flex items-center gap-1 md:gap-2 px-2 md:px-3"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span className="text-xs md:text-sm">Original</span>
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Related Articles Modal */}
-      {showRelatedArticles && hasRelatedArticles && (
+      {showRelatedArticles && relatedArticles && relatedArticles.length > 0 && (
         <RelatedArticlesCarousel
           articles={relatedArticles}
           onClose={() => setShowRelatedArticles(false)}
