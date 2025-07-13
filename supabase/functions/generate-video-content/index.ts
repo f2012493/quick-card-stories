@@ -139,17 +139,29 @@ const classifyMood = (content: string): string => {
 };
 
 // Create video compilation metadata (for client-side assembly)
-const createVideoMetadata = async (images: any[], audioData: any, backgroundMusic: string, content: string) => {
+const createVideoMetadata = async (images: any[], audioData: any, backgroundMusic: string, content: string, originalImage?: string) => {
   const scenes = [];
   const wordsPerScene = Math.ceil(audioData.wordTimings.length / images.length);
   
-  for (let i = 0; i < images.length; i++) {
+  // Always use original article image as the first scene if available
+  const sceneImages = [...images];
+  if (originalImage) {
+    // Add original image as first image, ensuring it's properly formatted
+    sceneImages.unshift({
+      url: originalImage,
+      description: 'Original article image',
+      credit: 'Article source',
+      isOriginal: true
+    });
+  }
+  
+  for (let i = 0; i < sceneImages.length && i < Math.max(3, images.length); i++) {
     const startWordIndex = i * wordsPerScene;
     const endWordIndex = Math.min((i + 1) * wordsPerScene, audioData.wordTimings.length);
     const sceneWords = audioData.wordTimings.slice(startWordIndex, endWordIndex);
     
     scenes.push({
-      image: images[i],
+      image: sceneImages[i],
       words: sceneWords,
       startTime: sceneWords[0]?.start || 0,
       endTime: sceneWords[sceneWords.length - 1]?.end || audioData.duration,
@@ -173,7 +185,7 @@ serve(async (req) => {
   try {
     const { articleId, title, content, imageUrl }: VideoGenerationRequest = await req.json();
     
-    console.log('Generating video content for article ID:', articleId, 'Type:', typeof articleId);
+    console.log('Generating video content for article ID:', articleId, 'with original image:', imageUrl);
 
     // Check if video content already exists using the TEXT-based article_id
     const { data: existing, error: queryError } = await supabase
@@ -203,9 +215,9 @@ serve(async (req) => {
     
     console.log('Searching images for:', searchQuery);
 
-    // Step 2: Get images from Unsplash
-    const images = await getImagesFromUnsplash(searchQuery);
-    console.log('Found', images.length, 'images');
+    // Step 2: Get images from Unsplash (these will be additional images)
+    const additionalImages = await getImagesFromUnsplash(searchQuery);
+    console.log('Found', additionalImages.length, 'additional images');
     
     // Step 3: Generate audio narration with timing
     const audioData = await generateAudioNarration(content);
@@ -216,9 +228,9 @@ serve(async (req) => {
     const backgroundMusic = await getBackgroundMusic(mood);
     console.log('Selected background music for mood:', mood);
     
-    // Step 5: Create video compilation metadata
-    const videoMetadata = await createVideoMetadata(images, audioData, backgroundMusic, content);
-    console.log('Created video metadata with', videoMetadata.scenes.length, 'scenes');
+    // Step 5: Create video compilation metadata with original image prioritized
+    const videoMetadata = await createVideoMetadata(additionalImages, audioData, backgroundMusic, content, imageUrl);
+    console.log('Created video metadata with', videoMetadata.scenes.length, 'scenes, original image used:', !!imageUrl);
 
     // Store video content with the TEXT-based article ID
     const { data: videoRecord, error: insertError } = await supabase
@@ -231,7 +243,9 @@ serve(async (req) => {
         subtitle_data: {
           scenes: videoMetadata.scenes,
           subtitles: videoMetadata.subtitles,
-          totalDuration: videoMetadata.totalDuration
+          totalDuration: videoMetadata.totalDuration,
+          hasOriginalImage: !!imageUrl,
+          backgroundMusicEnabled: true
         },
         video_duration_seconds: Math.ceil(videoMetadata.totalDuration),
         processing_status: 'completed'
@@ -244,7 +258,7 @@ serve(async (req) => {
       throw insertError;
     }
 
-    console.log('Video content generated successfully for article:', articleId);
+    console.log('Video content generated successfully for article:', articleId, 'with background music and original image priority');
 
     return new Response(
       JSON.stringify({ 
@@ -252,8 +266,9 @@ serve(async (req) => {
         videoId: videoRecord.id,
         metadata: videoMetadata,
         audioData,
-        images,
-        backgroundMusic
+        images: additionalImages,
+        backgroundMusic,
+        originalImageUsed: !!imageUrl
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

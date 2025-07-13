@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { Play, Pause, Volume2, VolumeX, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,7 +29,7 @@ const VideoPlayer = ({
   const [progress, setProgress] = useState(0);
   const [currentSubtitle, setCurrentSubtitle] = useState('');
   const [currentTime, setCurrentTime] = useState(0);
-  const [audioEnabled, setAudioEnabled] = useState(true); // Default to true
+  const [audioEnabled, setAudioEnabled] = useState(true);
   const [imagesLoaded, setImagesLoaded] = useState<{[key: string]: HTMLImageElement}>({});
 
   // Determine if we have real content or need client-side assembly
@@ -38,8 +37,9 @@ const VideoPlayer = ({
   const hasClientTTS = audioUrl === 'client-side-tts';
   const hasRealVideo = videoUrl && !videoUrl.includes('example.com') && !hasClientAssembly;
   const hasRealAudio = audioUrl && !audioUrl.includes('example.com') && !hasClientTTS;
+  const hasBackgroundMusic = subtitleData?.backgroundMusicEnabled || false;
 
-  // Pre-load images for client-side assembly
+  // Pre-load images for client-side assembly with priority for original image
   useEffect(() => {
     if (!hasClientAssembly || !subtitleData?.scenes) return;
 
@@ -67,7 +67,7 @@ const VideoPlayer = ({
               ctx.fillStyle = '#fff';
               ctx.font = '24px Arial';
               ctx.textAlign = 'center';
-              ctx.fillText('Image Loading...', canvas.width / 2, canvas.height / 2);
+              ctx.fillText('Loading...', canvas.width / 2, canvas.height / 2);
             }
             const fallbackImg = new Image();
             fallbackImg.src = canvas.toDataURL();
@@ -93,22 +93,7 @@ const VideoPlayer = ({
     loadImages();
   }, [hasClientAssembly, subtitleData, imagesLoaded]);
 
-  // Enable audio immediately on component mount
-  useEffect(() => {
-    const enableAudioImmediately = async () => {
-      try {
-        await audioService.enableAudioForMobile();
-        setAudioEnabled(true);
-        console.log('Audio enabled automatically');
-      } catch (error) {
-        console.log('Auto audio enable failed, will need user interaction:', error);
-      }
-    };
-
-    enableAudioImmediately();
-  }, []);
-
-  // Client-side video assembly with improved image handling
+  // Client-side video assembly with improved image handling and original image priority
   useEffect(() => {
     if (!hasClientAssembly || !subtitleData?.scenes || !canvasRef.current) return;
 
@@ -136,7 +121,7 @@ const VideoPlayer = ({
       );
 
       if (currentScene) {
-        // Draw background image if available
+        // Draw background image if available (prioritizing original article image)
         const sceneImage = imagesLoaded[currentScene.image.url];
         if (sceneImage) {
           // Calculate aspect ratio to fit image properly
@@ -220,7 +205,7 @@ const VideoPlayer = ({
     };
   }, [hasClientAssembly, subtitleData, isActive, isPlaying, imagesLoaded]);
 
-  // Client-side TTS with improved audio handling
+  // Client-side TTS with background music support
   useEffect(() => {
     if (!hasClientTTS || !isActive || !subtitleData?.subtitles) return;
 
@@ -228,13 +213,13 @@ const VideoPlayer = ({
       if (isPlaying && !isMuted && audioEnabled) {
         try {
           const text = subtitleData.subtitles.map((word: any) => word.text).join(' ');
-          console.log('Starting TTS for text:', text.substring(0, 100) + '...');
+          console.log('Starting TTS with background music for text:', text.substring(0, 100) + '...');
           
           await audioService.playNarration({
             text,
             speechVolume: 0.8,
-            backgroundMusic: true,
-            musicVolume: 0.1
+            backgroundMusic: hasBackgroundMusic,
+            musicVolume: hasBackgroundMusic ? 0.2 : 0
           });
         } catch (error) {
           console.error('TTS playback failed:', error);
@@ -249,9 +234,8 @@ const VideoPlayer = ({
     return () => {
       audioService.stop();
     };
-  }, [hasClientTTS, isActive, isPlaying, isMuted, subtitleData, audioEnabled]);
+  }, [hasClientTTS, isActive, isPlaying, isMuted, subtitleData, audioEnabled, hasBackgroundMusic]);
 
-  // Regular video/audio handling
   useEffect(() => {
     const playMedia = async () => {
       if (isActive && isPlaying && hasRealVideo) {
@@ -443,6 +427,15 @@ const VideoPlayer = ({
           >
             {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </Button>
+        </div>
+      )}
+
+      {/* Background music indicator */}
+      {hasBackgroundMusic && hasClientTTS && (
+        <div className="absolute top-4 left-4">
+          <div className="bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1">
+            <p className="text-white text-xs">♪ Background Music</p>
+          </div>
         </div>
       )}
     </div>
