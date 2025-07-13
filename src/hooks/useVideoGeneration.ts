@@ -1,7 +1,6 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
 interface VideoGenerationParams {
   articleId: string;
@@ -28,15 +27,11 @@ export const useVideoGeneration = () => {
     },
     onSuccess: (data) => {
       console.log('Video generation successful:', data);
-      if (data.success) {
-        toast.success('Video content generated successfully!');
-      } else {
-        toast.info(data.message || 'Video content is ready');
-      }
+      // Removed toast notifications - video generation happens silently in background
     },
     onError: (error: any) => {
       console.error('Video generation failed:', error);
-      toast.error('Failed to generate video content: ' + (error.message || 'Unknown error'));
+      // Removed toast notifications - errors are logged but not shown to user
     }
   });
 };
