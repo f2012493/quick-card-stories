@@ -13,11 +13,7 @@ export class AudioService {
   private isInitialized = false;
   private currentPlaybackId: string | null = null;
   private audioContext: AudioContext | null = null;
-
-  // Free background music URLs (using more reliable sources)
-  private backgroundTracks = [
-    'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmUhBSuBzvLZiTUIGmm98OScTgwOUarm7bllHgU2jdXzzn0vBSF+zO/eizEIHm3A7+OZURE='
-  ];
+  private backgroundOscillator: OscillatorNode | null = null;
 
   private async initializeAudioContext() {
     if (!this.audioContext) {
@@ -49,6 +45,9 @@ export class AudioService {
           console.log('Voices loaded:', speechSynthesis.getVoices().length);
           this.isInitialized = true;
         });
+        
+        // Wait a bit for voices to load
+        await new Promise(resolve => setTimeout(resolve, 100));
       } else {
         this.isInitialized = true;
       }
@@ -66,7 +65,9 @@ export class AudioService {
         voice.name.includes('Microsoft') ||
         voice.name.includes('Natural') ||
         voice.name.includes('Samantha') ||
-        voice.name.includes('Alex')
+        voice.name.includes('Alex') ||
+        voice.name.includes('Karen') ||
+        voice.name.includes('Daniel')
       )
     );
 
@@ -76,15 +77,14 @@ export class AudioService {
   }
 
   private async startBackgroundMusic(volume: number): Promise<void> {
-    if (this.backgroundAudio) {
-      this.backgroundAudio.pause();
-      this.backgroundAudio = null;
+    if (this.backgroundOscillator) {
+      this.backgroundOscillator.stop();
+      this.backgroundOscillator = null;
     }
 
     try {
       await this.initializeAudioContext();
       
-      // Use a simple tone instead of external URLs for reliability
       const audioContext = this.audioContext;
       if (audioContext) {
         const oscillator = audioContext.createOscillator();
@@ -93,24 +93,18 @@ export class AudioService {
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         
-        oscillator.frequency.setValueAtTime(220, audioContext.currentTime); // A3 note
+        // Create a subtle ambient tone
+        oscillator.frequency.setValueAtTime(110, audioContext.currentTime); // A2 note
         oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(volume * 0.1, audioContext.currentTime); // Very low volume
+        gainNode.gain.setValueAtTime(volume * 0.05, audioContext.currentTime); // Very subtle
         
         oscillator.start();
+        this.backgroundOscillator = oscillator;
         
-        // Store reference for cleanup
-        this.backgroundAudio = { 
-          pause: () => oscillator.stop(),
-          currentTime: 0,
-          paused: false 
-        } as any;
-        
-        console.log('Background tone started');
+        console.log('Background music started with volume:', volume * 0.05);
       }
     } catch (error) {
       console.log('Background music failed to start:', error);
-      this.backgroundAudio = null;
     }
   }
 
@@ -132,13 +126,14 @@ export class AudioService {
 
       // Create and configure speech utterance
       this.utterance = new SpeechSynthesisUtterance(config.text);
-      this.utterance.rate = 0.9;
+      this.utterance.rate = 0.95; // Slightly slower for better comprehension
       this.utterance.pitch = 1.0;
       this.utterance.volume = config.speechVolume || 1.0;
 
       const preferredVoice = this.getPreferredVoice();
       if (preferredVoice) {
         this.utterance.voice = preferredVoice;
+        console.log('Using voice:', preferredVoice.name);
       }
 
       return new Promise((resolve, reject) => {
@@ -154,7 +149,7 @@ export class AudioService {
         this.utterance.onend = () => {
           console.log('Speech synthesis ended');
           if (this.currentPlaybackId === playbackId) {
-            setTimeout(() => this.stop(), 100); // Small delay before cleanup
+            setTimeout(() => this.stop(), 100);
             resolve(playbackId);
           }
         };
@@ -167,7 +162,7 @@ export class AudioService {
           }
         };
 
-        // For mobile compatibility, ensure speech synthesis is ready
+        // Ensure speech synthesis is ready
         if (speechSynthesis.paused) {
           speechSynthesis.resume();
         }
@@ -194,23 +189,23 @@ export class AudioService {
     this.utterance = null;
 
     // Stop background music
-    if (this.backgroundAudio) {
-      this.backgroundAudio.pause();
-      this.backgroundAudio = null;
+    if (this.backgroundOscillator) {
+      try {
+        this.backgroundOscillator.stop();
+      } catch (error) {
+        console.log('Error stopping background oscillator:', error);
+      }
+      this.backgroundOscillator = null;
     }
   }
 
   isPlaying(): boolean {
-    return speechSynthesis.speaking || (this.backgroundAudio && !this.backgroundAudio.paused);
+    return speechSynthesis.speaking;
   }
 
   setVolume(speechVolume: number, musicVolume?: number): void {
     if (this.utterance) {
       this.utterance.volume = Math.max(0, Math.min(1, speechVolume));
-    }
-    
-    if (this.backgroundAudio && musicVolume !== undefined) {
-      this.backgroundAudio.volume = Math.max(0, Math.min(1, musicVolume));
     }
   }
 
@@ -219,14 +214,24 @@ export class AudioService {
     try {
       await this.initializeAudioContext();
       
-      // Play a silent audio to unlock mobile audio
-      const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAAAAAABAAA=');
-      await silentAudio.play();
-      silentAudio.pause();
+      // Initialize speech synthesis
+      await this.initializeSpeechSynthesis();
       
-      console.log('Mobile audio unlocked');
+      // Try to play a very short silent utterance to unlock audio
+      if ('speechSynthesis' in window) {
+        const testUtterance = new SpeechSynthesisUtterance(' ');
+        testUtterance.volume = 0.01;
+        testUtterance.rate = 2;
+        speechSynthesis.speak(testUtterance);
+        
+        // Wait a moment then cancel
+        setTimeout(() => speechSynthesis.cancel(), 100);
+      }
+      
+      console.log('Mobile audio unlocked successfully');
     } catch (error) {
       console.log('Failed to unlock mobile audio:', error);
+      throw error;
     }
   }
 }

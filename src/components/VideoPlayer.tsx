@@ -26,11 +26,12 @@ const VideoPlayer = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isMuted, setIsMuted] = useState(false); // Start unmuted
+  const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentSubtitle, setCurrentSubtitle] = useState('');
   const [currentTime, setCurrentTime] = useState(0);
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true); // Default to true
+  const [imagesLoaded, setImagesLoaded] = useState<{[key: string]: HTMLImageElement}>({});
 
   // Determine if we have real content or need client-side assembly
   const hasClientAssembly = videoUrl === 'client-assembled';
@@ -38,16 +39,76 @@ const VideoPlayer = ({
   const hasRealVideo = videoUrl && !videoUrl.includes('example.com') && !hasClientAssembly;
   const hasRealAudio = audioUrl && !audioUrl.includes('example.com') && !hasClientTTS;
 
-  // Enable audio on first user interaction
-  const enableAudio = async () => {
-    if (!audioEnabled) {
-      await audioService.enableAudioForMobile();
-      setAudioEnabled(true);
-      console.log('Audio enabled by user interaction');
-    }
-  };
+  // Pre-load images for client-side assembly
+  useEffect(() => {
+    if (!hasClientAssembly || !subtitleData?.scenes) return;
 
-  // Client-side video assembly
+    const loadImages = async () => {
+      const imagePromises = subtitleData.scenes.map((scene: any) => {
+        return new Promise<{url: string, image: HTMLImageElement}>((resolve, reject) => {
+          if (imagesLoaded[scene.image.url]) {
+            resolve({ url: scene.image.url, image: imagesLoaded[scene.image.url] });
+            return;
+          }
+
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => resolve({ url: scene.image.url, image: img });
+          img.onerror = () => {
+            console.warn('Failed to load image:', scene.image.url);
+            // Create a fallback colored rectangle
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 600;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = '#1a1a2e';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.fillStyle = '#fff';
+              ctx.font = '24px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText('Image Loading...', canvas.width / 2, canvas.height / 2);
+            }
+            const fallbackImg = new Image();
+            fallbackImg.src = canvas.toDataURL();
+            resolve({ url: scene.image.url, image: fallbackImg });
+          };
+          img.src = scene.image.url;
+        });
+      });
+
+      try {
+        const loadedImages = await Promise.all(imagePromises);
+        const imageMap: {[key: string]: HTMLImageElement} = {};
+        loadedImages.forEach(({ url, image }) => {
+          imageMap[url] = image;
+        });
+        setImagesLoaded(imageMap);
+        console.log('Images preloaded:', loadedImages.length);
+      } catch (error) {
+        console.error('Error preloading images:', error);
+      }
+    };
+
+    loadImages();
+  }, [hasClientAssembly, subtitleData, imagesLoaded]);
+
+  // Enable audio immediately on component mount
+  useEffect(() => {
+    const enableAudioImmediately = async () => {
+      try {
+        await audioService.enableAudioForMobile();
+        setAudioEnabled(true);
+        console.log('Audio enabled automatically');
+      } catch (error) {
+        console.log('Auto audio enable failed, will need user interaction:', error);
+      }
+    };
+
+    enableAudioImmediately();
+  }, []);
+
+  // Client-side video assembly with improved image handling
   useEffect(() => {
     if (!hasClientAssembly || !subtitleData?.scenes || !canvasRef.current) return;
 
@@ -75,25 +136,62 @@ const VideoPlayer = ({
       );
 
       if (currentScene) {
-        // Draw background gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, '#1a1a2e');
-        gradient.addColorStop(1, '#16213e');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Draw background image if available
+        const sceneImage = imagesLoaded[currentScene.image.url];
+        if (sceneImage) {
+          // Calculate aspect ratio to fit image properly
+          const aspectRatio = sceneImage.width / sceneImage.height;
+          const canvasAspectRatio = canvas.width / canvas.height;
+          
+          let drawWidth, drawHeight, drawX, drawY;
+          
+          if (aspectRatio > canvasAspectRatio) {
+            // Image is wider than canvas
+            drawHeight = canvas.height;
+            drawWidth = drawHeight * aspectRatio;
+            drawX = (canvas.width - drawWidth) / 2;
+            drawY = 0;
+          } else {
+            // Image is taller than canvas
+            drawWidth = canvas.width;
+            drawHeight = drawWidth / aspectRatio;
+            drawX = 0;
+            drawY = (canvas.height - drawHeight) / 2;
+          }
+          
+          ctx.drawImage(sceneImage, drawX, drawY, drawWidth, drawHeight);
+          
+          // Add overlay for better text readability
+          const gradient = ctx.createLinearGradient(0, canvas.height * 0.6, 0, canvas.height);
+          gradient.addColorStop(0, 'rgba(0,0,0,0)');
+          gradient.addColorStop(1, 'rgba(0,0,0,0.8)');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+          // Fallback gradient background
+          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+          gradient.addColorStop(0, '#1a1a2e');
+          gradient.addColorStop(1, '#16213e');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
         
-        // Draw text content
+        // Draw text content with better positioning
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 28px Arial';
+        ctx.font = 'bold 32px Arial';
         ctx.textAlign = 'center';
-        ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        ctx.shadowBlur = 4;
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.lineWidth = 2;
         
         const lines = currentScene.text.split(' ');
-        const wordsPerLine = 6;
+        const wordsPerLine = 5;
+        const startY = canvas.height * 0.75;
+        
         for (let i = 0; i < lines.length; i += wordsPerLine) {
           const line = lines.slice(i, i + wordsPerLine).join(' ');
-          ctx.fillText(line, canvas.width / 2, 280 + (i / wordsPerLine) * 45);
+          const y = startY + (i / wordsPerLine) * 50;
+          ctx.strokeText(line, canvas.width / 2, y);
+          ctx.fillText(line, canvas.width / 2, y);
         }
 
         // Update subtitles
@@ -120,19 +218,14 @@ const VideoPlayer = ({
     return () => {
       if (animationId) cancelAnimationFrame(animationId);
     };
-  }, [hasClientAssembly, subtitleData, isActive, isPlaying]);
+  }, [hasClientAssembly, subtitleData, isActive, isPlaying, imagesLoaded]);
 
   // Client-side TTS with improved audio handling
   useEffect(() => {
     if (!hasClientTTS || !isActive || !subtitleData?.subtitles) return;
 
     const playAudio = async () => {
-      if (!audioEnabled) {
-        console.log('Audio not enabled yet, waiting for user interaction');
-        return;
-      }
-
-      if (isPlaying && !isMuted) {
+      if (isPlaying && !isMuted && audioEnabled) {
         try {
           const text = subtitleData.subtitles.map((word: any) => word.text).join(' ');
           console.log('Starting TTS for text:', text.substring(0, 100) + '...');
@@ -231,18 +324,26 @@ const VideoPlayer = ({
   };
 
   const handlePlayPause = async () => {
-    await enableAudio(); // Enable audio on first interaction
+    if (!audioEnabled) {
+      try {
+        await audioService.enableAudioForMobile();
+        setAudioEnabled(true);
+        console.log('Audio enabled by user interaction');
+      } catch (error) {
+        console.log('Failed to enable audio:', error);
+      }
+    }
     onPlayPause();
   };
 
   return (
-    <div className={`relative w-full h-full ${className}`} onClick={enableAudio}>
-      {/* Audio permission notice */}
+    <div className={`relative w-full h-full ${className}`}>
+      {/* Audio permission notice - only show if audio failed to enable automatically */}
       {!audioEnabled && (hasClientTTS || hasRealAudio) && (
         <div className="absolute top-4 left-4 right-4 z-20">
           <div className="bg-black/70 backdrop-blur-sm rounded-lg p-3 text-center">
             <p className="text-white text-sm">
-              🔊 Tap anywhere to enable audio
+              🔊 Tap play to enable audio
             </p>
           </div>
         </div>
