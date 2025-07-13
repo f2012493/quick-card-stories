@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -186,42 +185,25 @@ serve(async (req) => {
     
     console.log('Generating video content for article:', articleId);
 
-    // Check if video content already exists
+    // Since we're dealing with mock data IDs that aren't UUIDs, we'll use a simple storage approach
+    // that doesn't rely on foreign key relationships to the articles table
+    
+    // Check if video content already exists using a simple text-based lookup
     const { data: existing } = await supabase
       .from('video_content')
       .select('id')
       .eq('article_id', articleId)
-      .single();
+      .maybeSingle();
 
     if (existing) {
+      console.log('Video content already exists for article:', articleId);
       return new Response(
         JSON.stringify({ message: 'Video content already exists', videoId: existing.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Mark article as video processing started
-    await supabase
-      .from('articles')
-      .update({ 
-        video_processing_started_at: new Date().toISOString(),
-        video_generated: false 
-      })
-      .eq('id', articleId);
-
-    // Create initial video content record
-    const { data: videoRecord, error: insertError } = await supabase
-      .from('video_content')
-      .insert({
-        article_id: articleId,
-        processing_status: 'processing'
-      })
-      .select()
-      .single();
-
-    if (insertError) {
-      throw insertError;
-    }
+    console.log('Creating new video content for article:', articleId);
 
     // Step 1: Extract entities for image search
     const entities = extractEntities(title + ' ' + content);
@@ -231,22 +213,27 @@ serve(async (req) => {
 
     // Step 2: Get images from Unsplash
     const images = await getImagesFromUnsplash(searchQuery);
+    console.log('Found', images.length, 'images');
     
     // Step 3: Generate audio narration with timing
     const audioData = await generateAudioNarration(content);
+    console.log('Generated audio data with duration:', audioData.duration);
     
     // Step 4: Get background music based on content mood
     const mood = classifyMood(content);
     const backgroundMusic = await getBackgroundMusic(mood);
+    console.log('Selected background music for mood:', mood);
     
     // Step 5: Create video compilation metadata
     const videoMetadata = await createVideoMetadata(images, audioData, backgroundMusic, content);
+    console.log('Created video metadata with', videoMetadata.scenes.length, 'scenes');
 
-    // Update video content with generated assets
-    const { error: updateError } = await supabase
+    // Store video content with the string-based article ID
+    const { data: videoRecord, error: insertError } = await supabase
       .from('video_content')
-      .update({
-        video_url: 'client-assembled', // Special marker for client-side assembly
+      .insert({
+        article_id: articleId, // Use the string ID directly
+        video_url: 'client-assembled',
         audio_url: audioData.audioUrl,
         background_music_url: backgroundMusic,
         subtitle_data: {
@@ -255,20 +242,15 @@ serve(async (req) => {
           totalDuration: videoMetadata.totalDuration
         },
         video_duration_seconds: Math.ceil(videoMetadata.totalDuration),
-        processing_status: 'completed',
-        updated_at: new Date().toISOString()
+        processing_status: 'completed'
       })
-      .eq('id', videoRecord.id);
+      .select()
+      .single();
 
-    if (updateError) {
-      throw updateError;
+    if (insertError) {
+      console.error('Error inserting video content:', insertError);
+      throw insertError;
     }
-
-    // Mark article as video generated
-    await supabase
-      .from('articles')
-      .update({ video_generated: true })
-      .eq('id', articleId);
 
     console.log('Video content generated successfully for article:', articleId);
 
