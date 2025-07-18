@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -14,8 +15,6 @@ import { useUserTracking } from '@/hooks/useUserTracking';
 import { useAuth } from '@/contexts/AuthContext';
 import TrustScoring from './features/TrustScoring';
 import SummarySelector from './features/SummarySelector';
-import VideoPlayer from './VideoPlayer';
-import { useVideoContent } from '@/hooks/useVideoContent';
 import { useRelatedArticles } from '@/hooks/useRelatedArticles';
 
 interface News {
@@ -50,14 +49,12 @@ interface VideoCardProps {
 
 const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(true);
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
   const [currentContent, setCurrentContent] = useState(news.fullContent || news.tldr);
   const [summaryType, setSummaryType] = useState('original');
   
   const { trackInteraction } = useUserTracking();
   const { user } = useAuth();
-  const { data: videoContent } = useVideoContent(news.id);
   const { data: relatedArticles } = useRelatedArticles(news.clusterId);
 
   useEffect(() => {
@@ -69,10 +66,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       });
     }
   }, [isActive, news.id, trackInteraction, user]);
-
-  const togglePlayPause = () => {
-    setIsPlaying(!isPlaying);
-  };
 
   const toggleLike = () => {
     setIsLiked(!isLiked);
@@ -155,18 +148,24 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* Video Player Background */}
-      <VideoPlayer
-        videoUrl={videoContent?.video_url}
-        audioUrl={videoContent?.audio_url}
-        isActive={isActive}
-        isPlaying={isPlaying}
-        onPlayPause={togglePlayPause}
-        subtitleData={videoContent?.subtitle_data}
-        className="absolute inset-0"
-      />
+      {/* Background Image */}
+      <div className="absolute inset-0">
+        {news.imageUrl ? (
+          <img
+            src={news.imageUrl}
+            alt={news.headline}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900" />
+        )}
+      </div>
 
-      {/* Content Overlay - Optimized for mobile */}
+      {/* Content Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20">
         <div className="absolute bottom-0 left-0 right-0 p-4 space-y-4 pb-safe">
 
@@ -187,7 +186,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
               {currentContent}
             </div>
 
-            {/* Article Meta - Compact for mobile */}
+            {/* Article Meta */}
             <div className="flex items-center gap-3 text-white/70 text-xs">
               {news.author && (
                 <div className="flex items-center gap-1">
@@ -213,7 +212,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
           {/* Trust Scoring */}
           <TrustScoring articleId={news.id} userId={user?.id} />
 
-          {/* Action Buttons - Mobile optimized */}
+          {/* Action Buttons */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 md:gap-4">
               <Button
