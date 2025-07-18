@@ -180,9 +180,9 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Content Area - Increased top padding for mobile address bar */}
       <div className="absolute inset-0 flex flex-col justify-end z-10">
-        <div className="px-4 pb-32 space-y-6">
+        <div className="px-4 pb-32 pt-20 space-y-6">
           
           {/* Headline - Prominently positioned */}
           <div className="space-y-3">
