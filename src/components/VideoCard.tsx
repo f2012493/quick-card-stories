@@ -6,7 +6,6 @@ import {
   Share2, 
   MessageCircle, 
   Clock,
-  MapPin,
   User,
   ExternalLink
 } from 'lucide-react';
@@ -168,22 +167,9 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
       </div>
 
-      {/* Top Header with Category Badge */}
+      {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-12">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="px-3 py-1 bg-primary/20 backdrop-blur-md border border-primary/30 rounded-full">
-              <span className="text-primary text-xs font-semibold uppercase tracking-wider">
-                {news.category}
-              </span>
-            </div>
-            {news.localRelevance && news.localRelevance > 0.5 && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 backdrop-blur-md border border-blue-500/30 rounded-full">
-                <MapPin className="w-3 h-3 text-blue-400" />
-                <span className="text-blue-400 text-xs font-medium">Local</span>
-              </div>
-            )}
-          </div>
+        <div className="flex items-center justify-end">
           <div className="flex items-center gap-2 text-white/60 text-xs">
             {news.publishedAt && (
               <div className="flex items-center gap-1">
@@ -226,7 +212,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
           {/* TL;DR Content Card */}
           <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-accent rounded-full"></div>
               <span className="text-accent text-sm font-semibold uppercase tracking-wider">
                 Summary
               </span>
