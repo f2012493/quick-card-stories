@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface TrackInteractionParams {
   userId: string;
   articleId: string;
-  interactionType: 'view' | 'click' | 'like' | 'share' | 'trust_vote' | 'related_articles';
+  interactionType: 'view' | 'click' | 'like' | 'share' | 'trust_vote' | 'related_articles' | 'story_cards';
   clusterId?: string;
   readDurationSeconds?: number;
 }
