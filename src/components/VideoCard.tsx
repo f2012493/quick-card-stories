@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -224,31 +223,29 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
           {/* Trust Scoring */}
           <TrustScoring articleId={news.id} userId={user?.id} />
 
-          {/* Action Buttons - Modern Design */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          {/* Action Buttons - Updated with icon-only design */}
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={toggleLike}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border transition-all duration-200 ${
+                className={`p-3 rounded-full backdrop-blur-md border transition-all duration-200 ${
                   isLiked 
                     ? 'bg-red-500/20 border-red-500/30 text-red-400' 
                     : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20 hover:text-white'
                 }`}
               >
-                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                <span className="text-sm">Like</span>
+                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
               </Button>
               
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleShare}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
+                className="p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
               >
-                <Share2 className="w-4 h-4" />
-                <span className="text-sm">Share</span>
+                <Share2 className="w-5 h-5" />
               </Button>
               
               {news.clusterId && relatedArticles && relatedArticles.length > 0 && (
@@ -256,20 +253,19 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                   variant="ghost"
                   size="sm"
                   onClick={handleShowRelated}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
+                  className="flex items-center gap-2 px-4 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  <span className="text-sm hidden sm:inline">More Coverage</span>
-                  <span className="text-sm sm:hidden">More</span>
+                  <MessageCircle className="w-5 h-5" />
+                  <span className="text-sm hidden sm:inline">More</span>
                 </Button>
               )}
             </div>
 
             <Button
               onClick={handleReadOriginal}
-              className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/80 text-primary-foreground rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="flex items-center gap-2 px-4 py-3 bg-primary hover:bg-primary/80 text-primary-foreground rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl max-w-[140px] truncate"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-4 h-4 flex-shrink-0" />
               <span className="text-sm">Read Full</span>
             </Button>
           </div>
