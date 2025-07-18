@@ -148,7 +148,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* Background Image */}
+      {/* Background Image with Enhanced Gradient */}
       <div className="absolute inset-0">
         {news.imageUrl ? (
           <img
@@ -163,11 +163,58 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900" />
         )}
+        {/* Enhanced gradient overlay for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
       </div>
 
-      {/* Content Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/20">
-        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-4 pb-safe">
+      {/* Top Header with Category Badge */}
+      <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-12">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="px-3 py-1 bg-primary/20 backdrop-blur-md border border-primary/30 rounded-full">
+              <span className="text-primary text-xs font-semibold uppercase tracking-wider">
+                {news.category}
+              </span>
+            </div>
+            {news.localRelevance && news.localRelevance > 0.5 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 backdrop-blur-md border border-blue-500/30 rounded-full">
+                <MapPin className="w-3 h-3 text-blue-400" />
+                <span className="text-blue-400 text-xs font-medium">Local</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-white/60 text-xs">
+            {news.publishedAt && (
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                <span>{formatTimeAgo(news.publishedAt)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="absolute inset-0 flex flex-col justify-end z-10">
+        <div className="px-4 pb-32 space-y-6">
+          
+          {/* Headline - Prominently positioned */}
+          <div className="space-y-3">
+            <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight tracking-tight">
+              {news.headline}
+            </h1>
+            
+            {/* Author info */}
+            {news.author && (
+              <div className="flex items-center gap-2 text-white/70">
+                <User className="w-4 h-4" />
+                <span className="text-sm font-medium">{news.author}</span>
+                <span className="text-white/50">•</span>
+                <span className="text-sm">{news.readTime}</span>
+              </div>
+            )}
+          </div>
 
           {/* Summary Selector */}
           <SummarySelector
@@ -176,65 +223,47 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
             onSummaryChange={handleSummaryChange}
           />
 
-          {/* Article Content */}
-          <div className="space-y-3">
-            <h1 className="text-white text-lg md:text-xl font-bold leading-tight">
-              {news.headline}
-            </h1>
-            
-            <div className="text-white/90 text-sm md:text-base leading-relaxed max-h-36 md:max-h-44 overflow-y-auto">
+          {/* TL;DR Content Card */}
+          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-accent rounded-full"></div>
+              <span className="text-accent text-sm font-semibold uppercase tracking-wider">
+                Summary
+              </span>
+            </div>
+            <p className="text-white/90 text-base leading-relaxed">
               {currentContent}
-            </div>
-
-            {/* Article Meta */}
-            <div className="flex items-center gap-3 text-white/70 text-xs">
-              {news.author && (
-                <div className="flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  <span className="truncate max-w-20">{news.author}</span>
-                </div>
-              )}
-              {news.publishedAt && (
-                <div className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  <span>{formatTimeAgo(news.publishedAt)}</span>
-                </div>
-              )}
-              {news.localRelevance && news.localRelevance > 0.5 && (
-                <div className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  <span>Local</span>
-                </div>
-              )}
-            </div>
+            </p>
           </div>
 
           {/* Trust Scoring */}
           <TrustScoring articleId={news.id} userId={user?.id} />
 
-          {/* Action Buttons */}
+          {/* Action Buttons - Modern Design */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 md:gap-4">
+            <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={toggleLike}
-                className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 ${
-                  isLiked ? 'text-red-400' : 'text-white/70'
-                } hover:text-red-400`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border transition-all duration-200 ${
+                  isLiked 
+                    ? 'bg-red-500/20 border-red-500/30 text-red-400' 
+                    : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20 hover:text-white'
+                }`}
               >
                 <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                <span className="text-xs md:text-sm">Like</span>
+                <span className="text-sm">Like</span>
               </Button>
               
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleShare}
-                className="flex items-center gap-1 md:gap-2 px-2 md:px-3 text-white/70 hover:text-white"
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
               >
                 <Share2 className="w-4 h-4" />
-                <span className="text-xs md:text-sm">Share</span>
+                <span className="text-sm">Share</span>
               </Button>
               
               {news.clusterId && relatedArticles && relatedArticles.length > 0 && (
@@ -242,23 +271,21 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                   variant="ghost"
                   size="sm"
                   onClick={handleShowRelated}
-                  className="flex items-center gap-1 md:gap-2 px-2 md:px-3 text-white/70 hover:text-white"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
                 >
                   <MessageCircle className="w-4 h-4" />
-                  <span className="text-xs md:text-sm hidden md:inline">More Coverage</span>
-                  <span className="text-xs md:text-sm md:hidden">More</span>
+                  <span className="text-sm hidden sm:inline">More Coverage</span>
+                  <span className="text-sm sm:hidden">More</span>
                 </Button>
               )}
             </div>
 
             <Button
-              variant="outline"
-              size="sm"
               onClick={handleReadOriginal}
-              className="bg-white/10 text-white border-white/20 hover:bg-white/20 flex items-center gap-1 md:gap-2 px-2 md:px-3"
+              className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/80 text-primary-foreground rounded-full font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
             >
-              <ExternalLink className="w-3 h-3" />
-              <span className="text-xs md:text-sm">Original</span>
+              <ExternalLink className="w-4 h-4" />
+              <span className="text-sm">Read Full</span>
             </Button>
           </div>
         </div>
