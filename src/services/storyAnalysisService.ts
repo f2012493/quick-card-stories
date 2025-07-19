@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface StoryNatureConfig {
@@ -83,22 +84,26 @@ export const storyNatureConfigs: Record<string, StoryNatureConfig> = {
 };
 
 class StoryAnalysisService {
-  // Trigger story analysis for an article
+  // Trigger story analysis for an article by calling the database function directly
   async analyzeArticle(articleId: string): Promise<{ success: boolean; analysisId?: string; error?: string }> {
     try {
-      const { data, error } = await supabase.functions.invoke('story-analyzer', {
-        body: { article_id: articleId }
+      console.log('Triggering story analysis for article:', articleId);
+      
+      // Call the database function to process the article
+      const { data, error } = await supabase.rpc('process_article_for_story_analysis', {
+        article_id: articleId
       });
 
       if (error) {
-        console.error('Error invoking story analyzer:', error);
+        console.error('Error calling process_article_for_story_analysis:', error);
         return { success: false, error: error.message };
       }
 
+      console.log('Story analysis triggered successfully:', data);
       return { 
-        success: data.success, 
-        analysisId: data.analysis_id,
-        error: data.error 
+        success: true, 
+        analysisId: data,
+        error: undefined 
       };
     } catch (error) {
       console.error('Error in analyzeArticle:', error);

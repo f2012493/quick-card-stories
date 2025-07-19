@@ -69,7 +69,7 @@ export const useStoryAnalysis = (articleId: string) => {
           }
 
           // Wait a moment for the analysis to complete, then fetch it
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 3000));
           
           const { data: newAnalysis, error: fetchError } = await supabase
             .from('story_analysis')
@@ -88,7 +88,7 @@ export const useStoryAnalysis = (articleId: string) => {
             .eq('article_id', articleId)
             .single();
 
-          if (fetchError) {
+          if (fetchError || !newAnalysis) {
             console.error('Error fetching new story analysis:', fetchError);
             return null;
           }
