@@ -111,11 +111,11 @@ class StoryAnalysisService {
     }
   }
 
-  // Get story analysis for an article
+  // Get story analysis for an article using type assertion to avoid TypeScript issues
   async getStoryAnalysis(articleId: string) {
     try {
       const { data, error } = await supabase
-        .from('story_analysis')
+        .from('story_analysis' as any)
         .select(`
           *,
           story_cards (
@@ -147,7 +147,7 @@ class StoryAnalysisService {
   async getStoryTemplates() {
     try {
       const { data, error } = await supabase
-        .from('story_templates')
+        .from('story_templates' as any)
         .select('*')
         .eq('is_active', true)
         .order('name');
