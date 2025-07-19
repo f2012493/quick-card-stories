@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -53,51 +54,20 @@ export const useStoryAnalysis = (articleId: string) => {
       }
 
       if (!analysis) {
-        // Try to process the article for story analysis
-        try {
-          const { data: processResult, error: processError } = await supabase
-            .rpc('process_article_for_story_analysis', { article_id: articleId });
-
-          if (processError) {
-            console.error('Error processing article for story analysis:', processError);
-            return null;
-          }
-
-          // Fetch the newly created analysis
-          const { data: newAnalysis, error: fetchError } = await supabase
-            .from('story_analysis')
-            .select(`
-              *,
-              story_cards (
-                id,
-                card_type,
-                title,
-                content,
-                visual_data,
-                card_order,
-                metadata
-              )
-            `)
-            .eq('article_id', articleId)
-            .single();
-
-          if (fetchError) {
-            console.error('Error fetching new story analysis:', fetchError);
-            return null;
-          }
-
-          return {
-            ...newAnalysis,
-            cards: (newAnalysis.story_cards || []).sort((a: StoryCard, b: StoryCard) => a.card_order - b.card_order)
-          };
-        } catch (error) {
-          console.error('Error in story analysis processing:', error);
-          return null;
-        }
+        console.log('No story analysis found for article:', articleId);
+        return null;
       }
 
+      // Convert the database result to match our StoryAnalysis interface
       return {
-        ...analysis,
+        id: analysis.id,
+        story_nature: analysis.story_nature || 'other',
+        confidence_score: analysis.confidence_score || 0,
+        key_entities: Array.isArray(analysis.key_entities) ? analysis.key_entities : [],
+        key_themes: Array.isArray(analysis.key_themes) ? analysis.key_themes : [],
+        sentiment_score: analysis.sentiment_score || 0.5,
+        complexity_level: analysis.complexity_level || 1,
+        estimated_read_time: analysis.estimated_read_time || 300,
         cards: (analysis.story_cards || []).sort((a: StoryCard, b: StoryCard) => a.card_order - b.card_order)
       };
     },
