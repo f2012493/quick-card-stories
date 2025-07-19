@@ -225,12 +225,22 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
           <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-accent text-sm font-semibold uppercase tracking-wider">
-                Summary
+                {news.storyBreakdown ? 'Story Breakdown' : 'Summary'}
               </span>
+              {news.storyNature && news.storyNature !== 'other' && (
+                <span className="text-xs bg-white/20 text-white/80 px-2 py-1 rounded-full">
+                  {news.storyNature.replace('_', ' ')}
+                </span>
+              )}
             </div>
             <p className="text-white/90 text-base leading-relaxed">
-              {currentContent}
+              {news.storyBreakdown || currentContent}
             </p>
+            {news.analysisConfidence && news.analysisConfidence > 0.8 && (
+              <div className="text-xs text-white/50">
+                AI-enhanced explanation
+              </div>
+            )}
           </div>
 
           {/* Trust Scoring */}

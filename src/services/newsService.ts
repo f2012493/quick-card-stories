@@ -19,6 +19,9 @@ interface NewsItem {
   trustScore?: number;
   localRelevance?: number;
   contextualInsights?: string[];
+  storyBreakdown?: string;
+  storyNature?: string;
+  analysisConfidence?: number;
   contextualInfo?: {
     topic: string;
     backgroundInfo: string[];
