@@ -273,15 +273,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                 </Button>
               )}
               
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleShowStoryCards}
-                className="flex items-center gap-2 px-4 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
-              >
-                <MessageCircle className="w-5 h-5" />
-                <span className="text-sm hidden sm:inline">Cards</span>
-              </Button>
             </div>
 
             <Button
