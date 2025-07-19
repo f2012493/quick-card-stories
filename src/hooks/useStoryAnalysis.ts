@@ -1,6 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { storyAnalysisService } from '@/services/storyAnalysisService';
 
 export interface StoryCard {
   id: string;
@@ -30,7 +31,9 @@ export const useStoryAnalysis = (articleId: string) => {
     queryFn: async (): Promise<StoryAnalysis | null> => {
       if (!articleId) return null;
 
-      // Get story analysis with cards
+      console.log('Fetching story analysis for article:', articleId);
+
+      // First, try to get existing story analysis
       const { data: analysis, error } = await supabase
         .from('story_analysis')
         .select(`
@@ -53,9 +56,58 @@ export const useStoryAnalysis = (articleId: string) => {
         return null;
       }
 
+      // If no analysis exists, trigger story analysis
       if (!analysis) {
-        console.log('No story analysis found for article:', articleId);
-        return null;
+        console.log('No story analysis found, triggering analysis for article:', articleId);
+        
+        try {
+          const result = await storyAnalysisService.analyzeArticle(articleId);
+          
+          if (!result.success) {
+            console.error('Failed to analyze article:', result.error);
+            return null;
+          }
+
+          // Wait a moment for the analysis to complete, then fetch it
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          const { data: newAnalysis, error: fetchError } = await supabase
+            .from('story_analysis')
+            .select(`
+              *,
+              story_cards (
+                id,
+                card_type,
+                title,
+                content,
+                visual_data,
+                card_order,
+                metadata
+              )
+            `)
+            .eq('article_id', articleId)
+            .single();
+
+          if (fetchError) {
+            console.error('Error fetching new story analysis:', fetchError);
+            return null;
+          }
+
+          return {
+            id: newAnalysis.id,
+            story_nature: newAnalysis.story_nature || 'other',
+            confidence_score: newAnalysis.confidence_score || 0,
+            key_entities: Array.isArray(newAnalysis.key_entities) ? newAnalysis.key_entities : [],
+            key_themes: Array.isArray(newAnalysis.key_themes) ? newAnalysis.key_themes : [],
+            sentiment_score: newAnalysis.sentiment_score || 0.5,
+            complexity_level: newAnalysis.complexity_level || 1,
+            estimated_read_time: newAnalysis.estimated_read_time || 300,
+            cards: (newAnalysis.story_cards || []).sort((a: StoryCard, b: StoryCard) => a.card_order - b.card_order)
+          };
+        } catch (error) {
+          console.error('Error triggering story analysis:', error);
+          return null;
+        }
       }
 
       // Convert the database result to match our StoryAnalysis interface
@@ -74,5 +126,7 @@ export const useStoryAnalysis = (articleId: string) => {
     enabled: !!articleId,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: 2,
+    retryDelay: 3000,
   });
 };

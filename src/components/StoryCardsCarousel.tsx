@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, X, Clock, Users, TrendingUp, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Clock, Users, TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +15,7 @@ interface StoryCardsCarouselProps {
 
 const StoryCardsCarousel = ({ articleId, isOpen, onClose, articleTitle }: StoryCardsCarouselProps) => {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const { data: storyAnalysis, isLoading } = useStoryAnalysis(articleId);
+  const { data: storyAnalysis, isLoading, error, isError } = useStoryAnalysis(articleId);
 
   if (!isOpen) return null;
 
@@ -68,11 +69,14 @@ const StoryCardsCarousel = ({ articleId, isOpen, onClose, articleTitle }: StoryC
       <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
         <Card className="w-full max-w-2xl max-h-[80vh] bg-white">
           <CardContent className="p-6">
-            <div className="animate-pulse">
-              <div className="h-6 bg-gray-200 rounded mb-4"></div>
-              <div className="h-4 bg-gray-200 rounded mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded mb-2"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2">Analyzing Story...</h3>
+                <p className="text-gray-600">
+                  We're generating detailed story cards for this article. This may take a moment.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -80,14 +84,18 @@ const StoryCardsCarousel = ({ articleId, isOpen, onClose, articleTitle }: StoryC
     );
   }
 
-  if (!storyAnalysis || !storyAnalysis.cards || storyAnalysis.cards.length === 0) {
+  if (isError || !storyAnalysis || !storyAnalysis.cards || storyAnalysis.cards.length === 0) {
     return (
       <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
         <Card className="w-full max-w-2xl bg-white">
           <CardContent className="p-6 text-center">
-            <h3 className="text-lg font-semibold mb-2">Story Analysis Unavailable</h3>
+            <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Story Analysis Processing</h3>
             <p className="text-gray-600 mb-4">
-              We couldn't generate detailed story cards for this article yet.
+              {isError 
+                ? "We encountered an issue while analyzing this story. Please try again later."
+                : "Story analysis is being generated. Please check back in a few moments for detailed story cards."
+              }
             </p>
             <Button onClick={onClose}>Close</Button>
           </CardContent>
