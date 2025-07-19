@@ -110,6 +110,11 @@ class StoryAnalysisService {
         return { success: false, error: error.message };
       }
 
+      if (!data || !data.id) {
+        console.error('No data returned from story analysis creation');
+        return { success: false, error: 'Failed to create story analysis' };
+      }
+
       // Create basic story cards
       const storyCards = [
         {
