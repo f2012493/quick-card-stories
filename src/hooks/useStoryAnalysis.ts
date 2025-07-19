@@ -33,95 +33,80 @@ export const useStoryAnalysis = (articleId: string) => {
 
       console.log('Fetching story analysis for article:', articleId);
 
-      // Use raw SQL to avoid TypeScript issues with new tables
-      const { data: analysis, error } = await supabase.rpc('get_story_analysis_with_cards', {
-        article_id: articleId
-      });
+      try {
+        // Try to get existing story analysis
+        const { data: analysis, error } = await supabase
+          .from('story_analysis' as any)
+          .select(`
+            *,
+            story_cards (
+              id,
+              card_type,
+              title,
+              content,
+              visual_data,
+              card_order,
+              metadata
+            )
+          `)
+          .eq('article_id', articleId)
+          .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching story analysis:', error);
-        
-        // If the function doesn't exist, try direct table access
-        try {
-          const { data: directAnalysis, error: directError } = await supabase
-            .from('story_analysis' as any)
-            .select(`
-              *,
-              story_cards (
-                id,
-                card_type,
-                title,
-                content,
-                visual_data,
-                card_order,
-                metadata
-              )
-            `)
-            .eq('article_id', articleId)
-            .single();
-
-          if (directError && directError.code !== 'PGRST116') {
-            console.error('Direct query also failed:', directError);
-            return null;
-          }
-
-          if (!directAnalysis) {
-            // Trigger analysis if none exists
-            console.log('No story analysis found, triggering analysis for article:', articleId);
-            
-            try {
-              const result = await storyAnalysisService.analyzeArticle(articleId);
-              
-              if (!result.success) {
-                console.error('Failed to analyze article:', result.error);
-                return null;
-              }
-
-              // Wait for analysis to complete
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              
-              // Try fetching again
-              const { data: newAnalysis, error: fetchError } = await supabase
-                .from('story_analysis' as any)
-                .select(`
-                  *,
-                  story_cards (
-                    id,
-                    card_type,
-                    title,
-                    content,
-                    visual_data,
-                    card_order,
-                    metadata
-                  )
-                `)
-                .eq('article_id', articleId)
-                .single();
-
-              if (fetchError || !newAnalysis) {
-                console.error('Error fetching new story analysis:', fetchError);
-                return null;
-              }
-
-              return formatStoryAnalysis(newAnalysis);
-            } catch (error) {
-              console.error('Error triggering story analysis:', error);
-              return null;
-            }
-          }
-
-          return formatStoryAnalysis(directAnalysis);
-        } catch (fallbackError) {
-          console.error('Fallback query failed:', fallbackError);
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching story analysis:', error);
           return null;
         }
-      }
 
-      if (analysis && Array.isArray(analysis) && analysis.length > 0) {
-        return formatStoryAnalysis(analysis[0]);
-      }
+        if (!analysis) {
+          // Trigger analysis if none exists
+          console.log('No story analysis found, triggering analysis for article:', articleId);
+          
+          try {
+            const result = await storyAnalysisService.analyzeArticle(articleId);
+            
+            if (!result.success) {
+              console.error('Failed to analyze article:', result.error);
+              return null;
+            }
 
-      return null;
+            // Wait for analysis to complete
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Try fetching again
+            const { data: newAnalysis, error: fetchError } = await supabase
+              .from('story_analysis' as any)
+              .select(`
+                *,
+                story_cards (
+                  id,
+                  card_type,
+                  title,
+                  content,
+                  visual_data,
+                  card_order,
+                  metadata
+                )
+              `)
+              .eq('article_id', articleId)
+              .single();
+
+            if (fetchError || !newAnalysis) {
+              console.error('Error fetching new story analysis:', fetchError);
+              return null;
+            }
+
+            return formatStoryAnalysis(newAnalysis);
+          } catch (error) {
+            console.error('Error triggering story analysis:', error);
+            return null;
+          }
+        }
+
+        return formatStoryAnalysis(analysis);
+      } catch (error) {
+        console.error('Error in story analysis query:', error);
+        return null;
+      }
     },
     enabled: !!articleId,
     staleTime: 10 * 60 * 1000, // 10 minutes
