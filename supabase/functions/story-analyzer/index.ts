@@ -12,6 +12,8 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
+const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+
 // Enhanced story nature detection with more sophisticated patterns
 const detectStoryNature = (title: string, content: string, description: string = ''): string => {
   const fullText = `${title} ${description} ${content}`.toLowerCase();
@@ -166,8 +168,91 @@ const calculateSentiment = (text: string): number => {
   return positiveCount / totalWords;
 };
 
-// Generate enhanced card content based on story nature and card type
-const generateCardContent = (cardType: string, storyNature: string, title: string, content: string): string => {
+// Generate enhanced card content using Perplexity API
+const generateCardContent = async (cardType: string, storyNature: string, title: string, content: string): Promise<string> => {
+  if (!perplexityApiKey) {
+    console.warn('Perplexity API key not found, falling back to basic content');
+    return generateBasicCardContent(cardType, storyNature, title, content);
+  }
+
+  try {
+    const prompt = createPromptForCardType(cardType, storyNature, title, content);
+    
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${perplexityApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-sonar-small-128k-online',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a news analysis expert. Provide concise, factual, and insightful analysis based on the given information. Keep responses under 300 words.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        top_p: 0.9,
+        max_tokens: 400,
+        return_images: false,
+        return_related_questions: false,
+        frequency_penalty: 1,
+        presence_penalty: 0
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Perplexity API error:', response.statusText);
+      return generateBasicCardContent(cardType, storyNature, title, content);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content || generateBasicCardContent(cardType, storyNature, title, content);
+
+  } catch (error) {
+    console.error('Error calling Perplexity API:', error);
+    return generateBasicCardContent(cardType, storyNature, title, content);
+  }
+};
+
+// Create prompts for different card types
+const createPromptForCardType = (cardType: string, storyNature: string, title: string, content: string): string => {
+  const baseInfo = `Story: "${title}"\nContent: ${content.substring(0, 800)}\nStory Type: ${storyNature.replace('_', ' ')}`;
+  
+  switch (cardType) {
+    case 'overview':
+      return `${baseInfo}\n\nProvide a clear, concise overview of what happened in this story. Focus on the key facts and main points.`;
+    
+    case 'background':
+      return `${baseInfo}\n\nProvide relevant background context for this story. What led to this situation? What historical context is important?`;
+    
+    case 'key_players':
+      return `${baseInfo}\n\nIdentify and describe the key people, organizations, and stakeholders involved in this story.`;
+    
+    case 'timeline':
+      return `${baseInfo}\n\nCreate a timeline of events related to this story. What happened when?`;
+    
+    case 'impact_analysis':
+      return `${baseInfo}\n\nAnalyze the potential impact and implications of this story. Who will be affected and how?`;
+    
+    case 'public_reaction':
+      return `${baseInfo}\n\nDescribe the public and media reaction to this story. What are people saying?`;
+    
+    case 'next_steps':
+      return `${baseInfo}\n\nWhat are the likely next steps or future developments related to this story?`;
+    
+    default:
+      return `${baseInfo}\n\nProvide insightful analysis about this story for the "${cardType}" section.`;
+  }
+};
+
+// Fallback function for basic content generation
+const generateBasicCardContent = (cardType: string, storyNature: string, title: string, content: string): string => {
   const baseContent = content.substring(0, 500);
   
   switch (cardType) {
@@ -306,7 +391,8 @@ serve(async (req) => {
           processed_at: new Date().toISOString(),
           word_count: wordCount,
           entity_count: keyEntities.length,
-          theme_count: keyThemes.length
+          theme_count: keyThemes.length,
+          ai_enhanced: !!perplexityApiKey
         }
       })
       .select()
@@ -322,25 +408,32 @@ serve(async (req) => {
 
     // Generate story cards if template exists
     if (template && template.card_sequence) {
-      const cards = template.card_sequence.map((cardType: string, index: number) => ({
-        story_analysis_id: analysis.id,
-        card_type: cardType,
-        title: cardType === 'overview' ? 'What Happened' :
-               cardType === 'background' ? 'Background Context' :
-               cardType === 'key_players' ? 'Key Players' :
-               cardType === 'timeline' ? 'Timeline of Events' :
-               cardType === 'impact_analysis' ? 'Impact Analysis' :
-               cardType === 'public_reaction' ? 'Public Reaction' :
-               cardType === 'next_steps' ? 'What\'s Next' :
-               cardType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        content: generateCardContent(cardType, storyNature, article.title, article.content || ''),
-        card_order: index + 1,
-        metadata: {
-          generated_at: new Date().toISOString(),
-          story_nature: storyNature,
-          template_used: template.name
-        }
-      }));
+      const cardPromises = template.card_sequence.map(async (cardType: string, index: number) => {
+        const content = await generateCardContent(cardType, storyNature, article.title, article.content || '');
+        
+        return {
+          story_analysis_id: analysis.id,
+          card_type: cardType,
+          title: cardType === 'overview' ? 'What Happened' :
+                 cardType === 'background' ? 'Background Context' :
+                 cardType === 'key_players' ? 'Key Players' :
+                 cardType === 'timeline' ? 'Timeline of Events' :
+                 cardType === 'impact_analysis' ? 'Impact Analysis' :
+                 cardType === 'public_reaction' ? 'Public Reaction' :
+                 cardType === 'next_steps' ? 'What\'s Next' :
+                 cardType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          content: content,
+          card_order: index + 1,
+          metadata: {
+            generated_at: new Date().toISOString(),
+            story_nature: storyNature,
+            template_used: template.name,
+            ai_enhanced: !!perplexityApiKey
+          }
+        };
+      });
+
+      const cards = await Promise.all(cardPromises);
 
       const { error: cardsError } = await supabase
         .from('story_cards')
@@ -349,7 +442,7 @@ serve(async (req) => {
       if (cardsError) {
         console.error('Error creating story cards:', cardsError);
       } else {
-        console.log(`Created ${cards.length} story cards`);
+        console.log(`Created ${cards.length} story cards with ${perplexityApiKey ? 'Perplexity AI' : 'basic'} content`);
       }
     }
 
@@ -360,7 +453,8 @@ serve(async (req) => {
         success: true, 
         analysis_id: analysis.id,
         story_nature: storyNature,
-        card_count: template?.card_sequence?.length || 0
+        card_count: template?.card_sequence?.length || 0,
+        ai_enhanced: !!perplexityApiKey
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
