@@ -91,7 +91,7 @@ class StoryAnalysisService {
       
       // Create a basic story analysis entry
       const { data, error } = await supabase
-        .from('story_analysis' as any)
+        .from('story_analysis')
         .insert({
           article_id: articleId,
           story_nature: 'other',
@@ -110,7 +110,7 @@ class StoryAnalysisService {
         return { success: false, error: error.message };
       }
 
-      if (!data || !data.id) {
+      if (!data?.id) {
         console.error('No data returned from story analysis creation');
         return { success: false, error: 'Failed to create story analysis' };
       }
@@ -134,7 +134,7 @@ class StoryAnalysisService {
       ];
 
       const { error: cardsError } = await supabase
-        .from('story_cards' as any)
+        .from('story_cards')
         .insert(storyCards);
 
       if (cardsError) {
@@ -153,11 +153,11 @@ class StoryAnalysisService {
     }
   }
 
-  // Get story analysis for an article using type assertion to avoid TypeScript issues
+  // Get story analysis for an article
   async getStoryAnalysis(articleId: string) {
     try {
       const { data, error } = await supabase
-        .from('story_analysis' as any)
+        .from('story_analysis')
         .select(`
           *,
           story_cards (
@@ -189,7 +189,7 @@ class StoryAnalysisService {
   async getStoryTemplates() {
     try {
       const { data, error } = await supabase
-        .from('story_templates' as any)
+        .from('story_templates')
         .select('*')
         .eq('is_active', true)
         .order('name');

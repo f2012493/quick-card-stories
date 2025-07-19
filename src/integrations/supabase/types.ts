@@ -304,6 +304,103 @@ export type Database = {
           },
         ]
       }
+      story_analysis: {
+        Row: {
+          article_id: string | null
+          complexity_level: number | null
+          confidence_score: number | null
+          created_at: string | null
+          estimated_read_time: number | null
+          id: string
+          key_entities: Json | null
+          key_themes: string[] | null
+          sentiment_score: number | null
+          story_nature: string
+          updated_at: string | null
+        }
+        Insert: {
+          article_id?: string | null
+          complexity_level?: number | null
+          confidence_score?: number | null
+          created_at?: string | null
+          estimated_read_time?: number | null
+          id?: string
+          key_entities?: Json | null
+          key_themes?: string[] | null
+          sentiment_score?: number | null
+          story_nature?: string
+          updated_at?: string | null
+        }
+        Update: {
+          article_id?: string | null
+          complexity_level?: number | null
+          confidence_score?: number | null
+          created_at?: string | null
+          estimated_read_time?: number | null
+          id?: string
+          key_entities?: Json | null
+          key_themes?: string[] | null
+          sentiment_score?: number | null
+          story_nature?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_analysis_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_cards: {
+        Row: {
+          card_order: number | null
+          card_type: string
+          content: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          story_analysis_id: string | null
+          title: string
+          updated_at: string | null
+          visual_data: Json | null
+        }
+        Insert: {
+          card_order?: number | null
+          card_type: string
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          story_analysis_id?: string | null
+          title: string
+          updated_at?: string | null
+          visual_data?: Json | null
+        }
+        Update: {
+          card_order?: number | null
+          card_type?: string
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          story_analysis_id?: string | null
+          title?: string
+          updated_at?: string | null
+          visual_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_cards_story_analysis_id_fkey"
+            columns: ["story_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "story_analysis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       story_clusters: {
         Row: {
           article_count: number | null
@@ -369,6 +466,36 @@ export type Database = {
           status?: Database["public"]["Enums"]["cluster_status"] | null
           title?: string
           trending_regions?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      story_templates: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          template_config: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          template_config?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          template_config?: Json | null
           updated_at?: string | null
         }
         Relationships: []
