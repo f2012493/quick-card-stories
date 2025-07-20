@@ -63,6 +63,7 @@ export type Database = {
       }
       articles: {
         Row: {
+          analysis_confidence: number | null
           author: string | null
           category: string | null
           clickbait_score: number | null
@@ -81,6 +82,8 @@ export type Database = {
           region_tags: string[] | null
           source_id: string | null
           status: Database["public"]["Enums"]["article_status"] | null
+          story_breakdown: string | null
+          story_nature: string | null
           title: string
           title_embedding: string | null
           trust_score: number | null
@@ -90,6 +93,7 @@ export type Database = {
           video_processing_started_at: string | null
         }
         Insert: {
+          analysis_confidence?: number | null
           author?: string | null
           category?: string | null
           clickbait_score?: number | null
@@ -108,6 +112,8 @@ export type Database = {
           region_tags?: string[] | null
           source_id?: string | null
           status?: Database["public"]["Enums"]["article_status"] | null
+          story_breakdown?: string | null
+          story_nature?: string | null
           title: string
           title_embedding?: string | null
           trust_score?: number | null
@@ -117,6 +123,7 @@ export type Database = {
           video_processing_started_at?: string | null
         }
         Update: {
+          analysis_confidence?: number | null
           author?: string | null
           category?: string | null
           clickbait_score?: number | null
@@ -135,6 +142,8 @@ export type Database = {
           region_tags?: string[] | null
           source_id?: string | null
           status?: Database["public"]["Enums"]["article_status"] | null
+          story_breakdown?: string | null
+          story_nature?: string | null
           title?: string
           title_embedding?: string | null
           trust_score?: number | null
