@@ -32,6 +32,9 @@ interface News {
   clusterId?: string;
   contextualInsights?: string[];
   fullContent?: string;
+  storyBreakdown?: string;
+  storyNature?: string;
+  analysisConfidence?: number;
   contextualInfo?: {
     topic: string;
     backgroundInfo: string[];
