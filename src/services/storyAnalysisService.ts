@@ -84,12 +84,41 @@ export const storyNatureConfigs: Record<string, StoryNatureConfig> = {
 };
 
 class StoryAnalysisService {
-  // Trigger story analysis for an article by creating a basic analysis entry
+  // For non-UUID article IDs (from news feed), we can't store in the database
+  // So we just return a success response
   async analyzeArticle(articleId: string): Promise<{ success: boolean; analysisId?: string; error?: string }> {
     try {
       console.log('Triggering story analysis for article:', articleId);
       
-      // Create a basic story analysis entry
+      // Check if this is a UUID (database article) or string ID (news feed article)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(articleId);
+      
+      if (!isUUID) {
+        console.log('Non-UUID article ID, cannot store analysis in database');
+        return { 
+          success: true, 
+          analysisId: 'mock-' + articleId,
+          error: undefined 
+        };
+      }
+
+      // Check if analysis already exists
+      const { data: existing } = await supabase
+        .from('story_analysis')
+        .select('id')
+        .eq('article_id', articleId)
+        .single();
+
+      if (existing) {
+        console.log('Analysis already exists for article:', articleId);
+        return { 
+          success: true, 
+          analysisId: existing.id,
+          error: undefined 
+        };
+      }
+
+      // Create a basic story analysis entry for UUID articles
       const { data, error } = await supabase
         .from('story_analysis')
         .insert({
@@ -156,6 +185,14 @@ class StoryAnalysisService {
   // Get story analysis for an article
   async getStoryAnalysis(articleId: string) {
     try {
+      // Check if this is a UUID article first
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(articleId);
+      
+      if (!isUUID) {
+        console.log('Non-UUID article ID, cannot query story_analysis table');
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('story_analysis')
         .select(`

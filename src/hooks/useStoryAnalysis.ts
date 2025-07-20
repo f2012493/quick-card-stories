@@ -1,7 +1,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { storyAnalysisService } from '@/services/storyAnalysisService';
 
 export interface StoryCard {
   id: string;
@@ -34,9 +33,61 @@ export const useStoryAnalysis = (articleId: string) => {
       console.log('Fetching story analysis for article:', articleId);
 
       try {
-        // Try to get existing story analysis
+        // First, try to get the article with story_breakdown and story_nature
+        const { data: article, error: articleError } = await supabase
+          .from('articles')
+          .select('story_breakdown, story_nature, analysis_confidence')
+          .eq('id', articleId)
+          .single();
+
+        if (articleError && articleError.code !== 'PGRST116') {
+          console.error('Error fetching article:', articleError);
+          
+          // If UUID error, this might be a non-UUID article ID from the news feed
+          // In this case, we'll create a mock analysis based on available data
+          if (articleError.code === '22P02') {
+            console.log('Non-UUID article ID detected, creating mock analysis');
+            return {
+              id: 'mock-' + articleId,
+              story_nature: 'other',
+              confidence_score: 0.5,
+              key_entities: [],
+              key_themes: [],
+              sentiment_score: 0.5,
+              complexity_level: 1,
+              estimated_read_time: 300,
+              cards: []
+            };
+          }
+          return null;
+        }
+
+        // If we have article data with story breakdown, create analysis from it
+        if (article && (article.story_breakdown || article.story_nature)) {
+          return {
+            id: articleId,
+            story_nature: article.story_nature || 'other',
+            confidence_score: article.analysis_confidence || 0.5,
+            key_entities: [],
+            key_themes: [],
+            sentiment_score: 0.5,
+            complexity_level: 1,
+            estimated_read_time: 300,
+            cards: [{
+              id: 'breakdown-1',
+              card_type: 'overview',
+              title: 'Story Breakdown',
+              content: article.story_breakdown || 'No breakdown available',
+              visual_data: null,
+              card_order: 1,
+              metadata: {}
+            }]
+          };
+        }
+
+        // Try to get from story_analysis table for UUID articles
         const { data: analysis, error } = await supabase
-          .from('story_analysis' as any)
+          .from('story_analysis')
           .select(`
             *,
             story_cards (
@@ -57,52 +108,11 @@ export const useStoryAnalysis = (articleId: string) => {
           return null;
         }
 
-        if (!analysis) {
-          // Trigger analysis if none exists
-          console.log('No story analysis found, triggering analysis for article:', articleId);
-          
-          try {
-            const result = await storyAnalysisService.analyzeArticle(articleId);
-            
-            if (!result.success) {
-              console.error('Failed to analyze article:', result.error);
-              return null;
-            }
-
-            // Wait for analysis to complete
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            
-            // Try fetching again
-            const { data: newAnalysis, error: fetchError } = await supabase
-              .from('story_analysis' as any)
-              .select(`
-                *,
-                story_cards (
-                  id,
-                  card_type,
-                  title,
-                  content,
-                  visual_data,
-                  card_order,
-                  metadata
-                )
-              `)
-              .eq('article_id', articleId)
-              .single();
-
-            if (fetchError || !newAnalysis) {
-              console.error('Error fetching new story analysis:', fetchError);
-              return null;
-            }
-
-            return formatStoryAnalysis(newAnalysis);
-          } catch (error) {
-            console.error('Error triggering story analysis:', error);
-            return null;
-          }
+        if (analysis) {
+          return formatStoryAnalysis(analysis);
         }
 
-        return formatStoryAnalysis(analysis);
+        return null;
       } catch (error) {
         console.error('Error in story analysis query:', error);
         return null;
@@ -111,8 +121,8 @@ export const useStoryAnalysis = (articleId: string) => {
     enabled: !!articleId,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
-    retry: 2,
-    retryDelay: 3000,
+    retry: 1,
+    retryDelay: 1000,
   });
 };
 
