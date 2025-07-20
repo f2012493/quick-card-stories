@@ -1,4 +1,5 @@
 import { contextService } from './contextService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface NewsSource {
   name: string;
@@ -111,7 +112,19 @@ class NewsService {
     console.log('Fetching diverse and cleaned news from multiple sources...');
     
     try {
-      // Primary: Use Supabase edge function for better performance and CORS handling
+      // First try to get from database (stored articles with analysis)
+      const storedNews = await this.fetchStoredNews();
+      if (storedNews.length > 0) {
+        console.log(`Found ${storedNews.length} stored articles with analysis`);
+        
+        // If we have recent stored news, use it but also trigger background refresh
+        if (storedNews.length >= 20) {
+          this.triggerBackgroundIngestion();
+          return storedNews;
+        }
+      }
+
+      // Fallback to edge function for real-time fetching
       const response = await fetch('/functions/v1/fetch-news', {
         method: 'POST',
         headers: {
@@ -120,7 +133,7 @@ class NewsService {
         body: JSON.stringify({
           country: 'India',
           category: 'general',
-          pageSize: 100 // Increased for more diverse content
+          pageSize: 100
         })
       });
 
@@ -128,19 +141,129 @@ class NewsService {
         const data = await response.json();
         if (data.news && data.news.length > 0) {
           console.log(`Fetched ${data.news.length} articles from edge function`);
+          
+          // Store these articles in the database for future use
+          this.storeArticlesInDatabase(data.news);
+          
           const processedNews = await this.processAndDeduplicateNews(data.news);
           
-          // Only return if we have real news, not template content
           if (processedNews.length > 0 && !this.isTemplateContent(processedNews)) {
             return processedNews;
           }
         }
       }
     } catch (error) {
-      console.error('Edge function failed, trying direct sources:', error);
+      console.error('Error fetching news:', error);
     }
 
-    // Fallback: Multiple direct sources in parallel for better performance
+    // Final fallback to direct sources
+    return await this.fetchFromDirectSources();
+  }
+
+  private async fetchStoredNews(): Promise<NewsItem[]> {
+    try {
+      const { data: articles, error } = await supabase
+        .from('articles')
+        .select(`
+          id,
+          title,
+          description,
+          content,
+          url,
+          image_url,
+          author,
+          published_at,
+          story_breakdown,
+          story_nature,
+          analysis_confidence,
+          trust_score,
+          local_relevance_score,
+          category
+        `)
+        .eq('status', 'active')
+        .gte('published_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+        .order('published_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error fetching stored articles:', error);
+        return [];
+      }
+
+      if (!articles || articles.length === 0) {
+        console.log('No stored articles found');
+        return [];
+      }
+
+      // Transform database articles to NewsItem format
+      return articles.map((article, index): NewsItem => ({
+        id: article.id,
+        headline: this.cleanGarbageText(article.title || ''),
+        tldr: this.generateTldr(article.description || article.title || ''),
+        quote: this.cleanGarbageText((article.description || '').substring(0, 200)),
+        author: article.author || 'News Source',
+        category: article.category || '',
+        imageUrl: article.image_url || this.getRelevantImageUrl(article.title || '', article.description || '', index),
+        readTime: '3 min read',
+        publishedAt: article.published_at,
+        sourceUrl: article.url,
+        trustScore: article.trust_score || 0.8,
+        localRelevance: article.local_relevance_score || 0.6,
+        storyBreakdown: article.story_breakdown,
+        storyNature: article.story_nature,
+        analysisConfidence: article.analysis_confidence,
+        contextualInsights: this.generateContextualInsights(article.title || '', article.description || '')
+      }));
+    } catch (error) {
+      console.error('Error in fetchStoredNews:', error);
+      return [];
+    }
+  }
+
+  private async triggerBackgroundIngestion(): Promise<void> {
+    try {
+      console.log('Triggering background news ingestion...');
+      
+      // Use supabase client to invoke the function
+      const { error } = await supabase.functions.invoke('ingest-news', {
+        body: { trigger: 'background' }
+      });
+
+      if (error) {
+        console.error('Error triggering background ingestion:', error);
+      } else {
+        console.log('Background ingestion triggered successfully');
+      }
+    } catch (error) {
+      console.error('Failed to trigger background ingestion:', error);
+    }
+  }
+
+  private async storeArticlesInDatabase(articles: NewsItem[]): Promise<void> {
+    try {
+      console.log('Storing articles in database for persistence...');
+      
+      // Use the ingest-news function to store articles properly
+      const { error } = await supabase.functions.invoke('ingest-news', {
+        body: { 
+          trigger: 'store_articles',
+          articles: articles.slice(0, 20) // Store top 20 articles
+        }
+      });
+
+      if (error) {
+        console.error('Error storing articles:', error);
+      } else {
+        console.log('Articles stored successfully');
+      }
+    } catch (error) {
+      console.error('Failed to store articles:', error);
+    }
+  }
+
+  private async fetchFromDirectSources(): Promise<NewsItem[]> {
+    console.log('Fetching from direct sources as final fallback...');
+    
     const allNews: NewsItem[] = [];
     
     // Fetch from multiple sources in parallel - expanded Indian sources
@@ -172,7 +295,7 @@ class NewsService {
     });
 
     if (allNews.length === 0) {
-      console.warn('All sources failed - returning empty array instead of template content');
+      console.warn('All sources failed - returning empty array');
       return [];
     }
 
