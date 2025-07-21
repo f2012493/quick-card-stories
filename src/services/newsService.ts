@@ -109,54 +109,50 @@ class NewsService {
   }
 
   async fetchAllNews(): Promise<NewsItem[]> {
-    console.log('Fetching diverse and cleaned news from multiple sources...');
+    console.log('Fetching news with integrated analysis and storage...');
     
     try {
-      // First try to get from database (stored articles with analysis)
+      // First, try to get recent stored articles from database
       const storedNews = await this.fetchStoredNews();
-      if (storedNews.length > 0) {
-        console.log(`Found ${storedNews.length} stored articles with analysis`);
-        
-        // If we have recent stored news, use it but also trigger background refresh
-        if (storedNews.length >= 20) {
-          this.triggerBackgroundIngestion();
-          return storedNews;
-        }
+      
+      // If we have recent analyzed articles, use them
+      if (storedNews.length >= 15) {
+        console.log(`Using ${storedNews.length} stored articles with analysis`);
+        return storedNews;
       }
-
-      // Fallback to edge function for real-time fetching
-      const response = await fetch('/functions/v1/fetch-news', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          country: 'India',
-          category: 'general',
-          pageSize: 100
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.news && data.news.length > 0) {
-          console.log(`Fetched ${data.news.length} articles from edge function`);
-          
-          // Store these articles in the database for future use
-          this.storeArticlesInDatabase(data.news);
-          
-          const processedNews = await this.processAndDeduplicateNews(data.news);
-          
-          if (processedNews.length > 0 && !this.isTemplateContent(processedNews)) {
-            return processedNews;
-          }
-        }
+      
+      // If we don't have enough stored articles, fetch fresh ones and store them
+      console.log('Fetching fresh news articles for analysis and storage...');
+      
+      // Trigger comprehensive news ingestion which includes analysis
+      await this.triggerNewsIngestion();
+      
+      // Wait a moment for ingestion to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Fetch the newly stored articles
+      const freshStoredNews = await this.fetchStoredNews();
+      
+      if (freshStoredNews.length > 0) {
+        console.log(`Retrieved ${freshStoredNews.length} freshly analyzed articles from database`);
+        return freshStoredNews;
       }
+      
+      // Fallback to direct fetching if ingestion fails
+      console.log('Fallback: Fetching from edge function...');
+      const fallbackNews = await this.fetchFromEdgeFunction();
+      
+      if (fallbackNews.length > 0) {
+        // Store these articles for future use
+        this.storeArticlesInBackground(fallbackNews);
+        return fallbackNews;
+      }
+      
     } catch (error) {
-      console.error('Error fetching news:', error);
+      console.error('Error in fetchAllNews:', error);
     }
 
-    // Final fallback to direct sources
+    // Final fallback
     return await this.fetchFromDirectSources();
   }
 
@@ -178,12 +174,16 @@ class NewsService {
           analysis_confidence,
           trust_score,
           local_relevance_score,
-          category
+          category,
+          news_sources (
+            name,
+            trust_score
+          )
         `)
         .eq('status', 'active')
-        .gte('published_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+        .gte('published_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('published_at', { ascending: false })
-        .limit(50);
+        .limit(60);
 
       if (error) {
         console.error('Error fetching stored articles:', error);
@@ -191,23 +191,24 @@ class NewsService {
       }
 
       if (!articles || articles.length === 0) {
-        console.log('No stored articles found');
+        console.log('No stored articles found in database');
         return [];
       }
 
-      // Transform database articles to NewsItem format
+      console.log(`Found ${articles.length} stored articles with analysis data`);
+
       return articles.map((article, index): NewsItem => ({
         id: article.id,
         headline: this.cleanGarbageText(article.title || ''),
-        tldr: this.generateTldr(article.description || article.title || ''),
+        tldr: this.generateTldr(article.story_breakdown || article.description || article.title || ''),
         quote: this.cleanGarbageText((article.description || '').substring(0, 200)),
-        author: article.author || 'News Source',
+        author: article.news_sources?.name || article.author || 'News Source',
         category: article.category || '',
         imageUrl: article.image_url || this.getRelevantImageUrl(article.title || '', article.description || '', index),
         readTime: '3 min read',
         publishedAt: article.published_at,
         sourceUrl: article.url,
-        trustScore: article.trust_score || 0.8,
+        trustScore: article.news_sources?.trust_score || article.trust_score || 0.8,
         localRelevance: article.local_relevance_score || 0.6,
         storyBreakdown: article.story_breakdown,
         storyNature: article.story_nature,
@@ -220,44 +221,72 @@ class NewsService {
     }
   }
 
-  private async triggerBackgroundIngestion(): Promise<void> {
+  private async triggerNewsIngestion(): Promise<void> {
     try {
-      console.log('Triggering background news ingestion...');
+      console.log('Triggering comprehensive news ingestion with analysis...');
       
-      // Use supabase client to invoke the function
-      const { error } = await supabase.functions.invoke('ingest-news', {
-        body: { trigger: 'background' }
+      const { data, error } = await supabase.functions.invoke('ingest-news', {
+        body: { trigger: 'fetch_with_analysis' }
       });
 
       if (error) {
-        console.error('Error triggering background ingestion:', error);
-      } else {
-        console.log('Background ingestion triggered successfully');
+        console.error('Error triggering news ingestion:', error);
+        throw error;
       }
+
+      console.log('News ingestion triggered successfully:', data);
     } catch (error) {
-      console.error('Failed to trigger background ingestion:', error);
+      console.error('Failed to trigger news ingestion:', error);
+      throw error;
     }
   }
 
-  private async storeArticlesInDatabase(articles: NewsItem[]): Promise<void> {
+  private async fetchFromEdgeFunction(): Promise<NewsItem[]> {
     try {
-      console.log('Storing articles in database for persistence...');
-      
-      // Use the ingest-news function to store articles properly
-      const { error } = await supabase.functions.invoke('ingest-news', {
-        body: { 
-          trigger: 'store_articles',
-          articles: articles.slice(0, 20) // Store top 20 articles
+      const response = await supabase.functions.invoke('fetch-news', {
+        body: {
+          country: 'India',
+          category: 'general',
+          pageSize: 50
         }
       });
 
-      if (error) {
-        console.error('Error storing articles:', error);
-      } else {
-        console.log('Articles stored successfully');
+      if (response.error) {
+        console.error('Edge function error:', response.error);
+        return [];
       }
+
+      if (response.data?.news && response.data.news.length > 0) {
+        console.log(`Fetched ${response.data.news.length} articles from edge function`);
+        return response.data.news;
+      }
+
+      return [];
     } catch (error) {
-      console.error('Failed to store articles:', error);
+      console.error('Error fetching from edge function:', error);
+      return [];
+    }
+  }
+
+  private async storeArticlesInBackground(articles: NewsItem[]): Promise<void> {
+    try {
+      console.log('Storing articles in background for future use...');
+      
+      // Don't await this - let it run in background
+      supabase.functions.invoke('ingest-news', {
+        body: { 
+          trigger: 'store_analyzed_articles',
+          articles: articles.slice(0, 20) // Store top 20 articles
+        }
+      }).then(response => {
+        if (response.error) {
+          console.error('Background storage error:', response.error);
+        } else {
+          console.log('Articles stored successfully in background');
+        }
+      });
+    } catch (error) {
+      console.error('Failed to store articles in background:', error);
     }
   }
 
@@ -299,7 +328,14 @@ class NewsService {
       return [];
     }
 
-    return await this.processAndDeduplicateNews(allNews);
+    const processedNews = await this.processAndDeduplicateNews(allNews);
+    
+    // Store these articles for future use
+    if (processedNews.length > 0) {
+      this.storeArticlesInBackground(processedNews);
+    }
+    
+    return processedNews;
   }
 
   private async processAndDeduplicateNews(articles: NewsItem[]): Promise<NewsItem[]> {

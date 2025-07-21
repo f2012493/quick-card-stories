@@ -36,53 +36,63 @@ interface UseNewsOptions {
 
 export const useNews = (options: UseNewsOptions = {}) => {
   return useQuery({
-    queryKey: ['news', options.country, 'with-analysis'],
+    queryKey: ['news', options.country, 'stored-with-analysis'],
     queryFn: async (): Promise<NewsItem[]> => {
-      console.log('Fetching news with integrated analysis...');
+      console.log('Fetching news with stored analysis...');
       
       try {
         const news = await newsService.fetchAllNews();
-        console.log(`Successfully fetched ${news.length} articles with analysis data`);
         
-        // Store successful fetch in cache
         if (news.length > 0) {
+          console.log(`Successfully fetched ${news.length} articles with analysis`);
+          
+          // Count how many have analysis data
+          const analyzedCount = news.filter(article => 
+            article.storyBreakdown || article.storyNature
+          ).length;
+          
+          console.log(`${analyzedCount} out of ${news.length} articles have analysis data`);
+          
+          // Store in cache for offline use
           const cacheData = {
             news,
             timestamp: Date.now(),
-            hasAnalysis: news.some(article => article.storyBreakdown || article.storyNature)
+            analyzedCount
           };
-          localStorage.setItem('antinews-cache-analyzed', JSON.stringify(cacheData));
+          localStorage.setItem('antinews-cache-with-analysis', JSON.stringify(cacheData));
+          
+          return news;
         }
         
-        return news;
+        return [];
       } catch (error) {
-        console.error('Error fetching news with analysis:', error);
+        console.error('Error fetching news:', error);
         
         // Try to load from cache as fallback
         try {
-          const cachedNews = localStorage.getItem('antinews-cache-analyzed');
+          const cachedNews = localStorage.getItem('antinews-cache-with-analysis');
           if (cachedNews) {
             const parsed = JSON.parse(cachedNews);
             const cacheAge = Date.now() - parsed.timestamp;
-            const maxCacheAge = 10 * 60 * 1000; // 10 minutes
+            const maxCacheAge = 15 * 60 * 1000; // 15 minutes
             
             if (parsed.news && parsed.news.length > 0 && cacheAge < maxCacheAge) {
-              console.log('Using cached analyzed news');
+              console.log(`Using cached news (${parsed.analyzedCount} analyzed articles)`);
               return parsed.news;
             }
           }
         } catch (cacheError) {
-          console.error('Failed to load cached analyzed news:', cacheError);
+          console.error('Failed to load cached news:', cacheError);
         }
         
         return [];
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 15 * 60 * 1000, // 15 minutes
-    retry: 2,
-    retryDelay: 2000,
-    refetchInterval: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: 1,
+    retryDelay: 3000,
+    refetchInterval: 15 * 60 * 1000, // 15 minutes
     refetchIntervalInBackground: false,
   });
 };
