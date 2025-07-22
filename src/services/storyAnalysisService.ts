@@ -84,8 +84,6 @@ export const storyNatureConfigs: Record<string, StoryNatureConfig> = {
 };
 
 class StoryAnalysisService {
-  // For non-UUID article IDs (from news feed), we can't store in the database
-  // So we just return a success response
   async analyzeArticle(articleId: string): Promise<{ success: boolean; analysisId?: string; error?: string }> {
     try {
       console.log('Triggering story analysis for article:', articleId);
@@ -144,32 +142,6 @@ class StoryAnalysisService {
         return { success: false, error: 'Failed to create story analysis' };
       }
 
-      // Create basic story cards
-      const storyCards = [
-        {
-          story_analysis_id: data.id,
-          card_type: 'overview',
-          title: 'Story Overview',
-          content: 'This is an overview of the story. Analysis is being processed.',
-          card_order: 1
-        },
-        {
-          story_analysis_id: data.id,
-          card_type: 'background',
-          title: 'Background',
-          content: 'Background information about this story is being generated.',
-          card_order: 2
-        }
-      ];
-
-      const { error: cardsError } = await supabase
-        .from('story_cards')
-        .insert(storyCards);
-
-      if (cardsError) {
-        console.error('Error creating story cards:', cardsError);
-      }
-
       console.log('Story analysis created successfully:', data.id);
       return { 
         success: true, 
@@ -182,7 +154,6 @@ class StoryAnalysisService {
     }
   }
 
-  // Get story analysis for an article
   async getStoryAnalysis(articleId: string) {
     try {
       // Check if this is a UUID article first
@@ -195,18 +166,7 @@ class StoryAnalysisService {
 
       const { data, error } = await supabase
         .from('story_analysis')
-        .select(`
-          *,
-          story_cards (
-            id,
-            card_type,
-            title,
-            content,
-            visual_data,
-            card_order,
-            metadata
-          )
-        `)
+        .select('*')
         .eq('article_id', articleId)
         .single();
 
@@ -222,28 +182,6 @@ class StoryAnalysisService {
     }
   }
 
-  // Get all available story templates
-  async getStoryTemplates() {
-    try {
-      const { data, error } = await supabase
-        .from('story_templates')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) {
-        console.error('Error fetching story templates:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error in getStoryTemplates:', error);
-      return [];
-    }
-  }
-
-  // Batch analyze multiple articles
   async batchAnalyzeArticles(articleIds: string[]): Promise<{ processed: number; errors: number }> {
     let processed = 0;
     let errors = 0;
@@ -267,29 +205,8 @@ class StoryAnalysisService {
     return { processed, errors };
   }
 
-  // Get story nature configuration
   getStoryNatureConfig(nature: string): StoryNatureConfig {
     return storyNatureConfigs[nature] || storyNatureConfigs.other;
-  }
-
-  // Get card type display name
-  getCardTypeDisplayName(cardType: string): string {
-    const displayNames: Record<string, string> = {
-      'overview': 'Overview',
-      'background': 'Background',
-      'key_players': 'Key Players',
-      'timeline': 'Timeline',
-      'impact_analysis': 'Impact Analysis',
-      'public_reaction': 'Public Reaction',
-      'expert_opinion': 'Expert Opinion',
-      'related_context': 'Related Context',
-      'next_steps': 'Next Steps',
-      'data_visualization': 'Data & Charts',
-      'comparison': 'Comparison',
-      'fact_check': 'Fact Check'
-    };
-
-    return displayNames[cardType] || cardType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
 }
 

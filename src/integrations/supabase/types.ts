@@ -14,53 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      ad_placements: {
-        Row: {
-          ad_position: number
-          ad_sponsor: string | null
-          ad_title: string | null
-          ad_video_url: string | null
-          click_count: number | null
-          contextual_tags: string[] | null
-          created_at: string | null
-          id: string
-          impression_count: number | null
-          user_id: string | null
-        }
-        Insert: {
-          ad_position: number
-          ad_sponsor?: string | null
-          ad_title?: string | null
-          ad_video_url?: string | null
-          click_count?: number | null
-          contextual_tags?: string[] | null
-          created_at?: string | null
-          id?: string
-          impression_count?: number | null
-          user_id?: string | null
-        }
-        Update: {
-          ad_position?: number
-          ad_sponsor?: string | null
-          ad_title?: string | null
-          ad_video_url?: string | null
-          click_count?: number | null
-          contextual_tags?: string[] | null
-          created_at?: string | null
-          id?: string
-          impression_count?: number | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ad_placements_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       articles: {
         Row: {
           analysis_confidence: number | null
@@ -160,6 +113,13 @@ export type Database = {
             referencedRelation: "news_sources"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_articles_source_id"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "news_sources"
+            referencedColumns: ["id"]
+          },
         ]
       }
       cluster_articles: {
@@ -202,42 +162,18 @@ export type Database = {
             referencedRelation: "story_clusters"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      content_summaries: {
-        Row: {
-          abstractive_summary: string | null
-          article_id: string | null
-          created_at: string | null
-          extractive_summary: string | null
-          id: string
-          summary_type: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          abstractive_summary?: string | null
-          article_id?: string | null
-          created_at?: string | null
-          extractive_summary?: string | null
-          id?: string
-          summary_type?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          abstractive_summary?: string | null
-          article_id?: string | null
-          created_at?: string | null
-          extractive_summary?: string | null
-          id?: string
-          summary_type?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "content_summaries_article_id_fkey"
+            foreignKeyName: "fk_cluster_articles_article_id"
             columns: ["article_id"]
             isOneToOne: false
             referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_cluster_articles_cluster_id"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "story_clusters"
             referencedColumns: ["id"]
           },
         ]
@@ -274,44 +210,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      personalized_feeds: {
-        Row: {
-          cluster_id: string | null
-          expires_at: string | null
-          generated_at: string | null
-          id: string
-          personalized_score: number
-          rank_position: number | null
-          user_id: string | null
-        }
-        Insert: {
-          cluster_id?: string | null
-          expires_at?: string | null
-          generated_at?: string | null
-          id?: string
-          personalized_score: number
-          rank_position?: number | null
-          user_id?: string | null
-        }
-        Update: {
-          cluster_id?: string | null
-          expires_at?: string | null
-          generated_at?: string | null
-          id?: string
-          personalized_score?: number
-          rank_position?: number | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "personalized_feeds_cluster_id_fkey"
-            columns: ["cluster_id"]
-            isOneToOne: false
-            referencedRelation: "story_clusters"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       story_analysis: {
         Row: {
@@ -355,57 +253,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "story_analysis_article_id_fkey"
+            foreignKeyName: "fk_story_analysis_article_id"
             columns: ["article_id"]
             isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      story_cards: {
-        Row: {
-          card_order: number | null
-          card_type: string
-          content: string | null
-          created_at: string | null
-          id: string
-          metadata: Json | null
-          story_analysis_id: string | null
-          title: string
-          updated_at: string | null
-          visual_data: Json | null
-        }
-        Insert: {
-          card_order?: number | null
-          card_type: string
-          content?: string | null
-          created_at?: string | null
-          id?: string
-          metadata?: Json | null
-          story_analysis_id?: string | null
-          title: string
-          updated_at?: string | null
-          visual_data?: Json | null
-        }
-        Update: {
-          card_order?: number | null
-          card_type?: string
-          content?: string | null
-          created_at?: string | null
-          id?: string
-          metadata?: Json | null
-          story_analysis_id?: string | null
-          title?: string
-          updated_at?: string | null
-          visual_data?: Json | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "story_cards_story_analysis_id_fkey"
-            columns: ["story_analysis_id"]
+            foreignKeyName: "story_analysis_article_id_fkey"
+            columns: ["article_id"]
             isOneToOne: false
-            referencedRelation: "story_analysis"
+            referencedRelation: "articles"
             referencedColumns: ["id"]
           },
         ]
@@ -479,75 +337,6 @@ export type Database = {
         }
         Relationships: []
       }
-      story_templates: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          template_config: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          template_config?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          template_config?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      trust_scores: {
-        Row: {
-          article_id: string | null
-          created_at: string | null
-          id: string
-          trust_vote: boolean
-          user_id: string | null
-        }
-        Insert: {
-          article_id?: string | null
-          created_at?: string | null
-          id?: string
-          trust_vote: boolean
-          user_id?: string | null
-        }
-        Update: {
-          article_id?: string | null
-          created_at?: string | null
-          id?: string
-          trust_vote?: boolean
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trust_scores_article_id_fkey"
-            columns: ["article_id"]
-            isOneToOne: false
-            referencedRelation: "articles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trust_scores_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_profiles: {
         Row: {
           ad_personalization_consent: boolean | null
@@ -608,126 +397,6 @@ export type Database = {
           subscription_status?: string | null
           trust_voting_count?: number | null
           updated_at?: string | null
-        }
-        Relationships: []
-      }
-      user_reading_history: {
-        Row: {
-          article_id: string | null
-          cluster_id: string | null
-          created_at: string | null
-          id: string
-          interaction_type: string | null
-          read_at: string | null
-          read_duration_seconds: number | null
-          user_id: string | null
-        }
-        Insert: {
-          article_id?: string | null
-          cluster_id?: string | null
-          created_at?: string | null
-          id?: string
-          interaction_type?: string | null
-          read_at?: string | null
-          read_duration_seconds?: number | null
-          user_id?: string | null
-        }
-        Update: {
-          article_id?: string | null
-          cluster_id?: string | null
-          created_at?: string | null
-          id?: string
-          interaction_type?: string | null
-          read_at?: string | null
-          read_duration_seconds?: number | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_reading_history_article_id_fkey"
-            columns: ["article_id"]
-            isOneToOne: false
-            referencedRelation: "articles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_reading_history_cluster_id_fkey"
-            columns: ["cluster_id"]
-            isOneToOne: false
-            referencedRelation: "story_clusters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_topic_preferences: {
-        Row: {
-          created_at: string | null
-          id: string
-          interaction_count: number | null
-          last_interaction_at: string | null
-          preference_score: number | null
-          topic_keyword: string
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          interaction_count?: number | null
-          last_interaction_at?: string | null
-          preference_score?: number | null
-          topic_keyword: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          interaction_count?: number | null
-          last_interaction_at?: string | null
-          preference_score?: number | null
-          topic_keyword?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      video_content: {
-        Row: {
-          article_id: string | null
-          audio_url: string | null
-          background_music_url: string | null
-          created_at: string | null
-          id: string
-          processing_status: string | null
-          subtitle_data: Json | null
-          updated_at: string | null
-          video_duration_seconds: number | null
-          video_url: string | null
-        }
-        Insert: {
-          article_id?: string | null
-          audio_url?: string | null
-          background_music_url?: string | null
-          created_at?: string | null
-          id?: string
-          processing_status?: string | null
-          subtitle_data?: Json | null
-          updated_at?: string | null
-          video_duration_seconds?: number | null
-          video_url?: string | null
-        }
-        Update: {
-          article_id?: string | null
-          audio_url?: string | null
-          background_music_url?: string | null
-          created_at?: string | null
-          id?: string
-          processing_status?: string | null
-          subtitle_data?: Json | null
-          updated_at?: string | null
-          video_duration_seconds?: number | null
-          video_url?: string | null
         }
         Relationships: []
       }

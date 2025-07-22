@@ -89,18 +89,7 @@ export const useStoryAnalysis = (articleId: string) => {
         // Try to get from story_analysis table for UUID articles
         const { data: analysis, error } = await supabase
           .from('story_analysis')
-          .select(`
-            *,
-            story_cards (
-              id,
-              card_type,
-              title,
-              content,
-              visual_data,
-              card_order,
-              metadata
-            )
-          `)
+          .select('*')
           .eq('article_id', articleId)
           .maybeSingle();
 
@@ -137,6 +126,6 @@ function formatStoryAnalysis(analysis: any): StoryAnalysis {
     sentiment_score: analysis.sentiment_score || 0.5,
     complexity_level: analysis.complexity_level || 1,
     estimated_read_time: analysis.estimated_read_time || 300,
-    cards: (analysis.story_cards || []).sort((a: StoryCard, b: StoryCard) => a.card_order - b.card_order)
+    cards: [] // No story cards since table was removed
   };
 }

@@ -1,19 +1,14 @@
-
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 
+// This hook is no longer needed since content_summaries table was removed
+// Keeping for backward compatibility but always returns null
 export const useContentSummaries = (articleId: string) => {
   return useQuery({
     queryKey: ['content-summaries', articleId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('content_summaries')
-        .select('*')
-        .eq('article_id', articleId)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
-      return data;
-    }
+      console.log('content_summaries table has been removed');
+      return null;
+    },
+    enabled: false // Disable the query since table doesn't exist
   });
 };
