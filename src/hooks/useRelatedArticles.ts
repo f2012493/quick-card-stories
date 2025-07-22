@@ -11,7 +11,7 @@ export const useRelatedArticles = (clusterId?: string) => {
       const { data, error } = await supabase
         .from('cluster_articles')
         .select(`
-          articles (
+          articles!cluster_articles_article_id_fkey (
             id,
             title,
             content,
@@ -31,14 +31,14 @@ export const useRelatedArticles = (clusterId?: string) => {
         .map(item => item.articles)
         .filter(Boolean)
         .map(article => ({
-          id: article.id,
-          title: article.title,
-          content: article.content,
-          description: article.description,
-          url: article.url,
-          image_url: article.image_url,
-          author: article.author,
-          published_at: article.published_at
+          id: article!.id,
+          title: article!.title,
+          content: article!.content,
+          description: article!.description,
+          url: article!.url,
+          image_url: article!.image_url,
+          author: article!.author,
+          published_at: article!.published_at
         }));
     },
     enabled: !!clusterId
