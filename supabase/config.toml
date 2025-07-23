@@ -60,9 +60,3 @@ verify_jwt = false
 
 [functions.story-analyzer]
 verify_jwt = false
-
-[functions.cluster-articles]
-verify_jwt = false
-
-[functions.generate-feed]
-verify_jwt = false

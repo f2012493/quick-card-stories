@@ -1,214 +1,164 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-interface NewsItem {
+interface Article {
   id: string;
-  headline: string;
-  tldr: string;
-  quote: string;
+  title: string;
+  content: string;
+  description: string;
+  url: string;
+  image_url: string;
   author: string;
-  imageUrl: string;
-  readTime: string;
-  publishedAt?: string;
-  sourceUrl?: string;
-  trustScore?: number;
-  localRelevance?: number;
-  clusterId?: string;
-  contextualInsights?: string[];
-  fullContent?: string;
-  storyBreakdown?: string;
-  storyNature?: string;
-  analysisConfidence?: number;
-  contextualInfo?: {
-    topic: string;
-    backgroundInfo: string[];
-    keyFacts: string[];
-    relatedConcepts: string[];
+  published_at: string;
+  category: string;
+  source: {
+    name: string;
+    domain: string;
+    trust_score: number;
   };
 }
 
-class NewsService {
-  async fetchAllNews(): Promise<NewsItem[]> {
+interface NewsFilters {
+  category?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export class NewsService {
+  async getArticles(filters: NewsFilters = {}): Promise<Article[]> {
     try {
-      console.log('Fetching news from database...');
-      
-      // First, get articles with their source information
-      const { data: articles, error } = await supabase
+      let query = supabase
         .from('articles')
         .select(`
-          *,
+          id,
+          title,
+          content,
+          description,
+          url,
+          image_url,
+          author,
+          published_at,
+          category,
           news_sources!articles_source_id_fkey (
             name,
+            domain,
             trust_score
-          ),
-          cluster_articles!cluster_articles_article_id_fkey (
-            cluster_id
           )
         `)
         .eq('status', 'active')
-        .order('published_at', { ascending: false })
-        .limit(100);
+        .order('published_at', { ascending: false });
+
+      if (filters.category) {
+        query = query.eq('category', filters.category);
+      }
+
+      if (filters.limit) {
+        query = query.limit(filters.limit);
+      }
+
+      if (filters.offset) {
+        query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching articles:', error);
         throw error;
       }
 
-      if (!articles || articles.length === 0) {
-        console.log('No articles found in database');
-        return [];
-      }
-
-      console.log(`Found ${articles.length} articles in database`);
-
-      // Transform the data to match our interface
-      const transformedNews: NewsItem[] = articles.map(article => {
-        // Handle the source data safely
-        const source = article.news_sources;
-        const sourceName = source?.name || 'Unknown Source';
-        const sourceTrustScore = source?.trust_score || 0.5;
-        
-        // Handle cluster data
-        const clusterData = article.cluster_articles?.[0];
-        const clusterId = clusterData?.cluster_id || undefined;
-
-        // Calculate estimated read time based on content length
-        const wordCount = article.content ? article.content.split(' ').length : 100;
-        const readTimeMinutes = Math.ceil(wordCount / 200); // Average reading speed
-        const readTime = `${readTimeMinutes} min read`;
-
-        return {
-          id: article.id,
-          headline: article.title,
-          tldr: article.description || this.generateTldr(article.content),
-          quote: this.extractQuote(article.content),
-          author: article.author || sourceName,
-          imageUrl: article.image_url || '/placeholder.svg',
-          readTime,
-          publishedAt: article.published_at,
-          sourceUrl: article.url,
-          trustScore: sourceTrustScore,
-          localRelevance: article.local_relevance_score || 0,
-          clusterId,
-          contextualInsights: this.generateContextualInsights(article),
-          fullContent: article.content,
-          storyBreakdown: article.story_breakdown,
-          storyNature: article.story_nature,
-          analysisConfidence: article.analysis_confidence,
-          contextualInfo: {
-            topic: article.category || 'General',
-            backgroundInfo: this.generateBackgroundInfo(article),
-            keyFacts: this.extractKeyFacts(article.content),
-            relatedConcepts: this.generateRelatedConcepts(article)
-          }
-        };
-      });
-
-      return transformedNews;
-
+      return data.map(article => ({
+        id: article.id,
+        title: article.title,
+        content: article.content || '',
+        description: article.description || '',
+        url: article.url,
+        image_url: article.image_url || '',
+        author: article.author || '',
+        published_at: article.published_at,
+        category: article.category || 'general',
+        source: {
+          name: article.news_sources?.name || 'Unknown',
+          domain: article.news_sources?.domain || '',
+          trust_score: article.news_sources?.trust_score || 0.5
+        }
+      }));
     } catch (error) {
-      console.error('Error in fetchAllNews:', error);
+      console.error('Error in getArticles:', error);
       throw error;
     }
   }
 
-  private generateTldr(content: string | null): string {
-    if (!content) return 'Summary not available';
-    
-    // Simple TLDR generation - take first two sentences
-    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    if (sentences.length >= 2) {
-      return sentences.slice(0, 2).join('. ') + '.';
+  async getArticleById(id: string): Promise<Article | null> {
+    try {
+      const { data, error } = await supabase
+        .from('articles')
+        .select(`
+          id,
+          title,
+          content,
+          description,
+          url,
+          image_url,
+          author,
+          published_at,
+          category,
+          news_sources!articles_source_id_fkey (
+            name,
+            domain,
+            trust_score
+          )
+        `)
+        .eq('id', id)
+        .eq('status', 'active')
+        .single();
+
+      if (error) {
+        console.error('Error fetching article:', error);
+        return null;
+      }
+
+      return {
+        id: data.id,
+        title: data.title,
+        content: data.content || '',
+        description: data.description || '',
+        url: data.url,
+        image_url: data.image_url || '',
+        author: data.author || '',
+        published_at: data.published_at,
+        category: data.category || 'general',
+        source: {
+          name: data.news_sources?.name || 'Unknown',
+          domain: data.news_sources?.domain || '',
+          trust_score: data.news_sources?.trust_score || 0.5
+        }
+      };
+    } catch (error) {
+      console.error('Error in getArticleById:', error);
+      return null;
     }
-    
-    // Fallback to first 150 characters
-    return content.length > 150 ? content.substring(0, 150) + '...' : content;
   }
 
-  private extractQuote(content: string | null): string {
-    if (!content) return '';
-    
-    // Look for quoted text
-    const quoteMatch = content.match(/"([^"]{20,100})"/);
-    if (quoteMatch) {
-      return `"${quoteMatch[1]}"`;
-    }
-    
-    // Fallback to extracting a meaningful sentence
-    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 20);
-    return sentences.length > 1 ? sentences[1].trim() : '';
-  }
+  async getCategories(): Promise<string[]> {
+    try {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('category')
+        .eq('status', 'active')
+        .not('category', 'is', null);
 
-  private generateContextualInsights(article: any): string[] {
-    const insights: string[] = [];
-    
-    if (article.trust_score > 0.8) {
-      insights.push('High credibility source');
-    }
-    
-    if (article.local_relevance_score > 0.7) {
-      insights.push('High local relevance');
-    }
-    
-    if (article.story_nature && article.story_nature !== 'general') {
-      insights.push(`Story type: ${article.story_nature.replace('_', ' ')}`);
-    }
-    
-    if (article.analysis_confidence > 0.8) {
-      insights.push('AI-enhanced analysis available');
-    }
-    
-    return insights;
-  }
+      if (error) {
+        console.error('Error fetching categories:', error);
+        return [];
+      }
 
-  private generateBackgroundInfo(article: any): string[] {
-    const info: string[] = [];
-    
-    if (article.category) {
-      info.push(`Category: ${article.category}`);
+      const categories = [...new Set(data.map(item => item.category))];
+      return categories.filter(Boolean);
+    } catch (error) {
+      console.error('Error in getCategories:', error);
+      return [];
     }
-    
-    if (article.author) {
-      info.push(`Reported by: ${article.author}`);
-    }
-    
-    const publishedDate = new Date(article.published_at).toLocaleDateString();
-    info.push(`Published: ${publishedDate}`);
-    
-    return info;
-  }
-
-  private extractKeyFacts(content: string | null): string[] {
-    if (!content) return [];
-    
-    // Simple fact extraction - look for sentences with numbers, names, or specific patterns
-    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
-    const facts = sentences
-      .filter(sentence => 
-        /\d+/.test(sentence) || // Contains numbers
-        /[A-Z][a-z]+ [A-Z][a-z]+/.test(sentence) || // Contains proper names
-        /(said|announced|reported|confirmed)/i.test(sentence) // Contains reporting verbs
-      )
-      .slice(0, 3)
-      .map(fact => fact.trim());
-    
-    return facts;
-  }
-
-  private generateRelatedConcepts(article: any): string[] {
-    const concepts: string[] = [];
-    
-    if (article.category) {
-      concepts.push(article.category);
-    }
-    
-    // Extract concepts from title
-    const titleWords = article.title.toLowerCase().split(' ')
-      .filter((word: string) => word.length > 4)
-      .slice(0, 2);
-    concepts.push(...titleWords);
-    
-    return concepts.filter((concept, index) => concepts.indexOf(concept) === index);
   }
 }
 

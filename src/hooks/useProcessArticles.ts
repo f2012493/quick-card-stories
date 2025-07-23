@@ -1,22 +1,25 @@
 
 import { useState } from 'react';
-import { clusteringService } from '@/services/clusteringService';
 import { toast } from 'sonner';
 
+// Simplified version without clustering functionality
 export const useProcessArticles = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const processExistingArticles = async () => {
-    if (isProcessing) return;
-    
     setIsProcessing(true);
+    
     try {
-      toast.info('Starting article clustering process...');
-      await clusteringService.processExistingArticles();
-      toast.success('Article clustering completed successfully!');
+      // Since clustering is removed, we'll just show a message
+      toast.info('Article processing feature has been simplified');
+      
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast.success('Articles are ready for viewing');
     } catch (error) {
       console.error('Error processing articles:', error);
-      toast.error('Failed to process articles for clustering');
+      toast.error('Failed to process articles');
     } finally {
       setIsProcessing(false);
     }
