@@ -164,19 +164,16 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
     <div className="relative w-full h-screen bg-black overflow-hidden">
       {/* Background Image with Enhanced Gradient */}
       <div className="absolute inset-0">
-        {news.imageUrl ? (
-          <img
-            src={news.imageUrl}
-            alt={news.headline}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900" />
-        )}
+        <img
+          src={news.imageUrl}
+          alt={news.headline}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            // Don't hide on error since we should have fallback image
+            console.warn('Image failed to load:', news.imageUrl);
+          }}
+        />
         {/* Enhanced gradient overlay for better text readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
