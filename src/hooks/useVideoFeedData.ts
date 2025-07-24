@@ -5,6 +5,18 @@ import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+// Generate consistent TLDR with max 60 words
+const generateTLDR = (description: string | null, content: string | null): string => {
+  const text = description || content || '';
+  if (!text) return 'Summary not available';
+  
+  const words = text.trim().split(/\s+/);
+  if (words.length <= 60) return text;
+  
+  const truncated = words.slice(0, 60).join(' ');
+  return truncated + '...';
+};
+
 export interface ContentItem {
   type: 'news' | 'ad';
   data: any;
@@ -37,7 +49,7 @@ export const useVideoFeedData = () => {
         ...article,
         headline: article.title,
         imageUrl: article.image_url,
-        tldr: article.description || article.content?.substring(0, 200) + '...',
+        tldr: generateTLDR(article.description, article.content),
         quote: '', // Not available in current data
         readTime: `${Math.ceil((article.content?.length || 0) / 200)} min read`,
         fullContent: article.content
@@ -69,7 +81,7 @@ export const useVideoFeedData = () => {
         ...article,
         headline: article.title,
         imageUrl: article.image_url,
-        tldr: article.description || article.content?.substring(0, 200) + '...',
+        tldr: generateTLDR(article.description, article.content),
         quote: '',
         readTime: `${Math.ceil((article.content?.length || 0) / 200)} min read`,
         fullContent: article.content,

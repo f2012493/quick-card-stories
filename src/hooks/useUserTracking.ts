@@ -3,8 +3,8 @@
 export const useUserTracking = () => {
   return {
     trackInteraction: {
-      mutate: () => {
-        // No-op for now
+      mutate: (params: any) => {
+        // No-op for now - accepts params but does nothing
       }
     }
   };

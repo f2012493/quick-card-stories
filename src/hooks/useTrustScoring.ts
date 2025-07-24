@@ -5,8 +5,8 @@ export const useTrustScoring = (articleId: string, userId?: string) => {
     existingVote: null,
     trustStats: null,
     voteTrust: {
-      mutate: () => {
-        // No-op for now
+      mutate: (params: any) => {
+        // No-op for now - accepts params but does nothing
       }
     },
     isVoting: false
