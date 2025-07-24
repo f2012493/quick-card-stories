@@ -23,7 +23,7 @@ export const useVideoFeedData = () => {
 
   const { data: newsData = [], isLoading } = useNews({
     category: 'general',
-    pageSize: 20,
+    limit: 20,
     country: locationData?.country,
     city: locationData?.city,
     region: locationData?.region
@@ -32,7 +32,18 @@ export const useVideoFeedData = () => {
   // Initialize with fresh news
   useEffect(() => {
     if (newsData.length > 0) {
-      const realNews = newsData.filter(article => 
+      // Map database fields to component expected fields
+      const mappedNews = newsData.map(article => ({
+        ...article,
+        headline: article.title,
+        imageUrl: article.image_url,
+        tldr: article.description || article.content?.substring(0, 200) + '...',
+        quote: '', // Not available in current data
+        readTime: `${Math.ceil((article.content?.length || 0) / 200)} min read`,
+        fullContent: article.content
+      }));
+      
+      const realNews = mappedNews.filter(article => 
         article.author !== 'antiNews System' && 
         !article.headline.includes('Breaking: Real-time News Service')
       );
@@ -56,8 +67,13 @@ export const useVideoFeedData = () => {
       
       const moreNews = newsData.slice(0, 10).map((article, index) => ({
         ...article,
-        id: `${article.id}-page${page}-${index}`,
-        headline: `${article.headline} (Page ${page + 1})`
+        headline: article.title,
+        imageUrl: article.image_url,
+        tldr: article.description || article.content?.substring(0, 200) + '...',
+        quote: '',
+        readTime: `${Math.ceil((article.content?.length || 0) / 200)} min read`,
+        fullContent: article.content,
+        id: `${article.id}-page${page}-${index}`
       }));
       
       if (moreNews.length > 0) {

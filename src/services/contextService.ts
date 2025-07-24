@@ -1,6 +1,4 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { clusteringService } from './clusteringService';
 
 interface ContextualInfo {
   topic: string;
@@ -17,82 +15,17 @@ class ContextService {
     const cacheKey = `${headline}-${description}`.substring(0, 100);
     
     if (this.cache.has(cacheKey)) {
-      const cached = this.cache.get(cacheKey)!;
-      
-      // Always fetch fresh clustered articles
-      if (articleId) {
-        try {
-          // Use the edge function to get cluster ID for this article
-          const { data: result, error: articleError } = await supabase.functions.invoke('clustering-helpers', {
-            body: {
-              functionName: 'get_article_cluster',
-              args: { article_id: articleId }
-            }
-          });
-          
-          if (articleError) {
-            cached.clusteredArticles = [];
-          } else if (result?.data?.cluster_id) {
-            const clusteredArticles = await clusteringService.getClusteredArticles(
-              result.data.cluster_id, 
-              articleId, 
-              5
-            );
-            cached.clusteredArticles = clusteredArticles;
-          } else {
-            cached.clusteredArticles = [];
-          }
-        } catch (error) {
-          console.error('Error fetching clustered articles:', error);
-          cached.clusteredArticles = [];
-        }
-      }
-      
-      return cached;
+      return this.cache.get(cacheKey)!;
     }
 
     try {
-      // Process article for clustering if articleId is provided
-      if (articleId && fullContent) {
-        await clusteringService.processArticle(articleId, headline, fullContent, description);
-      }
-      
       const contextualInfo: ContextualInfo = {
         topic: this.extractMainTopic(headline),
         backgroundInfo: this.extractRealBackgroundInfo(headline, description, fullContent),
         keyFacts: [],
         relatedConcepts: [],
-        clusteredArticles: []
+        clusteredArticles: [] // Always empty since clustering is removed
       };
-      
-      // Get clustered articles if articleId is provided
-      if (articleId) {
-        try {
-          // Use the edge function to get cluster ID for this article
-          const { data: result, error: articleError } = await supabase.functions.invoke('clustering-helpers', {
-            body: {
-              functionName: 'get_article_cluster',
-              args: { article_id: articleId }
-            }
-          });
-          
-          if (articleError) {
-            contextualInfo.clusteredArticles = [];
-          } else if (result?.data?.cluster_id) {
-            const clusteredArticles = await clusteringService.getClusteredArticles(
-              result.data.cluster_id, 
-              articleId, 
-              5
-            );
-            contextualInfo.clusteredArticles = clusteredArticles;
-          } else {
-            contextualInfo.clusteredArticles = [];
-          }
-        } catch (error) {
-          console.error('Error fetching clustered articles:', error);
-          contextualInfo.clusteredArticles = [];
-        }
-      }
 
       this.cache.set(cacheKey, contextualInfo);
       return contextualInfo;

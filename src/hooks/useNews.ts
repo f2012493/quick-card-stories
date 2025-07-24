@@ -5,13 +5,23 @@ import { newsService } from '@/services/newsService';
 interface UseNewsOptions {
   category?: string;
   limit?: number;
+  pageSize?: number; // Add pageSize as alias for limit
   offset?: number;
+  country?: string;
+  city?: string;
+  region?: string;
 }
 
 export const useNews = (options: UseNewsOptions = {}) => {
+  // Support both limit and pageSize for backward compatibility
+  const finalOptions = {
+    ...options,
+    limit: options.limit || options.pageSize || 20
+  };
+
   return useQuery({
-    queryKey: ['news', options],
-    queryFn: () => newsService.getArticles(options),
+    queryKey: ['news', finalOptions],
+    queryFn: () => newsService.getArticles(finalOptions),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 2,

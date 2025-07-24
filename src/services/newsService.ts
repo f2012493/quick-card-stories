@@ -22,6 +22,9 @@ interface NewsFilters {
   category?: string;
   limit?: number;
   offset?: number;
+  country?: string;
+  city?: string;
+  region?: string;
 }
 
 export class NewsService {
