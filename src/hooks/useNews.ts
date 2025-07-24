@@ -2,48 +2,97 @@
 import { useQuery } from '@tanstack/react-query';
 import { newsService } from '@/services/newsService';
 
+interface NewsItem {
+  id: string;
+  headline: string;
+  tldr: string;
+  quote: string;
+  author: string;
+  imageUrl: string;
+  readTime: string;
+  publishedAt?: string;
+  sourceUrl?: string;
+  trustScore?: number;
+  localRelevance?: number;
+  contextualInsights?: string[];
+  storyBreakdown?: string;
+  storyNature?: string;
+  analysisConfidence?: number;
+  contextualInfo?: {
+    topic: string;
+    backgroundInfo: string[];
+    keyFacts: string[];
+    relatedConcepts: string[];
+  };
+}
+
 interface UseNewsOptions {
   category?: string;
-  limit?: number;
-  pageSize?: number; // Add pageSize as alias for limit
-  offset?: number;
+  pageSize?: number;
   country?: string;
   city?: string;
   region?: string;
 }
 
 export const useNews = (options: UseNewsOptions = {}) => {
-  // Support both limit and pageSize for backward compatibility
-  const finalOptions = {
-    ...options,
-    limit: options.limit || options.pageSize || 20
-  };
-
   return useQuery({
-    queryKey: ['news', finalOptions],
-    queryFn: () => newsService.getArticles(finalOptions),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-};
-
-export const useArticle = (id: string) => {
-  return useQuery({
-    queryKey: ['article', id],
-    queryFn: () => newsService.getArticleById(id),
-    enabled: !!id,
+    queryKey: ['news', options.country, 'stored-with-analysis'],
+    queryFn: async (): Promise<NewsItem[]> => {
+      console.log('Fetching news with stored analysis...');
+      
+      try {
+        const news = await newsService.fetchAllNews();
+        
+        if (news.length > 0) {
+          console.log(`Successfully fetched ${news.length} articles with analysis`);
+          
+          // Count how many have analysis data
+          const analyzedCount = news.filter(article => 
+            article.storyBreakdown || article.storyNature
+          ).length;
+          
+          console.log(`${analyzedCount} out of ${news.length} articles have analysis data`);
+          
+          // Store in cache for offline use
+          const cacheData = {
+            news,
+            timestamp: Date.now(),
+            analyzedCount
+          };
+          localStorage.setItem('antinews-cache-with-analysis', JSON.stringify(cacheData));
+          
+          return news;
+        }
+        
+        return [];
+      } catch (error) {
+        console.error('Error fetching news:', error);
+        
+        // Try to load from cache as fallback
+        try {
+          const cachedNews = localStorage.getItem('antinews-cache-with-analysis');
+          if (cachedNews) {
+            const parsed = JSON.parse(cachedNews);
+            const cacheAge = Date.now() - parsed.timestamp;
+            const maxCacheAge = 15 * 60 * 1000; // 15 minutes
+            
+            if (parsed.news && parsed.news.length > 0 && cacheAge < maxCacheAge) {
+              console.log(`Using cached news (${parsed.analyzedCount} analyzed articles)`);
+              return parsed.news;
+            }
+          }
+        } catch (cacheError) {
+          console.error('Failed to load cached news:', cacheError);
+        }
+        
+        return [];
+      }
+    },
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
-  });
-};
-
-export const useCategories = () => {
-  return useQuery({
-    queryKey: ['categories'],
-    queryFn: () => newsService.getCategories(),
-    staleTime: 30 * 60 * 1000, // 30 minutes
-    gcTime: 60 * 60 * 1000, // 1 hour
+    retry: 1,
+    retryDelay: 3000,
+    refetchInterval: 15 * 60 * 1000, // 15 minutes
+    refetchIntervalInBackground: false,
   });
 };
