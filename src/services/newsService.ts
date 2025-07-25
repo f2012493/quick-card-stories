@@ -115,14 +115,34 @@ class NewsService {
   private generateTldr(content: string | null): string {
     if (!content) return 'Summary not available';
     
-    // Simple TLDR generation - take first two sentences
-    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    if (sentences.length >= 2) {
-      return sentences.slice(0, 2).join('. ') + '.';
+    // Clean up HTML entities and artifacts
+    let cleanContent = content
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\[.*?\]/g, '') // Remove [+ chars] type artifacts
+      .replace(/\d+$/, '') // Remove trailing numbers
+      .trim();
+    
+    // Split into words and limit to 60 words
+    const words = cleanContent.split(/\s+/).filter(word => word.length > 0);
+    
+    if (words.length <= 60) {
+      return cleanContent;
     }
     
-    // Fallback to first 150 characters
-    return content.length > 150 ? content.substring(0, 150) + '...' : content;
+    // Take first 60 words and ensure proper sentence ending
+    const limitedWords = words.slice(0, 60);
+    let summary = limitedWords.join(' ');
+    
+    // Ensure it ends properly
+    if (!summary.match(/[.!?]$/)) {
+      summary += '...';
+    }
+    
+    return summary;
   }
 
   private extractQuote(content: string | null): string {
