@@ -115,21 +115,39 @@ class NewsService {
   private generateTldr(content: string | null): string {
     if (!content) return 'Summary not available';
     
-    // Clean up HTML entities and artifacts
+    // Clean up HTML entities, artifacts, and unwanted patterns
     let cleanContent = content
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
-      .replace(/\[.*?\]/g, '') // Remove [+ chars] type artifacts
-      .replace(/\d+$/, '') // Remove trailing numbers
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\[.*?\]/g, '') // Remove [+ chars], [+n chars] type artifacts
+      .replace(/\[\+\d+\s*chars?\]/gi, '') // Specifically target [+n chars]
+      .replace(/\d+\s*$/, '') // Remove trailing numbers like "0"
+      .replace(/^\d+\s*/, '') // Remove leading numbers
+      .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
+    
+    // Remove common prefixes/suffixes that might be artifacts
+    cleanContent = cleanContent
+      .replace(/^(summary|tldr|description):\s*/i, '')
+      .replace(/\.\.\.\s*$/, '')
+      .replace(/…\s*$/, '');
     
     // Split into words and limit to 60 words
     const words = cleanContent.split(/\s+/).filter(word => word.length > 0);
     
+    if (words.length === 0) {
+      return 'Summary not available';
+    }
+    
     if (words.length <= 60) {
+      // Ensure proper ending
+      if (!cleanContent.match(/[.!?]$/)) {
+        return cleanContent + '.';
+      }
       return cleanContent;
     }
     
@@ -137,9 +155,21 @@ class NewsService {
     const limitedWords = words.slice(0, 60);
     let summary = limitedWords.join(' ');
     
-    // Ensure it ends properly
-    if (!summary.match(/[.!?]$/)) {
-      summary += '...';
+    // Find last complete sentence within the limit
+    const lastSentenceEnd = Math.max(
+      summary.lastIndexOf('.'),
+      summary.lastIndexOf('!'),
+      summary.lastIndexOf('?')
+    );
+    
+    if (lastSentenceEnd > summary.length * 0.7) {
+      // If we have a sentence that ends reasonably close to our limit, use that
+      summary = summary.substring(0, lastSentenceEnd + 1);
+    } else {
+      // Otherwise, add ellipsis
+      if (!summary.match(/[.!?]$/)) {
+        summary += '...';
+      }
     }
     
     return summary;
