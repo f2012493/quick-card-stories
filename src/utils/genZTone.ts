@@ -9,31 +9,54 @@ export const makeGenZTone = (text: string): string => {
   const replacements = [
     { formal: /\b(according to|reports indicate|sources say|it is reported)\b/gi, casual: '' },
     { formal: /\b(officials|authorities|representatives)\b/gi, casual: 'officials' },
-    { formal: /\b(approximately|approximately)\b/gi, casual: 'around' },
+    { formal: /\b(approximately|roughly)\b/gi, casual: 'around' },
     { formal: /\b(significant|substantial)\b/gi, casual: 'major' },
     { formal: /\b(demonstrate|illustrate)\b/gi, casual: 'show' },
-    { formal: /\b(currently|presently)\b/gi, casual: 'right now' },
+    { formal: /\b(currently|presently)\b/gi, casual: 'rn' },
     { formal: /\b(anticipated|expected)\b/gi, casual: 'expected' },
     { formal: /\b(commenced|initiated)\b/gi, casual: 'started' },
     { formal: /\b(terminated|concluded)\b/gi, casual: 'ended' },
     { formal: /\b(utilize|employ)\b/gi, casual: 'use' },
     { formal: /\b(regarding|concerning)\b/gi, casual: 'about' },
     { formal: /\b(subsequent to|following)\b/gi, casual: 'after' },
-    { formal: /\b(prior to|before)\b/gi, casual: 'before' },
+    { formal: /\b(prior to)\b/gi, casual: 'before' },
     { formal: /\b(in order to)\b/gi, casual: 'to' },
     { formal: /\b(as a result of)\b/gi, casual: 'because of' },
-    { formal: /\b(due to the fact that)\b/gi, casual: 'because' }
+    { formal: /\b(due to the fact that)\b/gi, casual: 'because' },
+    { formal: /\b(very important|extremely important)\b/gi, casual: 'lowkey important' },
+    { formal: /\b(really|very)\b/gi, casual: 'literally' },
+    { formal: /\b(absolutely|completely)\b/gi, casual: 'totally' },
+    { formal: /\b(immediately|right away)\b/gi, casual: 'asap' }
   ];
   
   replacements.forEach(({ formal, casual }) => {
     genZText = genZText.replace(formal, casual);
   });
   
-  // Add casual connectors occasionally
-  if (Math.random() > 0.7) {
-    const casualStarters = ['So basically,', 'Here\'s the tea:', 'Basically,', 'Real talk,'];
+  // Add Gen-Z intensifiers and casual words
+  genZText = genZText
+    .replace(/\b(amazing|incredible|extraordinary)\b/gi, 'fire')
+    .replace(/\b(terrible|awful|horrible)\b/gi, 'trash')
+    .replace(/\b(popular|trending)\b/gi, 'viral')
+    .replace(/\b(obvious|clear)\b/gi, 'lowkey obvious')
+    .replace(/\b(surprising|shocking)\b/gi, 'no cap shocking');
+  
+  // Add casual connectors and starters with higher probability
+  const shouldAddStarter = Math.random() > 0.5; // Increased from 0.7
+  if (shouldAddStarter) {
+    const casualStarters = [
+      'So basically,', 'Here\'s the tea:', 'Ngl,', 'Real talk,', 
+      'Lowkey,', 'Highkey,', 'Not gonna lie,', 'Tbh,'
+    ];
     const randomStarter = casualStarters[Math.floor(Math.random() * casualStarters.length)];
     genZText = `${randomStarter} ${genZText.toLowerCase()}`;
+  }
+  
+  // Add casual transitions within text
+  if (Math.random() > 0.6) {
+    genZText = genZText
+      .replace(/\. /g, ', and ')
+      .replace(/, and ([^,]+)$/, ` and $1 ngl.`);
   }
   
   // Clean up extra spaces and ensure proper capitalization
@@ -52,10 +75,18 @@ export const makeGenZTone = (text: string): string => {
 export const generateGenZTldr = (content: string | null, headline: string = ''): string => {
   if (!content && !headline) return 'No summary available';
   
-  // Use content if available, otherwise fall back to headline
-  const sourceText = content || headline;
+  // Use content if available, otherwise combine headline and content for richer summaries
+  let sourceText = '';
+  if (content && content.length > 50) {
+    sourceText = content;
+  } else if (content && headline) {
+    // Combine both for better context when content is short
+    sourceText = `${headline}. ${content}`;
+  } else {
+    sourceText = headline || content || '';
+  }
   
-  // Clean up HTML entities, artifacts, and unwanted patterns
+  // More aggressive cleaning for better content extraction
   let cleanContent = sourceText
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -69,6 +100,7 @@ export const generateGenZTldr = (content: string | null, headline: string = ''):
     .replace(/\d+\s*$/, '') // Remove trailing numbers like "0"
     .replace(/^\d+\s*/, '') // Remove leading numbers
     .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/\b(click here|read more|continue reading|full story|see more)\b.*$/gi, '') // Remove call-to-action endings
     .trim();
   
   // Remove common prefixes/suffixes that might be artifacts
@@ -76,40 +108,54 @@ export const generateGenZTldr = (content: string | null, headline: string = ''):
     .replace(/^(summary|tldr|description|story|article):\s*/i, '')
     .replace(/\.\.\.\s*$/, '')
     .replace(/…\s*$/, '')
-    .replace(/read more.*$/i, '')
-    .replace(/continue reading.*$/i, '');
+    .replace(/\s*-\s*$/g, ''); // Remove trailing dashes
   
-  if (!cleanContent) return 'No summary available';
-  
-  // Extract meaningful sentences, focusing on the beginning for news summary
-  const sentences = cleanContent.split(/[.!?]+/).filter(s => s.trim().length > 10);
-  
-  let summary = '';
-  let wordCount = 0;
-  
-  // Try to build a coherent summary from the first few sentences
-  for (const sentence of sentences.slice(0, 3)) {
-    const sentenceWords = sentence.trim().split(/\s+/);
-    if (wordCount + sentenceWords.length <= 55) { // Leave room for Gen-Z tone additions
-      summary += (summary ? ' ' : '') + sentence.trim();
-      wordCount += sentenceWords.length;
-    } else {
-      break;
-    }
+  if (!cleanContent || cleanContent.length < 10) {
+    return headline ? makeGenZTone(headline.split(' ').slice(0, 15).join(' ')) + '.' : 'No summary available';
   }
   
-  if (!summary) {
-    // Fallback to first sentence or truncated content
-    summary = sentences[0]?.trim() || cleanContent.split(' ').slice(0, 40).join(' ');
+  // Smart sentence extraction for better summaries
+  const sentences = cleanContent.split(/[.!?]+/).filter(s => s.trim().length > 15);
+  
+  let summary = '';
+  let targetWordCount = 45; // Leave more room for Gen-Z additions
+  
+  // Build summary prioritizing the most informative sentences
+  if (sentences.length > 0) {
+    // Start with the first sentence (usually most important)
+    let currentWords = sentences[0].trim().split(/\s+/);
+    
+    if (currentWords.length <= targetWordCount) {
+      summary = sentences[0].trim();
+      
+      // Try to add a second sentence if there's room
+      if (sentences.length > 1) {
+        const secondWords = sentences[1].trim().split(/\s+/);
+        if (currentWords.length + secondWords.length <= targetWordCount) {
+          summary += '. ' + sentences[1].trim();
+        }
+      }
+    } else {
+      // If first sentence is too long, truncate it intelligently
+      summary = currentWords.slice(0, targetWordCount).join(' ');
+    }
+  } else {
+    // Fallback for no proper sentences
+    const words = cleanContent.split(/\s+/);
+    summary = words.slice(0, targetWordCount).join(' ');
   }
   
   // Apply Gen-Z casual tone transformation
   summary = makeGenZTone(summary);
   
-  // Final word count check and cleanup
-  const words = summary.split(/\s+/).filter(word => word.length > 0);
-  if (words.length > 60) {
-    summary = words.slice(0, 58).join(' ') + '...';
+  // Strict 60-word enforcement after Gen-Z transformation
+  const finalWords = summary.split(/\s+/).filter(word => word.length > 0);
+  if (finalWords.length > 60) {
+    summary = finalWords.slice(0, 60).join(' ');
+    // If we cut off mid-sentence, try to end gracefully
+    if (!summary.match(/[.!?]$/)) {
+      summary = summary.replace(/[,;:]?\s*\w*$/, '') + '...';
+    }
   }
   
   // Ensure proper ending
