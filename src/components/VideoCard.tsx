@@ -217,12 +217,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
             )}
           </div>
 
-          {/* Summary Selector */}
-          <SummarySelector
-            articleId={news.id}
-            content={news.fullContent || news.tldr}
-            onSummaryChange={handleSummaryChange}
-          />
 
           {/* TL;DR Content Card */}
           <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-4 space-y-3">
