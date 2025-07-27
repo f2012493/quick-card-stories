@@ -10,6 +10,7 @@ interface NewsItem {
   localRelevance?: number;
   trustScore?: number;
   category?: string;
+  fullContent?: string;
 }
 
 interface VideoCardContentProps {
@@ -26,13 +27,10 @@ const VideoCardContent = ({ news }: VideoCardContentProps) => {
         {news.headline}
       </h1>
 
-      {/* TL;DR */}
+      {/* Full Article */}
       <div className="mb-6">
-        <h2 className="text-blue-400 text-sm font-semibold mb-2 uppercase tracking-wider drop-shadow-lg">
-          TL;DR
-        </h2>
         <p className="text-white/95 text-base leading-relaxed drop-shadow-lg font-medium">
-          {news.tldr}
+          {news.fullContent || news.tldr}
         </p>
       </div>
 
