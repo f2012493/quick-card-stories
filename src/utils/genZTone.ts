@@ -97,10 +97,11 @@ export const generateGenZTldr = (content: string | null, headline: string = ''):
     .replace(/<[^>]*>/g, '') // Remove HTML tags
     .replace(/\[.*?\]/g, '') // Remove [+ chars], [+n chars] type artifacts
     .replace(/\[\+\d+\s*chars?\]/gi, '') // Specifically target [+n chars]
-    .replace(/\d+\s*$/, '') // Remove trailing numbers like "0"
-    .replace(/^\d+\s*/, '') // Remove leading numbers
-    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/\s+/g, ' ') // Normalize whitespace first
     .replace(/\b(click here|read more|continue reading|full story|see more)\b.*$/gi, '') // Remove call-to-action endings
+    .replace(/^\d+\s*/, '') // Remove leading numbers
+    .replace(/\s*\d+\s*$/, '') // Remove trailing numbers and spaces
+    .replace(/\s*0\s*$/, '') // Specifically remove trailing "0"
     .trim();
   
   // Remove common prefixes/suffixes that might be artifacts
