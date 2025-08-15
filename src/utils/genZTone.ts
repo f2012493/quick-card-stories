@@ -94,14 +94,21 @@ export const generateGenZTldr = (content: string | null, headline: string = ''):
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ')
-    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/<[^>]*>/g, '') // Remove all HTML tags
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove style tags
     .replace(/\[.*?\]/g, '') // Remove [+ chars], [+n chars] type artifacts
     .replace(/\[\+\d+\s*chars?\]/gi, '') // Specifically target [+n chars]
+    .replace(/\[Read more\]/gi, '') // Remove [Read more] artifacts
+    .replace(/\[Continue reading\]/gi, '') // Remove [Continue reading] artifacts
+    .replace(/\[Full story\]/gi, '') // Remove [Full story] artifacts
     .replace(/\s+/g, ' ') // Normalize whitespace first
-    .replace(/\b(click here|read more|continue reading|full story|see more)\b.*$/gi, '') // Remove call-to-action endings
+    .replace(/\b(click here|read more|continue reading|full story|see more|learn more|find out more)\b.*$/gi, '') // Remove call-to-action endings
     .replace(/^\d+\s*/, '') // Remove leading numbers
     .replace(/\s*\d+\s*$/, '') // Remove trailing numbers and spaces
     .replace(/\s*0\s*$/, '') // Specifically remove trailing "0"
+    .replace(/\.\.\.\s*$/, '') // Remove trailing ellipsis
+    .replace(/…\s*$/, '') // Remove trailing unicode ellipsis
     .trim();
   
   // Remove common prefixes/suffixes that might be artifacts
