@@ -3,6 +3,40 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Simple 60-word TLDR generation function
+const generateTLDR = (content: string, headline: string, description: string = ''): string => {
+  const text = content || description || headline || '';
+  
+  // Clean and normalize text
+  const cleanText = text
+    .replace(/[^\w\s.!?]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  if (!cleanText) return 'Summary not available';
+  
+  // Split into words and limit to 60
+  const words = cleanText.split(/\s+/).filter(w => w.length > 0);
+  
+  if (words.length <= 60) {
+    return cleanText.endsWith('.') ? cleanText : cleanText + '.';
+  }
+  
+  // Take first 60 words and ensure proper ending
+  const limitedWords = words.slice(0, 60);
+  let summary = limitedWords.join(' ');
+  
+  // Find last sentence boundary within our limit
+  const lastPeriod = summary.lastIndexOf('.');
+  if (lastPeriod > summary.length * 0.7) {
+    summary = summary.substring(0, lastPeriod + 1);
+  } else {
+    summary = summary.replace(/[.!?]+$/, '') + '.';
+  }
+  
+  return summary;
+};
+
 // Import Perplexity analysis utility
 const analyzeNewsStory = async (headline: string, content: string, description: string = '') => {
   const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -218,6 +252,13 @@ const storeArticle = async (article: Article) => {
     // Calculate quality score
     const qualityScore = calculateQualityScore(article);
 
+    // Generate 60-word TLDR
+    const tldr = await generateTLDR(
+      article.content || '', 
+      article.title, 
+      article.description || ''
+    );
+
     // Store article
     const { data: storedArticle, error } = await supabase
       .from('articles')
@@ -237,7 +278,8 @@ const storeArticle = async (article: Article) => {
         content_hash: btoa(article.title + article.url), // Simple hash for deduplication
         story_breakdown: analysis.breakdown,
         story_nature: analysis.storyNature,
-        analysis_confidence: analysis.confidence
+        analysis_confidence: analysis.confidence,
+        tldr: tldr
       })
       .select()
       .single();

@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -39,6 +39,7 @@ export type Database = {
           story_nature: string | null
           title: string
           title_embedding: string | null
+          tldr: string | null
           trust_score: number | null
           updated_at: string | null
           url: string
@@ -69,6 +70,7 @@ export type Database = {
           story_nature?: string | null
           title: string
           title_embedding?: string | null
+          tldr?: string | null
           trust_score?: number | null
           updated_at?: string | null
           url: string
@@ -99,6 +101,7 @@ export type Database = {
           story_nature?: string | null
           title?: string
           title_embedding?: string | null
+          tldr?: string | null
           trust_score?: number | null
           updated_at?: string | null
           url?: string
@@ -482,7 +485,7 @@ export type Database = {
         Returns: number
       }
       update_subscription_status: {
-        Args: { user_id: string; status: string }
+        Args: { status: string; user_id: string }
         Returns: undefined
       }
       vector_avg: {

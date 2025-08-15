@@ -81,7 +81,7 @@ class NewsService {
         return {
           id: article.id,
           headline: article.title,
-          tldr: generateGenZTldr(article.content, article.title) || article.description || 'No summary available',
+          tldr: article.tldr || generateGenZTldr(article.content, article.title) || article.description || 'No summary available',
           quote: this.extractQuote(article.content),
           author: article.author || sourceName,
           imageUrl: article.image_url || '/placeholder.svg',

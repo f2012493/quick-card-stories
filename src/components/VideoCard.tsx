@@ -206,7 +206,14 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
               {news.headline}
             </h1>
             
-            {/* Author info */}
+          {/* TLDR Summary */}
+          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-4">
+            <p className="text-white/90 text-base leading-relaxed">
+              {news.tldr}
+            </p>
+          </div>
+
+          {/* Author info */}
             {news.author && (
               <div className="flex items-center gap-2 text-white/70">
                 <User className="w-4 h-4" />
