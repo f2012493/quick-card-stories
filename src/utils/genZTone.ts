@@ -94,15 +94,21 @@ export const generateGenZTldr = (content: string | null, headline: string = ''):
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ')
-    .replace(/<[^>]*>/g, '') // Remove all HTML tags
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove style tags
+    // Remove HTML tags more aggressively
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags first
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove style tags first
+    .replace(/<[^>]*>/g, '') // Remove all remaining HTML tags
     .replace(/\[.*?\]/g, '') // Remove [+ chars], [+n chars] type artifacts
     .replace(/\[\+\d+\s*chars?\]/gi, '') // Specifically target [+n chars]
     .replace(/\[Read more\]/gi, '') // Remove [Read more] artifacts
     .replace(/\[Continue reading\]/gi, '') // Remove [Continue reading] artifacts
     .replace(/\[Full story\]/gi, '') // Remove [Full story] artifacts
-    .replace(/\s+/g, ' ') // Normalize whitespace first
+    // Remove content truncation patterns more aggressively
+    .replace(/…\s*\[\+\d+\s*chars?\]/gi, '') // Remove "… [+n chars]"
+    .replace(/\.\.\.\s*\[\+\d+\s*chars?\]/gi, '') // Remove "... [+n chars]"
+    .replace(/\s*\[\+\d+\s*chars?\].*$/gi, '') // Remove everything from [+n chars] to end
+    .replace(/….*$/g, '') // Remove everything after ellipsis
+    .replace(/\s+/g, ' ') // Normalize whitespace
     .replace(/\b(click here|read more|continue reading|full story|see more|learn more|find out more)\b.*$/gi, '') // Remove call-to-action endings
     .replace(/^\d+\s*/, '') // Remove leading numbers
     .replace(/\s*\d+\s*$/, '') // Remove trailing numbers and spaces
