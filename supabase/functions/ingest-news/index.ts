@@ -112,7 +112,11 @@ const generateTLDR = (content: string, headline: string = '', description: strin
     .replace(/…\s*\[\+\d+\s*chars?\]/gi, '') // Remove "… [+n chars]"
     .replace(/\.\.\.\s*\[\+\d+\s*chars?\]/gi, '') // Remove "... [+n chars]"
     .replace(/\s*\[\+\d+\s*chars?\].*$/gi, '') // Remove everything from [+n chars] to end
+    // Remove truncation patterns like "5870 chars." or "2168 chars."
+    .replace(/\s+(?:in\s+a\s+)?\d+\s+chars?\.?\s*$/gi, '') // Remove "in a 5870 chars." or "2168 chars."
+    .replace(/\s+\d+\s+chars?\.?\s*$/gi, '') // Remove trailing "5870 chars." patterns
     .replace(/….*$/g, '') // Remove everything after ellipsis
+    .replace(/\.\.\.\s*.*$/g, '') // Remove everything after "..."
     .replace(/\s+/g, ' ') // Normalize whitespace
     .replace(/\b(click here|read more|continue reading|full story|see more|learn more|find out more)\b.*$/gi, '') // Remove call-to-action endings
     .replace(/^\d+\s*/, '') // Remove leading numbers
@@ -127,58 +131,85 @@ const generateTLDR = (content: string, headline: string = '', description: strin
     .replace(/^(summary|tldr|description|story|article):\s*/i, '')
     .replace(/\.\.\.\s*$/, '')
     .replace(/…\s*$/, '')
-    .replace(/\s*-\s*$/g, ''); // Remove trailing dashes
+    .replace(/\s*-\s*$/g, '') // Remove trailing dashes
+    .replace(/\s+we\s+are\s+now\s+offici\s*$/gi, '') // Remove incomplete "We are now offici" patterns
+    .replace(/\s+what\s+t\s*$/gi, ''); // Remove incomplete "what t" patterns
   
   if (!cleanContent || cleanContent.length < 10) {
     return headline ? makeGenZTone(headline.split(' ').slice(0, 15).join(' ')) + '.' : 'No summary available';
   }
   
-  // Smart sentence extraction for better summaries
-  const sentences = cleanContent.split(/[.!?]+/).filter(s => s.trim().length > 15);
+  // Smart sentence extraction - only use complete sentences
+  const sentences = cleanContent.split(/[.!?]+/).filter(s => {
+    const trimmed = s.trim();
+    // Filter out very short fragments and incomplete sentences
+    return trimmed.length > 20 && 
+           !trimmed.match(/\b\w{1,2}$/) && // Not ending with 1-2 letter words (likely incomplete)
+           !trimmed.match(/\d+\s*chars?\s*$/i) && // Not ending with char count
+           !trimmed.match(/…|\.\.\./) && // No ellipsis indicating truncation
+           trimmed.split(/\s+/).length >= 5; // At least 5 words
+  });
   
   let summary = '';
-  let targetWordCount = 45; // Leave more room for Gen-Z additions
+  let targetWordCount = 50; // Slightly more room for complete sentences
   
-  // Build summary prioritizing the most informative sentences
+  // Build summary with complete sentences only
   if (sentences.length > 0) {
-    // Start with the first sentence (usually most important)
-    let currentWords = sentences[0].trim().split(/\s+/);
+    let totalWords = 0;
+    const selectedSentences = [];
     
-    if (currentWords.length <= targetWordCount) {
-      summary = sentences[0].trim();
-      
-      // Try to add a second sentence if there's room
-      if (sentences.length > 1) {
-        const secondWords = sentences[1].trim().split(/\s+/);
-        if (currentWords.length + secondWords.length <= targetWordCount) {
-          summary += '. ' + sentences[1].trim();
-        }
+    for (const sentence of sentences) {
+      const sentenceWords = sentence.trim().split(/\s+/).length;
+      if (totalWords + sentenceWords <= targetWordCount) {
+        selectedSentences.push(sentence.trim());
+        totalWords += sentenceWords;
+      } else {
+        break; // Stop adding sentences if we'd exceed limit
       }
+    }
+    
+    if (selectedSentences.length > 0) {
+      summary = selectedSentences.join('. ');
     } else {
-      // If first sentence is too long, truncate it intelligently
-      summary = currentWords.slice(0, targetWordCount).join(' ');
+      // If no complete sentences fit, use the first sentence truncated at word boundary
+      const firstSentence = sentences[0].trim();
+      const words = firstSentence.split(/\s+/);
+      if (words.length > targetWordCount) {
+        summary = words.slice(0, targetWordCount - 5).join(' '); // Leave room for Gen-Z additions
+      } else {
+        summary = firstSentence;
+      }
     }
   } else {
-    // Fallback for no proper sentences
-    const words = cleanContent.split(/\s+/);
-    summary = words.slice(0, targetWordCount).join(' ');
+    // Fallback: use headline if no good sentences found
+    summary = headline.split(' ').slice(0, 20).join(' ');
   }
   
   // Apply Gen-Z casual tone transformation
   summary = makeGenZTone(summary);
   
-  // Strict 60-word enforcement after Gen-Z transformation
+  // Final cleanup and word limit enforcement
   const finalWords = summary.split(/\s+/).filter(word => word.length > 0);
   if (finalWords.length > 60) {
-    summary = finalWords.slice(0, 60).join(' ');
-    // If we cut off mid-sentence, try to end gracefully
-    if (!summary.match(/[.!?]$/)) {
-      summary = summary.replace(/[,;:]?\s*\w*$/, '') + '...';
+    // Find the last complete sentence within 60 words
+    let truncatedSummary = finalWords.slice(0, 60).join(' ');
+    const lastSentenceEnd = Math.max(
+      truncatedSummary.lastIndexOf('.'),
+      truncatedSummary.lastIndexOf('!'),
+      truncatedSummary.lastIndexOf('?')
+    );
+    
+    if (lastSentenceEnd > truncatedSummary.length * 0.7) {
+      // If we have a sentence ending in the last 30% of the text, use that
+      summary = truncatedSummary.substring(0, lastSentenceEnd + 1);
+    } else {
+      // Otherwise just truncate and add period
+      summary = finalWords.slice(0, 58).join(' ') + '.';
     }
   }
   
   // Ensure proper ending
-  if (!summary.match(/[.!?…]$/)) {
+  if (!summary.match(/[.!?]$/)) {
     summary += '.';
   }
   
