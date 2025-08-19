@@ -8,6 +8,10 @@ import {
   User,
   ExternalLink
 } from 'lucide-react';
+import VideoCardContent from './VideoCardContent';
+import VideoCardHeader from './VideoCardHeader';
+import VideoCardSwipeHandler from './VideoCardSwipeHandler';
+import { useUserInteractions } from '@/hooks/useUserInteractions';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,6 +61,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const [summaryType, setSummaryType] = useState('original');
   
   const { trackInteraction } = useUserTracking();
+  const { trackArticleView, trackArticleShare } = useUserInteractions();
   const { user } = useAuth();
   const { data: relatedArticles } = useRelatedArticles(news.clusterId);
 
@@ -67,8 +72,11 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         articleId: news.id,
         interactionType: 'view'
       });
+      
+      // Also track with new personalization system
+      trackArticleView(news.id, news.category);
     }
-  }, [isActive, news.id, trackInteraction, user]);
+  }, [isActive, news.id, trackInteraction, trackArticleView, news.category, user]);
 
   const toggleLike = () => {
     setIsLiked(!isLiked);
@@ -103,6 +111,9 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         articleId: news.id,
         interactionType: 'share'
       });
+      
+      // Also track with new personalization system
+      trackArticleShare(news.id, news.category);
     }
   };
 

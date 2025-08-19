@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNews } from '@/hooks/useNews';
+import { useClusteredNews } from '@/hooks/useClusteredNews';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -19,9 +20,19 @@ export const useVideoFeedData = () => {
   const [hasMorePages, setHasMorePages] = useState(true);
 
   const { locationData } = useLocation();
-  const { userProfile } = useAuth();
+  const { user, userProfile } = useAuth();
 
-  const { data: newsData = [], isLoading } = useNews({
+  // Use personalized clusters for authenticated users, general news for others
+  const { data: clusteredData = [] } = useClusteredNews({
+    userId: user?.id,
+    location: {
+      country: locationData?.country,
+      city: locationData?.city,
+      region: locationData?.region
+    }
+  });
+
+  const { data: fallbackNewsData = [] } = useNews({
     category: 'general',
     pageSize: 20,
     country: locationData?.country,
@@ -29,13 +40,20 @@ export const useVideoFeedData = () => {
     region: locationData?.region
   });
 
+  // Use clustered personalized data if available, otherwise fallback to general news
+  const newsData = user?.id ? clusteredData : fallbackNewsData;
+  const isLoading = false; // Both hooks handle their own loading states
+
   // Initialize with fresh news
   useEffect(() => {
     if (newsData.length > 0) {
-      const realNews = newsData.filter(article => 
-        article.author !== 'antiNews System' && 
-        !article.headline.includes('Breaking: Real-time News Service')
-      );
+      const realNews = newsData.filter(item => {
+        // Handle both StoryCluster and NewsItem types safely
+        const title = (item as any).title || (item as any).headline || '';
+        const author = (item as any).author || '';
+        return author !== 'antiNews System' && 
+               !title.includes('Breaking: Real-time News Service');
+      });
       
       if (realNews.length > 0) {
         setAllNews(realNews);
@@ -54,10 +72,11 @@ export const useVideoFeedData = () => {
     try {
       console.log('Loading more news...');
       
-      const moreNews = newsData.slice(0, 10).map((article, index) => ({
-        ...article,
-        id: `${article.id}-page${page}-${index}`,
-        headline: `${article.headline} (Page ${page + 1})`
+      const moreNews = newsData.slice(0, 10).map((item, index) => ({
+        ...item,
+        id: `${item.id}-page${page}-${index}`,
+        title: (item as any).title || (item as any).headline || '',
+        headline: (item as any).headline || (item as any).title || ''
       }));
       
       if (moreNews.length > 0) {
