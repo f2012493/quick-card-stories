@@ -1,9 +1,11 @@
 import { useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from '@/hooks/useLocation';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useUserInteractions = () => {
   const { user } = useAuth();
+  const { locationData } = useLocation();
 
   const trackArticleView = useCallback(async (articleId: string, category?: string) => {
     if (!user?.id || !articleId) return;
@@ -16,7 +18,7 @@ export const useUserInteractions = () => {
         localStorage.setItem('user-interests', JSON.stringify(interests));
       }
 
-      // Update user profile preferences in database
+      // Update user profile preferences and location in database
       if (category) {
         const { data: profile } = await supabase
           .from('user_profiles')
@@ -28,19 +30,28 @@ export const useUserInteractions = () => {
           const preferences = profile.content_preferences || {};
           preferences[category] = (preferences[category] || 0) + 1;
 
+          const updateData: any = {
+            content_preferences: preferences,
+            updated_at: new Date().toISOString()
+          };
+
+          // Update location data if available
+          if (locationData) {
+            updateData.location_country = locationData.country;
+            updateData.location_city = locationData.city;
+            updateData.location_region = locationData.region;
+          }
+
           await supabase
             .from('user_profiles')
-            .update({ 
-              content_preferences: preferences,
-              updated_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('id', user.id);
         }
       }
     } catch (error) {
       console.error('Error tracking article view:', error);
     }
-  }, [user?.id]);
+  }, [user?.id, locationData]);
 
   const trackArticleShare = useCallback(async (articleId: string, category?: string) => {
     if (!user?.id) return;
@@ -77,15 +88,27 @@ export const useUserInteractions = () => {
           categories = categories.filter(cat => cat !== category);
         }
 
+        const updateData: any = {
+          preferred_categories: categories,
+          updated_at: new Date().toISOString()
+        };
+
+        // Update location data if available
+        if (locationData) {
+          updateData.location_country = locationData.country;
+          updateData.location_city = locationData.city;
+          updateData.location_region = locationData.region;
+        }
+
         await supabase
           .from('user_profiles')
-          .update({ preferred_categories: categories })
+          .update(updateData)
           .eq('id', user.id);
       }
     } catch (error) {
       console.error('Error updating category preference:', error);
     }
-  }, [user?.id]);
+  }, [user?.id, locationData]);
 
   return {
     trackArticleView,

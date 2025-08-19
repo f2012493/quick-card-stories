@@ -14,7 +14,7 @@ const supabase = createClient(
 );
 
 // Calculate personalization score for a user and cluster
-const calculatePersonalizationScore = async (userId: string, cluster: any): Promise<number> => {
+const calculatePersonalizationScore = async (userId: string, cluster: any, location: any): Promise<number> => {
   try {
     let personalizationScore = 0.5; // Base score
 
@@ -25,19 +25,31 @@ const calculatePersonalizationScore = async (userId: string, cluster: any): Prom
       .eq('id', userId)
       .single();
 
-    if (userProfile) {
-      // Regional relevance bonus
-      if (userProfile.location_country && cluster.region_tags?.includes(userProfile.location_country)) {
-        personalizationScore += 0.2;
-      }
-      if (userProfile.location_city && cluster.region_tags?.includes(userProfile.location_city)) {
-        personalizationScore += 0.15;
-      }
+    const userCountry = location?.country || userProfile?.location_country;
+    const userCity = location?.city || userProfile?.location_city;
+    const userRegion = location?.region || userProfile?.location_region;
 
-      // Category preference
-      if (userProfile.preferred_categories?.includes(cluster.category)) {
-        personalizationScore += 0.15;
+    // Strong country-based relevance (primary factor)
+    if (userCountry) {
+      if (cluster.region_tags?.includes(userCountry)) {
+        personalizationScore += 0.3; // Higher weight for country match
       }
+      if (cluster.trending_regions?.includes(userCountry)) {
+        personalizationScore += 0.25; // Trending in user's country
+      }
+    }
+
+    // Regional relevance bonus
+    if (userRegion && cluster.region_tags?.includes(userRegion)) {
+      personalizationScore += 0.2;
+    }
+    if (userCity && cluster.region_tags?.includes(userCity)) {
+      personalizationScore += 0.15;
+    }
+
+    // Category preference
+    if (userProfile?.preferred_categories?.includes(cluster.category)) {
+      personalizationScore += 0.15;
     }
 
     // Get user reading history for this category
@@ -153,8 +165,8 @@ serve(async (req) => {
     // Calculate personalized scores
     const personalizedClusters = [];
     for (const cluster of topClusters) {
-      const personalizationScore = await calculatePersonalizationScore(user_id, cluster);
-      const finalScore = (cluster.base_score || 0) * 0.7 + personalizationScore * 100 * 0.3;
+      const personalizationScore = await calculatePersonalizationScore(user_id, cluster, location);
+      const finalScore = (cluster.base_score || 0) * 0.6 + personalizationScore * 100 * 0.4;
       
       personalizedClusters.push({
         ...cluster,
