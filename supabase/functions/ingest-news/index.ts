@@ -3,77 +3,43 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Gen-Z tone utilities for casual, engaging content generation
-const makeGenZTone = (text: string): string => {
+// Professional tone utilities for clean, readable content generation
+const cleanProfessionalTone = (text: string): string => {
   if (!text) return text;
   
-  let genZText = text;
+  let cleanText = text;
   
-  // Replace formal phrases with casual alternatives
+  // Replace overly formal phrases with cleaner alternatives
   const replacements = [
     { formal: /\b(according to|reports indicate|sources say|it is reported)\b/gi, casual: '' },
-    { formal: /\b(officials|authorities|representatives)\b/gi, casual: 'officials' },
     { formal: /\b(approximately|roughly)\b/gi, casual: 'around' },
-    { formal: /\b(significant|substantial)\b/gi, casual: 'major' },
     { formal: /\b(demonstrate|illustrate)\b/gi, casual: 'show' },
-    { formal: /\b(currently|presently)\b/gi, casual: 'rn' },
-    { formal: /\b(anticipated|expected)\b/gi, casual: 'expected' },
     { formal: /\b(commenced|initiated)\b/gi, casual: 'started' },
-    { formal: /\b(terminated|concluded)\b/gi, casual: 'ended' },
+    { formal: /\b(terminated|concluded)\b/gi, casual: 'ended' },  
     { formal: /\b(utilize|employ)\b/gi, casual: 'use' },
     { formal: /\b(regarding|concerning)\b/gi, casual: 'about' },
     { formal: /\b(subsequent to|following)\b/gi, casual: 'after' },
     { formal: /\b(prior to)\b/gi, casual: 'before' },
     { formal: /\b(in order to)\b/gi, casual: 'to' },
     { formal: /\b(as a result of)\b/gi, casual: 'because of' },
-    { formal: /\b(due to the fact that)\b/gi, casual: 'because' },
-    { formal: /\b(very important|extremely important)\b/gi, casual: 'lowkey important' },
-    { formal: /\b(really|very)\b/gi, casual: 'literally' },
-    { formal: /\b(absolutely|completely)\b/gi, casual: 'totally' },
-    { formal: /\b(immediately|right away)\b/gi, casual: 'asap' }
+    { formal: /\b(due to the fact that)\b/gi, casual: 'because' }
   ];
   
   replacements.forEach(({ formal, casual }) => {
-    genZText = genZText.replace(formal, casual);
+    cleanText = cleanText.replace(formal, casual);
   });
   
-  // Add Gen-Z intensifiers and casual words
-  genZText = genZText
-    .replace(/\b(amazing|incredible|extraordinary)\b/gi, 'fire')
-    .replace(/\b(terrible|awful|horrible)\b/gi, 'trash')
-    .replace(/\b(popular|trending)\b/gi, 'viral')
-    .replace(/\b(obvious|clear)\b/gi, 'lowkey obvious')
-    .replace(/\b(surprising|shocking)\b/gi, 'no cap shocking');
-  
-  // Add casual connectors and starters with higher probability
-  const shouldAddStarter = Math.random() > 0.5;
-  if (shouldAddStarter) {
-    const casualStarters = [
-      'So basically,', 'Here\'s the tea:', 'Ngl,', 'Real talk,', 
-      'Lowkey,', 'Highkey,', 'Not gonna lie,', 'Tbh,'
-    ];
-    const randomStarter = casualStarters[Math.floor(Math.random() * casualStarters.length)];
-    genZText = `${randomStarter} ${genZText.toLowerCase()}`;
-  }
-  
-  // Add casual transitions within text
-  if (Math.random() > 0.6) {
-    genZText = genZText
-      .replace(/\. /g, ', and ')
-      .replace(/, and ([^,]+)$/, ` and $1 ngl.`);
-  }
-  
   // Clean up extra spaces and ensure proper capitalization
-  genZText = genZText
+  cleanText = cleanText
     .replace(/\s+/g, ' ')
     .trim();
   
   // Capitalize first letter if not already capitalized
-  if (genZText && !genZText.match(/^[A-Z]/)) {
-    genZText = genZText.charAt(0).toUpperCase() + genZText.slice(1);
+  if (cleanText && !cleanText.match(/^[A-Z]/)) {
+    cleanText = cleanText.charAt(0).toUpperCase() + cleanText.slice(1);
   }
   
-  return genZText;
+  return cleanText;
 };
 
 // Advanced TLDR generation with proper HTML cleaning and sentence completion
@@ -136,7 +102,7 @@ const generateTLDR = (content: string, headline: string = '', description: strin
     .replace(/\s+what\s+t\s*$/gi, ''); // Remove incomplete "what t" patterns
   
   if (!cleanContent || cleanContent.length < 10) {
-    return headline ? makeGenZTone(headline.split(' ').slice(0, 15).join(' ')) + '.' : 'No summary available';
+    return headline ? cleanProfessionalTone(headline.split(' ').slice(0, 15).join(' ')) + '.' : 'No summary available';
   }
   
   // Smart sentence extraction - only use complete sentences
@@ -185,8 +151,8 @@ const generateTLDR = (content: string, headline: string = '', description: strin
     summary = headline.split(' ').slice(0, 20).join(' ');
   }
   
-  // Apply Gen-Z casual tone transformation
-  summary = makeGenZTone(summary);
+  // Apply professional tone transformation
+  summary = cleanProfessionalTone(summary);
   
   // Final cleanup and word limit enforcement
   const finalWords = summary.split(/\s+/).filter(word => word.length > 0);

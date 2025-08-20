@@ -1,19 +1,15 @@
-// Gen-Z tone utilities for casual, engaging content generation
+// Clean, professional content utilities for readable summaries
 
-export const makeGenZTone = (text: string): string => {
+export const cleanProfessionalTone = (text: string): string => {
   if (!text) return text;
   
-  let genZText = text;
+  let cleanText = text;
   
-  // Replace formal phrases with casual alternatives
+  // Replace overly formal phrases with cleaner alternatives
   const replacements = [
     { formal: /\b(according to|reports indicate|sources say|it is reported)\b/gi, casual: '' },
-    { formal: /\b(officials|authorities|representatives)\b/gi, casual: 'officials' },
     { formal: /\b(approximately|roughly)\b/gi, casual: 'around' },
-    { formal: /\b(significant|substantial)\b/gi, casual: 'major' },
     { formal: /\b(demonstrate|illustrate)\b/gi, casual: 'show' },
-    { formal: /\b(currently|presently)\b/gi, casual: 'rn' },
-    { formal: /\b(anticipated|expected)\b/gi, casual: 'expected' },
     { formal: /\b(commenced|initiated)\b/gi, casual: 'started' },
     { formal: /\b(terminated|concluded)\b/gi, casual: 'ended' },
     { formal: /\b(utilize|employ)\b/gi, casual: 'use' },
@@ -22,57 +18,27 @@ export const makeGenZTone = (text: string): string => {
     { formal: /\b(prior to)\b/gi, casual: 'before' },
     { formal: /\b(in order to)\b/gi, casual: 'to' },
     { formal: /\b(as a result of)\b/gi, casual: 'because of' },
-    { formal: /\b(due to the fact that)\b/gi, casual: 'because' },
-    { formal: /\b(very important|extremely important)\b/gi, casual: 'lowkey important' },
-    { formal: /\b(really|very)\b/gi, casual: 'literally' },
-    { formal: /\b(absolutely|completely)\b/gi, casual: 'totally' },
-    { formal: /\b(immediately|right away)\b/gi, casual: 'asap' }
+    { formal: /\b(due to the fact that)\b/gi, casual: 'because' }
   ];
   
   replacements.forEach(({ formal, casual }) => {
-    genZText = genZText.replace(formal, casual);
+    cleanText = cleanText.replace(formal, casual);
   });
   
-  // Add Gen-Z intensifiers and casual words
-  genZText = genZText
-    .replace(/\b(amazing|incredible|extraordinary)\b/gi, 'fire')
-    .replace(/\b(terrible|awful|horrible)\b/gi, 'trash')
-    .replace(/\b(popular|trending)\b/gi, 'viral')
-    .replace(/\b(obvious|clear)\b/gi, 'lowkey obvious')
-    .replace(/\b(surprising|shocking)\b/gi, 'no cap shocking');
-  
-  // Add casual connectors and starters with higher probability
-  const shouldAddStarter = Math.random() > 0.5; // Increased from 0.7
-  if (shouldAddStarter) {
-    const casualStarters = [
-      'So basically,', 'Here\'s the tea:', 'Ngl,', 'Real talk,', 
-      'Lowkey,', 'Highkey,', 'Not gonna lie,', 'Tbh,'
-    ];
-    const randomStarter = casualStarters[Math.floor(Math.random() * casualStarters.length)];
-    genZText = `${randomStarter} ${genZText.toLowerCase()}`;
-  }
-  
-  // Add casual transitions within text
-  if (Math.random() > 0.6) {
-    genZText = genZText
-      .replace(/\. /g, ', and ')
-      .replace(/, and ([^,]+)$/, ` and $1 ngl.`);
-  }
-  
   // Clean up extra spaces and ensure proper capitalization
-  genZText = genZText
+  cleanText = cleanText
     .replace(/\s+/g, ' ')
     .trim();
   
   // Capitalize first letter if not already capitalized
-  if (genZText && !genZText.match(/^[A-Z]/)) {
-    genZText = genZText.charAt(0).toUpperCase() + genZText.slice(1);
+  if (cleanText && !cleanText.match(/^[A-Z]/)) {
+    cleanText = cleanText.charAt(0).toUpperCase() + cleanText.slice(1);
   }
   
-  return genZText;
+  return cleanText;
 };
 
-export const generateGenZTldr = (content: string | null, headline: string = ''): string => {
+export const generateCleanTldr = (content: string | null, headline: string = ''): string => {
   if (!content && !headline) return 'No summary available';
   
   // Use content if available, otherwise combine headline and content for richer summaries
@@ -125,14 +91,14 @@ export const generateGenZTldr = (content: string | null, headline: string = ''):
     .replace(/\s*-\s*$/g, ''); // Remove trailing dashes
   
   if (!cleanContent || cleanContent.length < 10) {
-    return headline ? makeGenZTone(headline.split(' ').slice(0, 15).join(' ')) + '.' : 'No summary available';
+    return headline ? cleanProfessionalTone(headline.split(' ').slice(0, 15).join(' ')) + '.' : 'No summary available';
   }
   
   // Smart sentence extraction for better summaries
   const sentences = cleanContent.split(/[.!?]+/).filter(s => s.trim().length > 15);
   
   let summary = '';
-  let targetWordCount = 45; // Leave more room for Gen-Z additions
+  let targetWordCount = 50; // Professional summary target
   
   // Build summary prioritizing the most informative sentences
   if (sentences.length > 0) {
@@ -159,10 +125,10 @@ export const generateGenZTldr = (content: string | null, headline: string = ''):
     summary = words.slice(0, targetWordCount).join(' ');
   }
   
-  // Apply Gen-Z casual tone transformation
-  summary = makeGenZTone(summary);
+  // Apply professional tone transformation
+  summary = cleanProfessionalTone(summary);
   
-  // Strict 60-word enforcement after Gen-Z transformation
+  // Strict 60-word enforcement after professional tone cleanup
   const finalWords = summary.split(/\s+/).filter(word => word.length > 0);
   if (finalWords.length > 60) {
     summary = finalWords.slice(0, 60).join(' ');
