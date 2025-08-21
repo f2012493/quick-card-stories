@@ -14,6 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_impressions: {
+        Row: {
+          ad_id: string
+          ad_unit_id: string | null
+          click_revenue_cents: number | null
+          click_timestamp: string | null
+          created_at: string | null
+          device_info: Json | null
+          id: string
+          location_data: Json | null
+          revenue_cents: number | null
+          session_id: string | null
+          timestamp: string | null
+          user_id: string | null
+          was_clicked: boolean | null
+        }
+        Insert: {
+          ad_id: string
+          ad_unit_id?: string | null
+          click_revenue_cents?: number | null
+          click_timestamp?: string | null
+          created_at?: string | null
+          device_info?: Json | null
+          id?: string
+          location_data?: Json | null
+          revenue_cents?: number | null
+          session_id?: string | null
+          timestamp?: string | null
+          user_id?: string | null
+          was_clicked?: boolean | null
+        }
+        Update: {
+          ad_id?: string
+          ad_unit_id?: string | null
+          click_revenue_cents?: number | null
+          click_timestamp?: string | null
+          created_at?: string | null
+          device_info?: Json | null
+          id?: string
+          location_data?: Json | null
+          revenue_cents?: number | null
+          session_id?: string | null
+          timestamp?: string | null
+          user_id?: string | null
+          was_clicked?: boolean | null
+        }
+        Relationships: []
+      }
+      ad_revenue_summary: {
+        Row: {
+          adsense_earnings_cents: number | null
+          click_revenue_cents: number | null
+          created_at: string | null
+          ctr: number | null
+          date: string
+          id: string
+          rpm_cents: number | null
+          total_clicks: number | null
+          total_impressions: number | null
+          total_revenue_cents: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          adsense_earnings_cents?: number | null
+          click_revenue_cents?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date: string
+          id?: string
+          rpm_cents?: number | null
+          total_clicks?: number | null
+          total_impressions?: number | null
+          total_revenue_cents?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          adsense_earnings_cents?: number | null
+          click_revenue_cents?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date?: string
+          id?: string
+          rpm_cents?: number | null
+          total_clicks?: number | null
+          total_impressions?: number | null
+          total_revenue_cents?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ad_units: {
+        Row: {
+          adsense_unit_id: string
+          category: string | null
+          cpm_cents: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          adsense_unit_id: string
+          category?: string | null
+          cpm_cents?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          adsense_unit_id?: string
+          category?: string | null
+          cpm_cents?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       articles: {
         Row: {
           analysis_confidence: number | null
