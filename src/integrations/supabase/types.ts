@@ -542,6 +542,16 @@ export type Database = {
         Args: { article_uuid: string }
         Returns: number
       }
+      get_public_ad_display_data: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          category: string
+          description: string
+          id: string
+          is_active: boolean
+          title: string
+        }[]
+      }
       halfvec_avg: {
         Args: { "": number[] }
         Returns: unknown

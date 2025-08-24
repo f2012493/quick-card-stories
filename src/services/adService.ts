@@ -71,38 +71,20 @@ export class AdService {
     }
   }
 
-  // Fetch ads from Supabase database
+  // Fetch ads from secure endpoint (no sensitive pricing data exposed)
   async fetchAds(): Promise<AdUnit[]> {
     await this.initializeAdSense();
 
     try {
-      // Fetch ad units from database
-      const { data: adUnits, error } = await supabase
-        .from('ad_units')
-        .select('*')
-        .eq('is_active', true);
+      // Use secure edge function to get ad display data without sensitive pricing info
+      const { data, error } = await supabase.functions.invoke('get-ad-display');
+      
+      if (error) throw error;
 
-      if (error) {
-        console.error('Error fetching ad units:', error);
-        return this.getFallbackAds();
-      }
-
-      // Convert database format to AdUnit format
-      const ads: AdUnit[] = adUnits.map(unit => ({
-        id: unit.id,
-        title: unit.title,
-        description: unit.description || 'Sponsored content',
-        imageUrl: this.getAdImage(unit.category),
-        ctaText: unit.category === 'subscription' ? 'Subscribe' : 'Learn More',
-        link: unit.category === 'subscription' ? '#subscribe' : '#',
-        revenue: unit.cpm_cents,
-        category: unit.category,
-        adUnitId: unit.adsense_unit_id
-      }));
-
-      return ads.length > 0 ? ads : this.getFallbackAds();
+      // Return ads from secure endpoint or fallback
+      return data?.ads || this.getFallbackAds();
     } catch (error) {
-      console.error('Failed to fetch ads:', error);
+      console.error('Failed to fetch ads from secure endpoint:', error);
       return this.getFallbackAds();
     }
   }

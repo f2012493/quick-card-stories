@@ -69,3 +69,6 @@ verify_jwt = false
 
 [functions.ad-analytics]
 verify_jwt = false
+
+[functions.get-ad-display]
+verify_jwt = false
