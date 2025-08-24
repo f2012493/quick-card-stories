@@ -529,6 +529,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -541,6 +562,10 @@ export type Database = {
       calculate_trust_score: {
         Args: { article_uuid: string }
         Returns: number
+      }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Enums"]["app_role"]
       }
       get_public_ad_display_data: {
         Args: Record<PropertyKey, never>
@@ -567,6 +592,13 @@ export type Database = {
       halfvec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       hnsw_bit_support: {
         Args: { "": unknown }
@@ -650,6 +682,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "user"
       article_status: "active" | "stale" | "archived"
       cluster_status: "active" | "trending" | "stale" | "archived"
       source_trust_level: "low" | "medium" | "high" | "verified"
@@ -780,6 +813,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "user"],
       article_status: ["active", "stale", "archived"],
       cluster_status: ["active", "trending", "stale", "archived"],
       source_trust_level: ["low", "medium", "high", "verified"],
