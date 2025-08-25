@@ -44,6 +44,7 @@ export class AdService {
   private adsenseInitialized: boolean = false;
   private sessionId: string;
   private currentStats: AdStats | null = null;
+  private publisherId: string | null = null;
 
   // Initialize Google AdSense
   private async initializeAdSense(): Promise<void> {
@@ -328,6 +329,26 @@ export class AdService {
     this.loadImpressions();
     this.sessionId = this.generateSessionId();
     this.refreshStats();
+    this.initializeAdSenseConfig();
+  }
+
+  private async initializeAdSenseConfig(): Promise<void> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase.functions.invoke('get-adsense-config', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!error && data?.publisherId) {
+        this.publisherId = data.publisherId;
+      }
+    } catch (error) {
+      console.warn('Failed to load AdSense configuration:', error);
+    }
   }
 
   private generateSessionId(): string {

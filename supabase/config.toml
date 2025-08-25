@@ -68,7 +68,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.ad-analytics]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-ad-display]
 verify_jwt = false
+
+[functions.get-adsense-config]
+verify_jwt = true

@@ -37,6 +37,44 @@ serve(async (req) => {
     const url = new URL(req.url)
     const action = url.pathname.split('/').pop()
 
+    // For sensitive admin endpoints, verify authentication
+    const adminEndpoints = ['stats', 'revenue', 'revenue-sync']
+    const isAdminEndpoint = adminEndpoints.includes(action || '')
+    
+    if (isAdminEndpoint) {
+      const authHeader = req.headers.get('Authorization')
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ error: 'Authorization required for admin endpoints' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Verify the JWT token
+      const token = authHeader.replace('Bearer ', '')
+      const { data: { user }, error } = await supabaseClient.auth.getUser(token)
+      
+      if (error || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired token' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Check if user has admin role
+      const { data: role, error: roleError } = await supabaseClient.rpc('has_role', {
+        _user_id: user.id,
+        _role: 'admin'
+      })
+
+      if (roleError || !role) {
+        return new Response(
+          JSON.stringify({ error: 'Admin access required' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     switch (method) {
       case 'POST':
         if (action === 'impression') {

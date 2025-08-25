@@ -1,22 +1,33 @@
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 type UserRole = 'admin' | 'user';
 
 export const useUserRole = () => {
   const [userRole, setUserRole] = useState<UserRole>('user');
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     const checkUserRole = async () => {
       try {
-        // In production, this would check against your auth system
-        // For now, we'll use localStorage to simulate admin access
-        const storedRole = localStorage.getItem('userRole') as UserRole;
+        if (!user) {
+          setUserRole('user');
+          setIsLoading(false);
+          return;
+        }
+
+        // Check user role from database using the secure function
+        const { data, error } = await supabase.rpc('get_current_user_role');
         
-        // You can set admin role by running: localStorage.setItem('userRole', 'admin')
-        // in browser console
-        setUserRole(storedRole || 'user');
+        if (error) {
+          console.error('Failed to check user role:', error);
+          setUserRole('user');
+        } else {
+          setUserRole(data || 'user');
+        }
       } catch (error) {
         console.error('Failed to check user role:', error);
         setUserRole('user');
@@ -26,14 +37,13 @@ export const useUserRole = () => {
     };
 
     checkUserRole();
-  }, []);
+  }, [user]);
 
   const isAdmin = userRole === 'admin';
 
   return {
     userRole,
     isAdmin,
-    isLoading,
-    setUserRole // For testing purposes
+    isLoading
   };
 };
