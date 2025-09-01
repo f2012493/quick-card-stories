@@ -306,14 +306,77 @@ const calculateQualityScore = (article: Article): number => {
   return Math.max(0, Math.min(1, score));
 };
 
-const fetchNewsFromAPI = async (): Promise<Article[]> => {
+// Simple RSS parser for additional news sources
+const fetchRSSFeed = async (url: string, sourceName: string): Promise<Article[]> => {
+  try {
+    console.log(`Fetching RSS from ${sourceName}: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; NewsBot/1.0)',
+        'Accept': 'application/rss+xml, application/xml, text/xml',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const xmlText = await response.text();
+    const articles: Article[] = [];
+
+    // Simple XML parsing for RSS items
+    const itemMatches = xmlText.match(/<item[^>]*>[\s\S]*?<\/item>/gi) || [];
+    
+    for (const itemMatch of itemMatches.slice(0, 10)) { // Limit to 10 items per feed
+      const title = itemMatch.match(/<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/i);
+      const link = itemMatch.match(/<link[^>]*>(.*?)<\/link>/i);
+      const description = itemMatch.match(/<description[^>]*><!\[CDATA\[(.*?)\]\]><\/description>|<description[^>]*>(.*?)<\/description>/i);
+      const pubDate = itemMatch.match(/<pubDate[^>]*>(.*?)<\/pubDate>/i);
+
+      if (title && link) {
+        const titleText = title[1] || title[2] || '';
+        const linkText = link[1] || '';
+        const descText = description ? (description[1] || description[2] || '') : '';
+        const pubDateText = pubDate ? pubDate[1] || '' : new Date().toISOString();
+
+        if (titleText.trim() && linkText.trim()) {
+          articles.push({
+            title: titleText.trim().replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'),
+            content: descText.trim().replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'),
+            description: descText.trim().replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'),
+            url: linkText.trim(),
+            imageUrl: '',
+            author: sourceName,
+            publishedAt: pubDateText,
+            source: sourceName,
+            category: 'general'
+          });
+        }
+      }
+    }
+
+    console.log(`Successfully parsed ${articles.length} articles from ${sourceName}`);
+    return articles;
+  } catch (error) {
+    console.error(`Error fetching RSS from ${sourceName}:`, error);
+    return [];
+  }
+};
+
+const fetchNewsFromAPI = async (countryCode = 'us'): Promise<Article[]> => {
   const newsApiKey = Deno.env.get('NEWS_API_KEY');
   const articles: Article[] = [];
+  const isIndianUser = countryCode === 'IN';
 
   if (newsApiKey) {
     try {
+      // Fetch news based on user's country, default to US
+      const targetCountry = isIndianUser ? 'in' : 'us';
+      console.log(`Fetching news for country: ${targetCountry}`);
+      
       const response = await fetch(
-        `https://newsapi.org/v2/top-headlines?country=us&pageSize=50&apiKey=${newsApiKey}`
+        `https://newsapi.org/v2/top-headlines?country=${targetCountry}&pageSize=30&apiKey=${newsApiKey}`
       );
       
       if (response.ok) {
@@ -328,7 +391,7 @@ const fetchNewsFromAPI = async (): Promise<Article[]> => {
               imageUrl: article.urlToImage,
               author: article.author,
               publishedAt: article.publishedAt,
-              source: article.source?.name || 'Unknown',
+              source: article.source?.name || 'NewsAPI',
               category: 'general'
             });
           }
@@ -336,6 +399,26 @@ const fetchNewsFromAPI = async (): Promise<Article[]> => {
       }
     } catch (error) {
       console.error('Error fetching from NewsAPI:', error);
+    }
+  }
+
+  // Add RSS feeds for better coverage, especially for Indian market
+  if (isIndianUser) {
+    // For Indian users, add more Indian RSS sources
+    const indianRSSFeeds = [
+      { url: 'https://www.news18.com/rss/india.xml', name: 'News18' },
+      { url: 'https://timesofindia.indiatimes.com/rssfeedstopstories.cms', name: 'Times of India' },
+      { url: 'https://www.ndtv.com/rss/latest', name: 'NDTV' },
+      { url: 'https://economictimes.indiatimes.com/rssfeedstopstories.cms', name: 'Economic Times' }
+    ];
+
+    for (const feed of indianRSSFeeds) {
+      try {
+        const rssArticles = await fetchRSSFeed(feed.url, feed.name);
+        articles.push(...rssArticles.slice(0, 5)); // Limit per source
+      } catch (error) {
+        console.warn(`Failed to fetch from ${feed.name}:`, error);
+      }
     }
   }
 
@@ -450,9 +533,20 @@ serve(async (req) => {
   try {
     console.log('Starting news ingestion...');
     
-    // Fetch articles from external APIs
-    const articles = await fetchNewsFromAPI();
-    console.log(`Fetched ${articles.length} articles from external sources`);
+    // Extract location data from request
+    const body = await req.json().catch(() => ({}));
+    const { country, countryCode, city, region } = body;
+    
+    console.log('Ingesting news with location context:', {
+      country,
+      countryCode, 
+      city,
+      region
+    });
+    
+    // Fetch articles from external APIs with location context
+    const articles = await fetchNewsFromAPI(countryCode);
+    console.log(`Fetched ${articles.length} articles from external sources for ${countryCode || 'global'} market`);
 
     // Store articles in database
     const storedArticles = [];
@@ -481,7 +575,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         ingested: storedArticles.length,
-        total_fetched: articles.length 
+        total_fetched: articles.length,
+        market: countryCode === 'IN' ? 'India' : 'Global'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

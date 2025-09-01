@@ -3,16 +3,29 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+interface LocationData {
+  country?: string;
+  countryCode?: string;
+  city?: string;
+  region?: string;
+}
+
 export const useTriggerNewsIngestion = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
-      console.log('Triggering comprehensive news ingestion with analysis...');
+    mutationFn: async (locationData?: LocationData) => {
+      console.log('Triggering comprehensive news ingestion with analysis...', { locationData });
       
-      // Trigger news ingestion which includes analysis
+      // Trigger news ingestion which includes analysis with location context
       const { data: ingestData, error: ingestError } = await supabase.functions.invoke('ingest-news', {
-        body: { trigger: 'manual_with_analysis' }
+        body: { 
+          trigger: 'manual_with_analysis',
+          country: locationData?.country,
+          countryCode: locationData?.countryCode,
+          city: locationData?.city,
+          region: locationData?.region
+        }
       });
 
       if (ingestError) {

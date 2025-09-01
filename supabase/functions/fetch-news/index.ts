@@ -98,14 +98,19 @@ serve(async (req) => {
   }
 
   try {
-    const { country, city, region, category = 'general', pageSize = 30 } = await req.json();
+    const { country, city, region, countryCode, category = 'general', pageSize = 30 } = await req.json();
     
-    console.log('Fetching diverse news sources:', {
+    // Determine if user is in India
+    const isIndianUser = countryCode === 'IN' || country === 'India';
+    
+    console.log('Fetching news sources for:', {
       country: country || 'Global',
+      countryCode: countryCode || 'Unknown',
       city: city || 'Unknown',
       region: region || 'Unknown',
       category,
-      pageSize
+      pageSize,
+      isIndianUser
     });
 
     const newsApiKey = Deno.env.get('NEWS_API_KEY') || '0043c6873e3d42e7a36db1d1a840d818';
@@ -116,24 +121,41 @@ serve(async (req) => {
     // Try multiple sources in parallel for diversity
     const fetchPromises = [];
 
-    // NewsAPI - US and India
+    // NewsAPI - Prioritize based on user location
     if (newsApiKey) {
-      const usNewsPromise = fetch(`https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=10&apiKey=${newsApiKey}`)
-        .then(res => res.json())
-        .then(data => ({ source: 'NewsAPI-US', articles: data.articles || [] }))
-        .catch(err => ({ source: 'NewsAPI-US', articles: [], error: err }));
-      
-      const inNewsPromise = fetch(`https://newsapi.org/v2/top-headlines?country=in&category=${category}&pageSize=10&apiKey=${newsApiKey}`)
-        .then(res => res.json())
-        .then(data => ({ source: 'NewsAPI-IN', articles: data.articles || [] }))
-        .catch(err => ({ source: 'NewsAPI-IN', articles: [], error: err }));
-      
-      fetchPromises.push(usNewsPromise, inNewsPromise);
+      if (isIndianUser) {
+        // For Indian users: Prioritize Indian news, add some global
+        const inNewsPromise = fetch(`https://newsapi.org/v2/top-headlines?country=in&category=${category}&pageSize=15&apiKey=${newsApiKey}`)
+          .then(res => res.json())
+          .then(data => ({ source: 'NewsAPI-IN', articles: data.articles || [] }))
+          .catch(err => ({ source: 'NewsAPI-IN', articles: [], error: err }));
+        
+        const usNewsPromise = fetch(`https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=5&apiKey=${newsApiKey}`)
+          .then(res => res.json())
+          .then(data => ({ source: 'NewsAPI-US', articles: data.articles || [] }))
+          .catch(err => ({ source: 'NewsAPI-US', articles: [], error: err }));
+        
+        fetchPromises.push(inNewsPromise, usNewsPromise);
+      } else {
+        // For global users: Prioritize US/Global news, add some Indian for diversity
+        const usNewsPromise = fetch(`https://newsapi.org/v2/top-headlines?country=us&category=${category}&pageSize=12&apiKey=${newsApiKey}`)
+          .then(res => res.json())
+          .then(data => ({ source: 'NewsAPI-US', articles: data.articles || [] }))
+          .catch(err => ({ source: 'NewsAPI-US', articles: [], error: err }));
+        
+        const inNewsPromise = fetch(`https://newsapi.org/v2/top-headlines?country=in&category=${category}&pageSize=3&apiKey=${newsApiKey}`)
+          .then(res => res.json())
+          .then(data => ({ source: 'NewsAPI-IN', articles: data.articles || [] }))
+          .catch(err => ({ source: 'NewsAPI-IN', articles: [], error: err }));
+        
+        fetchPromises.push(usNewsPromise, inNewsPromise);
+      }
     }
 
-    // NewsData.io - Multiple countries
+    // NewsData.io - Adjust country focus based on user location
     if (newsDataApiKey) {
-      const newsDataPromise = fetch(`https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=us,in,gb,au,ca&language=en&size=15&image=1`)
+      const countries = isIndianUser ? 'in,us,gb' : 'us,gb,au,ca,in';
+      const newsDataPromise = fetch(`https://newsdata.io/api/1/latest?apikey=${newsDataApiKey}&country=${countries}&language=en&size=15&image=1`)
         .then(res => res.json())
         .then(data => ({ source: 'NewsData', articles: data.results || [] }))
         .catch(err => ({ source: 'NewsData', articles: [], error: err }));
@@ -141,27 +163,45 @@ serve(async (req) => {
       fetchPromises.push(newsDataPromise);
     }
 
-    // Enhanced RSS feeds with better error handling and CORS proxies
-    const rssPromises = [
-      // International sources
-      fetchRSSWithFallback('https://feeds.bbci.co.uk/news/rss.xml', 'BBC'),
-      fetchRSSWithFallback('https://rss.cnn.com/rss/edition.rss', 'CNN'),
-      fetchRSSWithFallback('https://feeds.reuters.com/reuters/topNews', 'Reuters'),
+    // RSS feeds - Prioritize based on user location
+    let rssPromises = [];
 
-      // Indian news sources with enhanced error handling and CORS proxy fallback
-      fetchRSSWithFallback('https://www.news18.com/rss/india.xml', 'News18'),
-      fetchRSSWithFallback('https://timesofindia.indiatimes.com/rssfeedstopstories.cms', 'Times of India'),
-      fetchRSSWithFallback('https://www.ndtv.com/rss/latest', 'NDTV'),
-      fetchRSSWithFallback('https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml', 'Hindustan Times'),
-      fetchRSSWithFallback('https://economictimes.indiatimes.com/rssfeedstopstories.cms', 'Economic Times'),
-      fetchRSSWithFallback('https://www.indiatoday.in/rss/1206578', 'India Today'),
-      fetchRSSWithFallback('https://www.deccanherald.com/rss/national.rss', 'Deccan Herald'),
-      fetchRSSWithFallback('https://www.thehindu.com/news/national/feeder/default.rss', 'The Hindu'),
-      fetchRSSWithFallback('https://indianexpress.com/section/india/feed/', 'Indian Express'),
-      fetchRSSWithFallback('https://www.livemint.com/rss/news', 'LiveMint'),
-      fetchRSSWithFallback('https://www.moneycontrol.com/rss/latestnews.xml', 'MoneyControl'),
-      fetchRSSWithFallback('https://www.business-standard.com/rss/latest.rss', 'Business Standard')
-    ];
+    if (isIndianUser) {
+      // For Indian users: More Indian sources, fewer international
+      rssPromises = [
+        // Primary Indian news sources
+        fetchRSSWithFallback('https://www.news18.com/rss/india.xml', 'News18'),
+        fetchRSSWithFallback('https://timesofindia.indiatimes.com/rssfeedstopstories.cms', 'Times of India'),
+        fetchRSSWithFallback('https://www.ndtv.com/rss/latest', 'NDTV'),
+        fetchRSSWithFallback('https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml', 'Hindustan Times'),
+        fetchRSSWithFallback('https://economictimes.indiatimes.com/rssfeedstopstories.cms', 'Economic Times'),
+        fetchRSSWithFallback('https://www.indiatoday.in/rss/1206578', 'India Today'),
+        fetchRSSWithFallback('https://www.thehindu.com/news/national/feeder/default.rss', 'The Hindu'),
+        fetchRSSWithFallback('https://indianexpress.com/section/india/feed/', 'Indian Express'),
+        fetchRSSWithFallback('https://www.livemint.com/rss/news', 'LiveMint'),
+        fetchRSSWithFallback('https://www.moneycontrol.com/rss/latestnews.xml', 'MoneyControl'),
+        fetchRSSWithFallback('https://www.business-standard.com/rss/latest.rss', 'Business Standard'),
+        fetchRSSWithFallback('https://www.deccanherald.com/rss/national.rss', 'Deccan Herald'),
+        
+        // Limited international sources for context
+        fetchRSSWithFallback('https://feeds.bbci.co.uk/news/rss.xml', 'BBC'),
+        fetchRSSWithFallback('https://feeds.reuters.com/reuters/topNews', 'Reuters')
+      ];
+    } else {
+      // For global users: International sources with some Indian news for diversity
+      rssPromises = [
+        // Primary international sources
+        fetchRSSWithFallback('https://feeds.bbci.co.uk/news/rss.xml', 'BBC'),
+        fetchRSSWithFallback('https://rss.cnn.com/rss/edition.rss', 'CNN'),
+        fetchRSSWithFallback('https://feeds.reuters.com/reuters/topNews', 'Reuters'),
+        
+        // Limited Indian sources for global perspective
+        fetchRSSWithFallback('https://www.news18.com/rss/india.xml', 'News18'),
+        fetchRSSWithFallback('https://timesofindia.indiatimes.com/rssfeedstopstories.cms', 'Times of India'),
+        fetchRSSWithFallback('https://economictimes.indiatimes.com/rssfeedstopstories.cms', 'Economic Times'),
+        fetchRSSWithFallback('https://www.thehindu.com/news/national/feeder/default.rss', 'The Hindu')
+      ];
+    }
 
     // Execute all API calls
     const apiResults = await Promise.allSettled(fetchPromises);

@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import VideoCard from './VideoCard';
 import Advertisement from './Advertisement';
 import { useTriggerNewsIngestion } from '@/hooks/useTriggerNewsIngestion';
+import { useLocation } from '@/hooks/useLocation';
 import { toast } from 'sonner';
 import RevenueDashboard from './RevenueDashboard';
 import { useVideoFeedData } from '@/hooks/useVideoFeedData';
@@ -12,6 +13,8 @@ import VideoFeedProgressIndicator from './VideoFeedProgressIndicator';
 import VideoFeedRefreshButton from './VideoFeedRefreshButton';
 
 const VideoFeed = () => {
+  const { locationData } = useLocation();
+  
   const {
     allNews,
     isInitialLoad,
@@ -55,7 +58,12 @@ const VideoFeed = () => {
   const handleRefreshNews = async () => {
     try {
       console.log('Triggering news refresh...');
-      await triggerIngestion.mutateAsync();
+      await triggerIngestion.mutateAsync({
+        country: locationData?.country,
+        countryCode: locationData?.countryCode,
+        city: locationData?.city,
+        region: locationData?.region
+      });
       toast.success('News refresh initiated');
       resetPagination();
     } catch (error) {
