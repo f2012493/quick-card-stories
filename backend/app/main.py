@@ -24,14 +24,14 @@ def create_app() -> FastAPI:
 	os.makedirs(os.path.join(static_root, "slides"), exist_ok=True)
 	os.makedirs(os.path.join(static_root, "frontend"), exist_ok=True)
 
-	# Copy frontend files into static if available
+	# Copy/refresh frontend files into static if available
 	project_frontend = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
 	if os.path.isdir(project_frontend):
 		for name in ["index.html", "styles.css", "app.js"]:
 			src = os.path.join(project_frontend, name)
 			dst = os.path.join(static_root, "frontend", name)
 			try:
-				if os.path.isfile(src) and not os.path.exists(dst):
+				if os.path.isfile(src):
 					with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
 						fdst.write(fsrc.read())
 			except Exception:

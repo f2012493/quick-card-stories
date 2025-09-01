@@ -30,6 +30,12 @@ function cardHtml(item) {
 	const factSources = p.fact_check?.sources || [];
 	const listen = p.listen_url;
 	const slides = p.slide_urls || [];
+	const agents = p.agents || {};
+	const verifier = agents.verifier || null;
+	const context = agents.context || null;
+	const analysis = agents.analysis || null;
+	const impact = agents.impact || null;
+
 	return `
 		<div class="card">
 			<div class="title"><a href="${p.item.link}" target="_blank" rel="noopener">${p.item.title}</a></div>
@@ -38,6 +44,10 @@ function cardHtml(item) {
 				<span class="bias ${biasCls}">${biasLbl}</span>
 			</div>
 			<div class="summary">${p.summary}</div>
+			${verifier ? `<div class="summary"><strong>Verifier:</strong> ${verifier.insight} (${Math.round((verifier.confidence||0)*100)}%)</div>` : ''}
+			${context ? `<div class="summary"><strong>Context:</strong> ${context.insight}</div>` : ''}
+			${analysis ? `<div class="summary"><strong>Analysis:</strong> ${analysis.insight}</div>` : ''}
+			${impact ? `<div class="summary"><strong>Impact:</strong> ${impact.insight}</div>` : ''}
 			<div class="actions">
 				${listen ? `<audio controls src="${listen}"></audio>` : ''}
 			</div>

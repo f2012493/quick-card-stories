@@ -37,6 +37,21 @@ class NewsItem(BaseModel):
 	category: Optional[str] = None
 
 
+class AgentOutput(BaseModel):
+	label: str
+	insight: str
+	confidence: Optional[float] = None
+	sources: Optional[List[FactSource]] = None
+	meta: Optional[dict] = None
+
+
+class AgentsBundle(BaseModel):
+	verifier: AgentOutput
+	context: AgentOutput
+	analysis: AgentOutput
+	impact: AgentOutput
+
+
 class ProcessedNewsItem(BaseModel):
 	item: NewsItem
 	summary: str
@@ -47,6 +62,8 @@ class ProcessedNewsItem(BaseModel):
 	listen_url: Optional[str] = None
 	slide_urls: Optional[List[str]] = None
 	mode: Literal["read", "listen", "watch", "multilingual"]
+	agents: Optional[AgentsBundle] = None
+
 
 
 class TTSRequest(BaseModel):

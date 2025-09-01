@@ -17,13 +17,15 @@ from ..services.fact_check import fact_check_text
 from ..services.bias import infer_bias_for_source
 from ..services.tts import synthesize_speech
 from ..services.video import generate_slides
+from ..services.agents import run_agents
+import asyncio
 
 
 router = APIRouter()
 
 
 @router.get("/news", response_model=List[ProcessedNewsItem])
-def get_news(
+async def get_news(
 	mode: str = Query("read", enum=["read", "listen", "watch", "multilingual"]),
 	language: str = Query("en"),
 	topics: Optional[str] = Query(None, description="Comma-separated topics for personalization"),
@@ -45,8 +47,23 @@ def get_news(
 			translated_summary = translate_text(summary_en, target_language=language)
 			translation_language = language
 
-		# Fact-check
-		fact = fact_check_text(item.title)
+		# Run agents concurrently (already parallelized inside)
+		agents_bundle = None
+		try:
+			agents_bundle = await run_agents(item.title, base_text, topics)
+		except Exception:
+			agents_bundle = None
+
+		# For compatibility, keep top-level fact_check field using verifier
+		if agents_bundle and agents_bundle.verifier.sources is not None:
+			fact_sources = agents_bundle.verifier.sources
+			fact_conf = agents_bundle.verifier.confidence or 0.5
+			fact_summary = agents_bundle.verifier.insight
+			fact = type("X", (), {})()
+			from ..schemas import FactCheckResult
+			fact = FactCheckResult(confidence=fact_conf, summary=fact_summary, sources=fact_sources)
+		else:
+			fact = fact_check_text(item.title)
 
 		# Bias inference for source
 		bias = infer_bias_for_source(item.source.name)
@@ -75,6 +92,7 @@ def get_news(
 				listen_url=listen_url,
 				slide_urls=slide_urls,
 				mode=mode,
+				agents=agents_bundle,
 			)
 		)
 
