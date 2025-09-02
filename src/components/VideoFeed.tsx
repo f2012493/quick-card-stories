@@ -1,9 +1,12 @@
 
 import React, { useEffect } from 'react';
 import VideoCard from './VideoCard';
+import PersonalizedNewsCard from './PersonalizedNewsCard';
+import UserPreferences from './UserPreferences';
 import Advertisement from './Advertisement';
 import { useTriggerNewsIngestion } from '@/hooks/useTriggerNewsIngestion';
 import { useLocation } from '@/hooks/useLocation';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import RevenueDashboard from './RevenueDashboard';
 import { useVideoFeedData } from '@/hooks/useVideoFeedData';
@@ -14,6 +17,7 @@ import VideoFeedRefreshButton from './VideoFeedRefreshButton';
 
 const VideoFeed = () => {
   const { locationData } = useLocation();
+  const { user } = useAuth();
   
   const {
     allNews,
@@ -118,11 +122,18 @@ const VideoFeed = () => {
                 }}
               >
                 {item.type === 'news' ? (
-                  <VideoCard
-                    news={item.data}
-                    isActive={index === currentIndex}
-                    onNavigateToArticle={navigateToArticle}
-                  />
+                  user ? (
+                    <PersonalizedNewsCard
+                      news={item.data}
+                      isActive={index === currentIndex}
+                    />
+                  ) : (
+                    <VideoCard
+                      news={item.data}
+                      isActive={index === currentIndex}
+                      onNavigateToArticle={navigateToArticle}
+                    />
+                  )
                 ) : (
                   <Advertisement index={item.data.adIndex} />
                 )}
@@ -151,6 +162,7 @@ const VideoFeed = () => {
           />
 
           <RevenueDashboard />
+          <UserPreferences />
         </>
       )}
     </div>
