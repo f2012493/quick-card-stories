@@ -67,6 +67,9 @@ export const cleanGarbageText = (text: string): string => {
   
   let cleaned = text.trim();
   
+  // Remove CDATA sections
+  cleaned = cleaned.replace(/<!\[CDATA\[(.*?)\]\]>/gs, '$1');
+  
   // Remove URLs and app links
   cleaned = cleaned.replace(/https?:\/\/[^\s]+/gi, '');
   cleaned = cleaned.replace(/www\.[^\s]+/gi, '');

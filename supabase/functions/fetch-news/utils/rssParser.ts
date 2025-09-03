@@ -27,7 +27,9 @@ export const parseRSSFeed = (xmlText: string, sourceName: string): any[] => {
     
     return Array.from(items).slice(0, 10).map((item, index) => {
       // Handle both RSS and Atom formats
-      const title = item.querySelector('title')?.textContent?.trim() || 'News Update';
+      let title = item.querySelector('title')?.textContent?.trim() || 'News Update';
+      // Remove CDATA sections from title
+      title = title.replace(/<!\[CDATA\[(.*?)\]\]>/gs, '$1');
       
       // Description handling for different formats
       let description = '';
@@ -36,6 +38,8 @@ export const parseRSSFeed = (xmlText: string, sourceName: string): any[] => {
                       item.querySelector('content');
       if (descElem) {
         description = descElem.textContent?.trim() || '';
+        // Remove CDATA sections
+        description = description.replace(/<!\[CDATA\[(.*?)\]\]>/gs, '$1');
         // Clean HTML tags if present
         description = description.replace(/<[^>]*>/g, '').trim();
       }
