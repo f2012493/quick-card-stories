@@ -67,8 +67,37 @@ export const cleanGarbageText = (text: string): string => {
   
   let cleaned = text.trim();
   
-  // Remove CDATA sections
-  cleaned = cleaned.replace(/<!\[CDATA\[(.*?)\]\]>/gs, '$1');
+  // Comprehensive CDATA removal with multiple patterns
+  const cdataPatterns = [
+    /<!\[CDATA\[(.*?)\]\]>/gs,           // Standard CDATA
+    /<!\[CDATA\[(.*?)$/gs,               // Unclosed CDATA (malformed)
+    /^(.*?)\]\]>/gs,                     // CDATA end without start (malformed)
+    /&lt;!\[CDATA\[(.*?)\]\]&gt;/gs,    // HTML-encoded CDATA
+    /\[CDATA\[(.*?)\]\]/gs,              // CDATA without proper tags
+  ];
+  
+  cdataPatterns.forEach(pattern => {
+    cleaned = cleaned.replace(pattern, (match, content) => {
+      return content || ''; // Return content if captured, empty string otherwise
+    });
+  });
+  
+  // Handle UTF-8 and special characters
+  cleaned = cleaned
+    .replace(/â€™/g, "'")           // Smart apostrophe
+    .replace(/â€œ/g, '"')           // Smart quote start
+    .replace(/â€/g, '"')            // Smart quote end
+    .replace(/â€"/g, '—')           // Em dash
+    .replace(/â€"/g, '–')           // En dash
+    .replace(/Â/g, '')              // Non-breaking space artifacts
+    .replace(/\u00A0/g, ' ')        // Non-breaking space
+    .replace(/\u2019/g, "'")        // Right single quotation mark
+    .replace(/\u201C/g, '"')        // Left double quotation mark
+    .replace(/\u201D/g, '"')        // Right double quotation mark
+    .replace(/\u2013/g, '–')        // En dash
+    .replace(/\u2014/g, '—')        // Em dash
+    .replace(/\u2026/g, '...')      // Horizontal ellipsis
+    .replace(/â‚¹/g, '₹');          // Rupee symbol
   
   // Remove URLs and app links
   cleaned = cleaned.replace(/https?:\/\/[^\s]+/gi, '');
