@@ -124,9 +124,7 @@ export const extractFromHeadline = (headline: string): string => {
 export const generateSmartFallback = (content: string, headline: string, description: string = ''): string => {
   console.log(`Generating smart fallback for: "${headline}"`);
   
-  // Remove CDATA sections first
-  const fullContent = `${description} ${content}`.trim()
-    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, '$1');
+  const fullContent = `${description} ${content}`.trim();
   const cleanedContent = cleanGarbageText(fullContent);
   
   if (!cleanedContent || cleanedContent.length < 20) {
@@ -233,9 +231,7 @@ export const generateSmartFallback = (content: string, headline: string, descrip
 export const generateTLDR = async (content: string, headline: string, description: string = ''): Promise<string> => {
   console.log(`Generating TL;DR for: "${headline}"`);
   
-  // Remove CDATA sections first
-  const fullContent = `${description} ${content}`.trim()
-    .replace(/<!\[CDATA\[(.*?)\]\]>/gs, '$1');
+  const fullContent = `${description} ${content}`.trim();
   const cleanedContent = cleanGarbageText(fullContent);
   
   if (cleanedContent.length > 20) {

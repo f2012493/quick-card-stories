@@ -140,126 +140,6 @@ export type Database = {
         }
         Relationships: []
       }
-      agent_logs: {
-        Row: {
-          agent_type: Database["public"]["Enums"]["agent_type"]
-          context: Json | null
-          created_at: string
-          id: string
-          log_level: string
-          message: string
-          pipeline_id: string
-        }
-        Insert: {
-          agent_type: Database["public"]["Enums"]["agent_type"]
-          context?: Json | null
-          created_at?: string
-          id?: string
-          log_level?: string
-          message: string
-          pipeline_id: string
-        }
-        Update: {
-          agent_type?: Database["public"]["Enums"]["agent_type"]
-          context?: Json | null
-          created_at?: string
-          id?: string
-          log_level?: string
-          message?: string
-          pipeline_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agent_logs_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "agent_pipeline"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      agent_outputs: {
-        Row: {
-          agent_type: Database["public"]["Enums"]["agent_type"]
-          created_at: string
-          error_message: string | null
-          id: string
-          input_data: Json
-          metadata: Json | null
-          output_data: Json
-          pipeline_id: string
-          processing_time_ms: number | null
-          status: string
-        }
-        Insert: {
-          agent_type: Database["public"]["Enums"]["agent_type"]
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          input_data: Json
-          metadata?: Json | null
-          output_data: Json
-          pipeline_id: string
-          processing_time_ms?: number | null
-          status?: string
-        }
-        Update: {
-          agent_type?: Database["public"]["Enums"]["agent_type"]
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          input_data?: Json
-          metadata?: Json | null
-          output_data?: Json
-          pipeline_id?: string
-          processing_time_ms?: number | null
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agent_outputs_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "agent_pipeline"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      agent_pipeline: {
-        Row: {
-          article_id: string
-          created_at: string
-          id: string
-          status: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          article_id: string
-          created_at?: string
-          id?: string
-          status?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          article_id?: string
-          created_at?: string
-          id?: string
-          status?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agent_pipeline_article_id_fkey"
-            columns: ["article_id"]
-            isOneToOne: false
-            referencedRelation: "articles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       articles: {
         Row: {
           analysis_confidence: number | null
@@ -460,54 +340,6 @@ export type Database = {
         }
         Relationships: []
       }
-      personalized_content: {
-        Row: {
-          article_id: string
-          content: Json
-          created_at: string
-          format: string
-          id: string
-          language: string
-          pipeline_id: string
-          user_id: string
-        }
-        Insert: {
-          article_id: string
-          content: Json
-          created_at?: string
-          format: string
-          id?: string
-          language: string
-          pipeline_id: string
-          user_id: string
-        }
-        Update: {
-          article_id?: string
-          content?: Json
-          created_at?: string
-          format?: string
-          id?: string
-          language?: string
-          pipeline_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "personalized_content_article_id_fkey"
-            columns: ["article_id"]
-            isOneToOne: false
-            referencedRelation: "articles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "personalized_content_pipeline_id_fkey"
-            columns: ["pipeline_id"]
-            isOneToOne: false
-            referencedRelation: "agent_pipeline"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       story_analysis: {
         Row: {
           article_id: string | null
@@ -631,36 +463,6 @@ export type Database = {
           title?: string
           trending_regions?: string[] | null
           updated_at?: string | null
-        }
-        Relationships: []
-      }
-      user_preferences: {
-        Row: {
-          created_at: string
-          format: string
-          id: string
-          language: string
-          tone: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          format?: string
-          id?: string
-          language?: string
-          tone?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          format?: string
-          id?: string
-          language?: string
-          tone?: string
-          updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -880,7 +682,6 @@ export type Database = {
       }
     }
     Enums: {
-      agent_type: "verifier" | "contextualizer" | "analyst" | "impact"
       app_role: "admin" | "user"
       article_status: "active" | "stale" | "archived"
       cluster_status: "active" | "trending" | "stale" | "archived"
@@ -1012,7 +813,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      agent_type: ["verifier", "contextualizer", "analyst", "impact"],
       app_role: ["admin", "user"],
       article_status: ["active", "stale", "archived"],
       cluster_status: ["active", "trending", "stale", "archived"],

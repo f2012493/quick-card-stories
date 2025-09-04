@@ -1,3 +1,4 @@
+
 project_id = "jdtqgaetldlxhvjojfze"
 
 [api]
@@ -74,18 +75,3 @@ verify_jwt = false
 
 [functions.get-adsense-config]
 verify_jwt = true
-
-[functions.verifier-agent]
-verify_jwt = false
-
-[functions.contextualizer-agent]
-verify_jwt = false
-
-[functions.analyst-agent]
-verify_jwt = false
-
-[functions.impact-agent]
-verify_jwt = false
-
-[functions.content-formatter]
-verify_jwt = false
