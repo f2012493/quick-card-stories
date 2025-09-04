@@ -17,8 +17,7 @@ const RevenueDashboard = () => {
   useEffect(() => {
     if (!isAdmin) return;
 
-    const updateStats = async () => {
-      await adService.refreshStats();
+    const updateStats = () => {
       setTotalRevenue(adService.getTotalRevenue());
       setTodayRevenue(adService.getTodayRevenue());
       setImpressions(adService.getImpressionCount());
@@ -26,7 +25,7 @@ const RevenueDashboard = () => {
     };
 
     updateStats();
-    const interval = setInterval(updateStats, 10000); // Update every 10 seconds
+    const interval = setInterval(updateStats, 5000); // Update every 5 seconds
 
     return () => clearInterval(interval);
   }, [isAdmin]);
@@ -113,7 +112,7 @@ const RevenueDashboard = () => {
               <div className="p-3 bg-yellow-50 rounded-lg">
                 <p className="text-sm text-gray-600">RPM (Revenue per 1000 views)</p>
                 <p className="text-lg font-semibold text-yellow-600">
-                  {formatCurrency(adService.getRPM())}
+                  {impressions > 0 ? formatCurrency((totalRevenue / impressions) * 1000) : '$0.00'}
                 </p>
               </div>
 
@@ -124,26 +123,10 @@ const RevenueDashboard = () => {
                 </Badge>
               </div>
 
-              {/* Database Integration Status */}
-              <div className="p-3 bg-green-50 rounded-lg text-center">
-                <p className="text-sm text-green-600 font-medium">Real AdSense Integration Active</p>
-                <p className="text-xs text-gray-600 mt-1">Database-backed revenue tracking with Supabase</p>
-              </div>
-
-              {/* Stats Breakdown */}
-              <div className="text-xs text-gray-500 space-y-1 bg-gray-50 p-3 rounded-lg">
-                <div className="flex justify-between">
-                  <span>Today's Impressions:</span>
-                  <span>{adService.getCurrentStats()?.today.total_impressions || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Today's Clicks:</span>
-                  <span>{adService.getCurrentStats()?.today.total_clicks || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Today's CTR:</span>
-                  <span>{(adService.getCurrentStats()?.today.ctr || 0).toFixed(1)}%</span>
-                </div>
+              {/* AdSense Integration Status */}
+              <div className="p-3 bg-blue-50 rounded-lg text-center">
+                <p className="text-sm text-blue-600 font-medium">AdSense Integration Active</p>
+                <p className="text-xs text-gray-600 mt-1">Real-time revenue tracking enabled</p>
               </div>
             </CardContent>
           </Card>

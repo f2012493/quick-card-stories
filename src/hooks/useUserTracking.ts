@@ -1,7 +1,7 @@
-import { useMutation } from '@tanstack/react-query';
 
-// This hook is no longer functional since user_reading_history table was removed
-// Keeping for backward compatibility but logs instead of storing
+import { useMutation } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
 interface TrackInteractionParams {
   userId: string;
   articleId: string;
@@ -13,15 +13,43 @@ interface TrackInteractionParams {
 export const useUserTracking = () => {
   const trackInteraction = useMutation({
     mutationFn: async (params: TrackInteractionParams) => {
-      // Just log the interaction since table was removed
-      console.log('User interaction tracked (logging only):', params);
+      const { error } = await supabase
+        .from('user_reading_history')
+        .insert({
+          user_id: params.userId,
+          article_id: params.articleId,
+          cluster_id: params.clusterId,
+          interaction_type: params.interactionType,
+          read_duration_seconds: params.readDurationSeconds,
+          read_at: new Date().toISOString()
+        });
       
-      // Note: user_reading_history table has been removed
-      // This now just logs the interaction without storing it
-      return;
+      if (error) throw error;
+      
+      // Update user consumption count for views
+      if (params.interactionType === 'view') {
+        // First get current count
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('articles_consumed_today')
+          .eq('id', params.userId)
+          .single();
+        
+        if (profile) {
+          const newCount = (profile.articles_consumed_today || 0) + 1;
+          const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update({ articles_consumed_today: newCount })
+            .eq('id', params.userId);
+          
+          if (updateError) {
+            console.error('Error updating consumption count:', updateError);
+          }
+        }
+      }
     },
     onError: (error) => {
-      console.error('User tracking is disabled:', error);
+      console.error('Error tracking interaction:', error);
     }
   });
 

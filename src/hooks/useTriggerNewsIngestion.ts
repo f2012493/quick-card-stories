@@ -1,18 +1,16 @@
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export const useTriggerNewsIngestion = () => {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async () => {
-      console.log('Triggering comprehensive news ingestion with analysis...');
+      console.log('Manually triggering news ingestion...');
       
-      // Trigger news ingestion which includes analysis
+      // First trigger news ingestion
       const { data: ingestData, error: ingestError } = await supabase.functions.invoke('ingest-news', {
-        body: { trigger: 'manual_with_analysis' }
+        body: { trigger: 'manual' }
       });
 
       if (ingestError) {
@@ -20,55 +18,28 @@ export const useTriggerNewsIngestion = () => {
         throw new Error(`Failed to ingest news: ${ingestError.message}`);
       }
 
-      console.log('News ingestion with analysis completed:', ingestData);
+      console.log('News ingestion completed:', ingestData);
 
-      // Trigger clustering for better organization
-      try {
-        const { data: clusterData, error: clusterError } = await supabase.functions.invoke('cluster-articles', {
-          body: { trigger: 'post_ingestion' }
-        });
+      // Then trigger clustering
+      const { data: clusterData, error: clusterError } = await supabase.functions.invoke('cluster-articles', {
+        body: { trigger: 'manual' }
+      });
 
-        if (clusterError) {
-          console.warn('Clustering warning (non-critical):', clusterError);
-        } else {
-          console.log('Article clustering completed:', clusterData);
-        }
-      } catch (error) {
-        console.warn('Clustering failed (non-critical):', error);
+      if (clusterError) {
+        console.error('Error triggering clustering:', clusterError);
+        throw new Error(`Failed to cluster articles: ${clusterError.message}`);
       }
 
-      // Trigger detailed story analysis for database articles
-      try {
-        const { data: analysisData, error: analysisError } = await supabase.functions.invoke('story-analyzer', {
-          body: { trigger: 'analyze_recent_articles' }
-        });
+      console.log('Article clustering completed:', clusterData);
 
-        if (analysisError) {
-          console.warn('Story analysis warning (non-critical):', analysisError);
-        } else {
-          console.log('Story analysis completed:', analysisData);
-        }
-      } catch (error) {
-        console.warn('Story analysis failed (non-critical):', error);
-      }
-
-      return { 
-        ingestData, 
-        message: 'News ingestion with analysis completed successfully'
-      };
+      return { ingestData, clusterData };
     },
-    onSuccess: (data) => {
-      console.log('Comprehensive news update with analysis completed');
-      
-      // Invalidate all news-related queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['news'] });
-      queryClient.invalidateQueries({ queryKey: ['story-analysis'] });
-      queryClient.invalidateQueries({ queryKey: ['clustered-news'] });
-      
-      toast.success('News feed updated with fresh analysis');
+    onSuccess: () => {
+      // Removed success toast notification
+      console.log('News feed updated successfully');
     },
     onError: (error) => {
-      console.error('Failed to update news feed with analysis:', error);
+      console.error('Failed to update news feed:', error);
       toast.error('Failed to update news feed. Please try again.');
     }
   });

@@ -8,10 +8,6 @@ import {
   User,
   ExternalLink
 } from 'lucide-react';
-import VideoCardContent from './VideoCardContent';
-import VideoCardHeader from './VideoCardHeader';
-import VideoCardSwipeHandler from './VideoCardSwipeHandler';
-import { useUserInteractions } from '@/hooks/useUserInteractions';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,9 +32,6 @@ interface News {
   clusterId?: string;
   contextualInsights?: string[];
   fullContent?: string;
-  storyBreakdown?: string;
-  storyNature?: string;
-  analysisConfidence?: number;
   contextualInfo?: {
     topic: string;
     backgroundInfo: string[];
@@ -61,7 +54,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const [summaryType, setSummaryType] = useState('original');
   
   const { trackInteraction } = useUserTracking();
-  const { trackArticleView, trackArticleShare } = useUserInteractions();
   const { user } = useAuth();
   const { data: relatedArticles } = useRelatedArticles(news.clusterId);
 
@@ -72,11 +64,8 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         articleId: news.id,
         interactionType: 'view'
       });
-      
-      // Also track with new personalization system
-      trackArticleView(news.id, news.category);
     }
-  }, [isActive, news.id, trackInteraction, trackArticleView, news.category, user]);
+  }, [isActive, news.id, trackInteraction, user]);
 
   const toggleLike = () => {
     setIsLiked(!isLiked);
@@ -111,9 +100,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         articleId: news.id,
         interactionType: 'share'
       });
-      
-      // Also track with new personalization system
-      trackArticleShare(news.id, news.category);
     }
   };
 
@@ -217,14 +203,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
               {news.headline}
             </h1>
             
-          {/* TLDR Summary */}
-          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-4">
-            <p className="text-white/90 text-base leading-relaxed">
-              {news.tldr}
-            </p>
-          </div>
-
-          {/* Author info */}
+            {/* Author info */}
             {news.author && (
               <div className="flex items-center gap-2 text-white/70">
                 <User className="w-4 h-4" />
@@ -235,7 +214,24 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
             )}
           </div>
 
+          {/* Summary Selector */}
+          <SummarySelector
+            articleId={news.id}
+            content={news.fullContent || news.tldr}
+            onSummaryChange={handleSummaryChange}
+          />
 
+          {/* TL;DR Content Card */}
+          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-accent text-sm font-semibold uppercase tracking-wider">
+                Summary
+              </span>
+            </div>
+            <p className="text-white/90 text-base leading-relaxed">
+              {currentContent}
+            </p>
+          </div>
 
           {/* Trust Scoring */}
           <TrustScoring articleId={news.id} userId={user?.id} />
@@ -277,6 +273,15 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                 </Button>
               )}
               
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleShowStoryCards}
+                className="flex items-center gap-2 px-4 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
+              >
+                <MessageCircle className="w-5 h-5" />
+                <span className="text-sm hidden sm:inline">Cards</span>
+              </Button>
             </div>
 
             <Button
