@@ -15,6 +15,7 @@ import TrustScoring from './features/TrustScoring';
 import SummarySelector from './features/SummarySelector';
 import { useRelatedArticles } from '@/hooks/useRelatedArticles';
 import StoryCardsCarousel from './StoryCardsCarousel';
+import PoliticalFilterBadge from './PoliticalFilterBadge';
 
 interface News {
   id: string;
@@ -38,6 +39,14 @@ interface News {
     keyFacts: string[];
     relatedConcepts: string[];
   };
+  // Political content filtering metadata
+  isPolitical?: boolean;
+  democraticValue?: number;
+  accuracyScore?: number;
+  contextScore?: number;
+  perspectiveBalance?: number;
+  politicalFlag?: 'approved' | 'flagged' | 'rejected';
+  flagReason?: string;
 }
 
 interface VideoCardProps {
@@ -197,22 +206,35 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       <div className="absolute inset-0 flex flex-col justify-end z-10">
         <div className="px-4 pb-32 pt-20 space-y-6">
           
-          {/* Headline - Prominently positioned */}
-          <div className="space-y-3">
-            <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight tracking-tight">
-              {news.headline}
-            </h1>
-            
-            {/* Author info */}
-            {news.author && (
-              <div className="flex items-center gap-2 text-white/70">
-                <User className="w-4 h-4" />
-                <span className="text-sm font-medium">{news.author}</span>
-                <span className="text-white/50">•</span>
-                <span className="text-sm">{news.readTime}</span>
-              </div>
-            )}
-          </div>
+           {/* Headline - Prominently positioned */}
+           <div className="space-y-3">
+             <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight tracking-tight">
+               {news.headline}
+             </h1>
+             
+             {/* Author info and Political Filter Badge */}
+             <div className="space-y-2">
+               {news.author && (
+                 <div className="flex items-center gap-2 text-white/70">
+                   <User className="w-4 h-4" />
+                   <span className="text-sm font-medium">{news.author}</span>
+                   <span className="text-white/50">•</span>
+                   <span className="text-sm">{news.readTime}</span>
+                 </div>
+               )}
+               
+               {/* Political Filter Badge */}
+               <PoliticalFilterBadge
+                 isPolitical={news.isPolitical}
+                 democraticValue={news.democraticValue}
+                 accuracyScore={news.accuracyScore}
+                 contextScore={news.contextScore}
+                 perspectiveBalance={news.perspectiveBalance}
+                 politicalFlag={news.politicalFlag}
+                 flagReason={news.flagReason}
+               />
+             </div>
+           </div>
 
           {/* Summary Selector */}
           <SummarySelector

@@ -1,31 +1,12 @@
 import { contextService } from './contextService';
+import { politicalFilter } from './politicalFilter';
+import { NewsItem } from '../types/news';
 
 interface NewsSource {
   name: string;
   fetch: () => Promise<any[]>;
 }
 
-interface NewsItem {
-  id: string;
-  headline: string;
-  tldr: string;
-  quote: string;
-  author: string;
-  category: string;
-  imageUrl: string;
-  readTime: string;
-  publishedAt?: string;
-  sourceUrl?: string;
-  trustScore?: number;
-  localRelevance?: number;
-  contextualInsights?: string[];
-  contextualInfo?: {
-    topic: string;
-    backgroundInfo: string[];
-    keyFacts: string[];
-    relatedConcepts: string[];
-  };
-}
 
 class NewsService {
   private trustedSources = new Map([
@@ -232,8 +213,32 @@ class NewsService {
       })
     );
     
+    // Apply political news filtering
+    console.log('Applying political content filters...');
+    const politicallyFilteredNews = politicalFilter.getFilteredArticles(newsWithContext);
+    console.log(`Political filtering: ${newsWithContext.length} → ${politicallyFilteredNews.length} articles`);
+    
+    // Log rejected/flagged articles for monitoring
+    const rejectedArticles = newsWithContext.filter(article => 
+      article.politicalFlag === 'rejected' || article.politicalFlag === 'flagged'
+    );
+    if (rejectedArticles.length > 0) {
+      console.log('Political filter results:', rejectedArticles.map(article => ({
+        headline: article.headline,
+        flag: article.politicalFlag,
+        reason: article.flagReason,
+        isPolitical: article.isPolitical,
+        scores: {
+          democratic: article.democraticValue,
+          accuracy: article.accuracyScore,
+          context: article.contextScore,
+          balance: article.perspectiveBalance
+        }
+      })));
+    }
+    
     // Prioritize diverse sources and quality content
-    const prioritizedNews = newsWithContext.sort((a, b) => {
+    const prioritizedNews = politicallyFilteredNews.sort((a, b) => {
       // Prioritize diverse sources
       const aIsMainstream = ['Guardian', 'BBC', 'Reuters', 'CNN', 'Associated Press'].includes(a.author);
       const bIsMainstream = ['Guardian', 'BBC', 'Reuters', 'CNN', 'Associated Press'].includes(b.author);

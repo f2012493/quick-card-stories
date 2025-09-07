@@ -21,4 +21,12 @@ export interface NewsItem {
     keyFacts: string[];
     relatedConcepts: string[];
   };
+  // Political content filtering metadata
+  isPolitical?: boolean;
+  democraticValue?: number; // 0-1 score for voter information value
+  accuracyScore?: number; // 0-1 score for clarity/accuracy/fairness
+  contextScore?: number; // 0-1 score for historical context/consequences
+  perspectiveBalance?: number; // 0-1 score for proportional representation
+  politicalFlag?: 'approved' | 'flagged' | 'rejected';
+  flagReason?: string;
 }
