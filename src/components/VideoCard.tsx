@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { 
   Heart, 
   Share2, 
-  MessageCircle, 
   Clock,
   User,
   ExternalLink
@@ -14,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import TrustScoring from './features/TrustScoring';
 import SummarySelector from './features/SummarySelector';
 import { useRelatedArticles } from '@/hooks/useRelatedArticles';
-import StoryCardsCarousel from './StoryCardsCarousel';
+
 import PoliticalFilterBadge from './PoliticalFilterBadge';
 
 interface News {
@@ -58,7 +57,7 @@ interface VideoCardProps {
 const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
-  const [showStoryCards, setShowStoryCards] = useState(false);
+  
   const [currentContent, setCurrentContent] = useState(news.fullContent || news.tldr);
   const [summaryType, setSummaryType] = useState('original');
   
@@ -140,16 +139,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
     }
   };
 
-  const handleShowStoryCards = () => {
-    setShowStoryCards(true);
-    if (user) {
-      trackInteraction.mutate({
-        userId: user.id,
-        articleId: news.id,
-        interactionType: 'story_cards'
-      });
-    }
-  };
 
   const handleSummaryChange = (summary: string, type: string) => {
     setCurrentContent(summary);
@@ -290,20 +279,11 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                   onClick={handleShowRelated}
                   className="flex items-center gap-2 px-4 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
                 >
-                  <MessageCircle className="w-5 h-5" />
+                  <ExternalLink className="w-5 h-5" />
                   <span className="text-sm hidden sm:inline">More</span>
                 </Button>
               )}
               
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleShowStoryCards}
-                className="flex items-center gap-2 px-4 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
-              >
-                <MessageCircle className="w-5 h-5" />
-                <span className="text-sm hidden sm:inline">Cards</span>
-              </Button>
             </div>
 
             <Button
@@ -325,13 +305,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         />
       )}
 
-      {/* Story Cards Modal */}
-      <StoryCardsCarousel
-        articleId={news.id}
-        isOpen={showStoryCards}
-        onClose={() => setShowStoryCards(false)}
-        articleTitle={news.headline}
-      />
     </div>
   );
 };
