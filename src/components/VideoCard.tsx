@@ -57,8 +57,6 @@ interface VideoCardProps {
 const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
-  const [showMoreContext, setShowMoreContext] = useState(false);
-  const [showPersonalImpact, setShowPersonalImpact] = useState(false);
   
   const [currentContent, setCurrentContent] = useState(news.fullContent || news.tldr);
   const [summaryType, setSummaryType] = useState('original');
@@ -147,28 +145,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
     setSummaryType(type);
   };
 
-  // Swipe detection
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    (e.target as any).startX = touch.clientX;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const touch = e.changedTouches[0];
-    const startX = (e.target as any).startX;
-    const deltaX = touch.clientX - startX;
-    
-    if (Math.abs(deltaX) > 50) {
-      if (deltaX < 0) {
-        // Left swipe - show more context
-        setShowMoreContext(true);
-      } else if (deltaX > 0) {
-        // Right swipe - show personal impact
-        setShowPersonalImpact(true);
-      }
-    }
-  };
-
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -180,11 +156,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   };
 
   return (
-    <div 
-      className="relative w-full h-screen bg-black overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="relative w-full h-screen bg-black overflow-hidden">
       {/* Background Image with Enhanced Gradient */}
       <div className="absolute inset-0">
         {news.imageUrl ? (
@@ -331,107 +303,6 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
           articles={relatedArticles}
           onClose={() => setShowRelatedArticles(false)}
         />
-      )}
-
-      {/* More Context Modal */}
-      {showMoreContext && (
-        <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-black/80 border border-white/20 rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white text-xl font-bold">More Context</h3>
-              <button 
-                onClick={() => setShowMoreContext(false)}
-                className="text-white/70 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-4 text-white/90">
-              {news.contextualInfo ? (
-                <>
-                  <div>
-                    <h4 className="font-semibold text-accent mb-2">Background</h4>
-                    <ul className="space-y-1 text-sm">
-                      {news.contextualInfo.backgroundInfo?.map((info, index) => (
-                        <li key={index}>• {info}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-accent mb-2">Key Facts</h4>
-                    <ul className="space-y-1 text-sm">
-                      {news.contextualInfo.keyFacts?.map((fact, index) => (
-                        <li key={index}>• {fact}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-accent mb-2">Related Concepts</h4>
-                    <ul className="space-y-1 text-sm">
-                      {news.contextualInfo.relatedConcepts?.map((concept, index) => (
-                        <li key={index}>• {concept}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </>
-              ) : (
-                <p className="text-white/70">Additional context information will be available soon.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Personal Impact Modal */}
-      {showPersonalImpact && (
-        <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-black/80 border border-white/20 rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white text-xl font-bold">How This Affects You</h3>
-              <button 
-                onClick={() => setShowPersonalImpact(false)}
-                className="text-white/70 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-4 text-white/90">
-              <div>
-                <h4 className="font-semibold text-accent mb-2">Local Relevance</h4>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex-1 bg-white/20 rounded-full h-2">
-                    <div 
-                      className="bg-accent h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(news.localRelevance || 0) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-sm">{Math.round((news.localRelevance || 0) * 100)}%</span>
-                </div>
-                <p className="text-sm text-white/70">
-                  {news.localRelevance && news.localRelevance > 0.7 
-                    ? "This story has high relevance to your area and may directly impact your daily life."
-                    : news.localRelevance && news.localRelevance > 0.4
-                    ? "This story has moderate relevance to your area and may indirectly affect you."
-                    : "This story has lower direct impact on your immediate area but may have broader implications."
-                  }
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold text-accent mb-2">Category Impact</h4>
-                <p className="text-sm text-white/70">
-                  {news.category === 'politics' && "Political developments can affect local policies, taxes, and community services."}
-                  {news.category === 'business' && "Business news may impact job market, local economy, and consumer prices."}
-                  {news.category === 'technology' && "Technology changes can influence how you work, communicate, and access services."}
-                  {news.category === 'health' && "Health news may affect available treatments, insurance, and public health policies."}
-                  {news.category === 'environment' && "Environmental news can impact air quality, climate, and local resources."}
-                  {!['politics', 'business', 'technology', 'health', 'environment'].includes(news.category) && 
-                    "This news may have various impacts depending on how it develops in your community."
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
 
     </div>
