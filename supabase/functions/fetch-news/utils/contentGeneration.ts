@@ -1,5 +1,54 @@
 import { cleanGarbageText, capitalizeFirstLetter } from './textCleaning.ts';
 
+export const makeGenZTone = (text: string): string => {
+  if (!text) return text;
+  
+  let genZText = text;
+  
+  // Replace formal phrases with casual alternatives
+  const replacements = [
+    { formal: /\b(according to|reports indicate|sources say|it is reported)\b/gi, casual: '' },
+    { formal: /\b(officials|authorities|representatives)\b/gi, casual: 'officials' },
+    { formal: /\b(approximately|approximately)\b/gi, casual: 'around' },
+    { formal: /\b(significant|substantial)\b/gi, casual: 'major' },
+    { formal: /\b(demonstrate|illustrate)\b/gi, casual: 'show' },
+    { formal: /\b(currently|presently)\b/gi, casual: 'right now' },
+    { formal: /\b(anticipated|expected)\b/gi, casual: 'expected' },
+    { formal: /\b(commenced|initiated)\b/gi, casual: 'started' },
+    { formal: /\b(terminated|concluded)\b/gi, casual: 'ended' },
+    { formal: /\b(utilize|employ)\b/gi, casual: 'use' },
+    { formal: /\b(regarding|concerning)\b/gi, casual: 'about' },
+    { formal: /\b(subsequent to|following)\b/gi, casual: 'after' },
+    { formal: /\b(prior to|before)\b/gi, casual: 'before' },
+    { formal: /\b(in order to)\b/gi, casual: 'to' },
+    { formal: /\b(as a result of)\b/gi, casual: 'because of' },
+    { formal: /\b(due to the fact that)\b/gi, casual: 'because' }
+  ];
+  
+  replacements.forEach(({ formal, casual }) => {
+    genZText = genZText.replace(formal, casual);
+  });
+  
+  // Add casual connectors occasionally
+  if (Math.random() > 0.7) {
+    const casualStarters = ['So basically,', 'Here\'s the tea:', 'Basically,', 'TL;DR:', 'Real talk,'];
+    const randomStarter = casualStarters[Math.floor(Math.random() * casualStarters.length)];
+    genZText = `${randomStarter} ${genZText.toLowerCase()}`;
+  }
+  
+  // Clean up extra spaces and ensure proper capitalization
+  genZText = genZText
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Capitalize first letter if not already capitalized
+  if (genZText && !genZText.match(/^[A-Z]/)) {
+    genZText = capitalizeFirstLetter(genZText);
+  }
+  
+  return genZText;
+};
+
 export const formatTLDR = (text: string): string => {
   if (!text) return text;
   
@@ -162,6 +211,9 @@ export const generateSmartFallback = (content: string, headline: string, descrip
 
   if (sentences.length > 0) {
     let summary = sentences[0].trim();
+    
+    // Apply Gen-Z casual tone transformation
+    summary = makeGenZTone(summary);
     
     const words = summary.split(' ');
     if (words.length > 45) {

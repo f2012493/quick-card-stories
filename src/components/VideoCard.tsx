@@ -3,18 +3,22 @@ import { Button } from '@/components/ui/button';
 import { 
   Heart, 
   Share2, 
+  MessageCircle, 
   Clock,
   User,
   ExternalLink
 } from 'lucide-react';
+import VideoCardContent from './VideoCardContent';
+import VideoCardHeader from './VideoCardHeader';
+import VideoCardSwipeHandler from './VideoCardSwipeHandler';
+import { useUserInteractions } from '@/hooks/useUserInteractions';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
 import { useAuth } from '@/contexts/AuthContext';
 import TrustScoring from './features/TrustScoring';
 import SummarySelector from './features/SummarySelector';
 import { useRelatedArticles } from '@/hooks/useRelatedArticles';
-
-import PoliticalFilterBadge from './PoliticalFilterBadge';
+import StoryCardsCarousel from './StoryCardsCarousel';
 
 interface News {
   id: string;
@@ -32,20 +36,15 @@ interface News {
   clusterId?: string;
   contextualInsights?: string[];
   fullContent?: string;
+  storyBreakdown?: string;
+  storyNature?: string;
+  analysisConfidence?: number;
   contextualInfo?: {
     topic: string;
     backgroundInfo: string[];
     keyFacts: string[];
     relatedConcepts: string[];
   };
-  // Political content filtering metadata
-  isPolitical?: boolean;
-  democraticValue?: number;
-  accuracyScore?: number;
-  contextScore?: number;
-  perspectiveBalance?: number;
-  politicalFlag?: 'approved' | 'flagged' | 'rejected';
-  flagReason?: string;
 }
 
 interface VideoCardProps {
@@ -57,11 +56,12 @@ interface VideoCardProps {
 const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
-  
+  const [showStoryCards, setShowStoryCards] = useState(false);
   const [currentContent, setCurrentContent] = useState(news.fullContent || news.tldr);
   const [summaryType, setSummaryType] = useState('original');
   
   const { trackInteraction } = useUserTracking();
+  const { trackArticleView, trackArticleShare } = useUserInteractions();
   const { user } = useAuth();
   const { data: relatedArticles } = useRelatedArticles(news.clusterId);
 
@@ -72,8 +72,11 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         articleId: news.id,
         interactionType: 'view'
       });
+      
+      // Also track with new personalization system
+      trackArticleView(news.id, news.category);
     }
-  }, [isActive, news.id, trackInteraction, user]);
+  }, [isActive, news.id, trackInteraction, trackArticleView, news.category, user]);
 
   const toggleLike = () => {
     setIsLiked(!isLiked);
@@ -108,6 +111,9 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         articleId: news.id,
         interactionType: 'share'
       });
+      
+      // Also track with new personalization system
+      trackArticleShare(news.id, news.category);
     }
   };
 
@@ -139,6 +145,16 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
     }
   };
 
+  const handleShowStoryCards = () => {
+    setShowStoryCards(true);
+    if (user) {
+      trackInteraction.mutate({
+        userId: user.id,
+        articleId: news.id,
+        interactionType: 'story_cards'
+      });
+    }
+  };
 
   const handleSummaryChange = (summary: string, type: string) => {
     setCurrentContent(summary);
@@ -195,54 +211,31 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
       <div className="absolute inset-0 flex flex-col justify-end z-10">
         <div className="px-4 pb-32 pt-20 space-y-6">
           
-           {/* Headline - Prominently positioned */}
-           <div className="space-y-3">
-             <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight tracking-tight">
-               {news.headline}
-             </h1>
-             
-             {/* Author info and Political Filter Badge */}
-             <div className="space-y-2">
-               {news.author && (
-                 <div className="flex items-center gap-2 text-white/70">
-                   <User className="w-4 h-4" />
-                   <span className="text-sm font-medium">{news.author}</span>
-                   <span className="text-white/50">•</span>
-                   <span className="text-sm">{news.readTime}</span>
-                 </div>
-               )}
-               
-               {/* Political Filter Badge */}
-               <PoliticalFilterBadge
-                 isPolitical={news.isPolitical}
-                 democraticValue={news.democraticValue}
-                 accuracyScore={news.accuracyScore}
-                 contextScore={news.contextScore}
-                 perspectiveBalance={news.perspectiveBalance}
-                 politicalFlag={news.politicalFlag}
-                 flagReason={news.flagReason}
-               />
-             </div>
-           </div>
-
-          {/* Summary Selector */}
-          <SummarySelector
-            articleId={news.id}
-            content={news.fullContent || news.tldr}
-            onSummaryChange={handleSummaryChange}
-          />
-
-          {/* TL;DR Content Card */}
-          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-accent text-sm font-semibold uppercase tracking-wider">
-                Summary
-              </span>
-            </div>
+          {/* Headline - Prominently positioned */}
+          <div className="space-y-3">
+            <h1 className="text-white text-2xl md:text-3xl font-bold leading-tight tracking-tight">
+              {news.headline}
+            </h1>
+            
+          {/* TLDR Summary */}
+          <div className="bg-black/40 backdrop-blur-lg border border-white/10 rounded-2xl p-4">
             <p className="text-white/90 text-base leading-relaxed">
-              {currentContent}
+              {news.tldr}
             </p>
           </div>
+
+          {/* Author info */}
+            {news.author && (
+              <div className="flex items-center gap-2 text-white/70">
+                <User className="w-4 h-4" />
+                <span className="text-sm font-medium">{news.author}</span>
+                <span className="text-white/50">•</span>
+                <span className="text-sm">{news.readTime}</span>
+              </div>
+            )}
+          </div>
+
+
 
           {/* Trust Scoring */}
           <TrustScoring articleId={news.id} userId={user?.id} />
@@ -279,7 +272,7 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                   onClick={handleShowRelated}
                   className="flex items-center gap-2 px-4 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
                 >
-                  <ExternalLink className="w-5 h-5" />
+                  <MessageCircle className="w-5 h-5" />
                   <span className="text-sm hidden sm:inline">More</span>
                 </Button>
               )}
@@ -305,6 +298,13 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
         />
       )}
 
+      {/* Story Cards Modal */}
+      <StoryCardsCarousel
+        articleId={news.id}
+        isOpen={showStoryCards}
+        onClose={() => setShowStoryCards(false)}
+        articleTitle={news.headline}
+      />
     </div>
   );
 };

@@ -6,6 +6,7 @@ import { getContextualPlaceholder } from './utils/imageHandling.ts';
 import { calculateTrustScore, calculateLocalRelevance } from './utils/scoring.ts';
 import { parseRSSFeed } from './utils/rssParser.ts';
 import { extractFullContent } from './utils/contentExtraction.ts';
+import { analyzeNewsStory } from './utils/perplexityAnalysis.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -236,6 +237,10 @@ serve(async (req) => {
         // Use original image or contextual placeholder
         const imageUrl = originalImage || getContextualPlaceholder(headline, description);
         
+        // Analyze the story using Perplexity API
+        console.log(`Analyzing story: ${headline.substring(0, 50)}...`);
+        const analysis = await analyzeNewsStory(headline, fullContent, description);
+        
         return {
           id: `news-${Date.now()}-${index}`,
           headline: headline,
@@ -249,7 +254,10 @@ serve(async (req) => {
           sourceUrl: sourceUrl,
           trustScore: calculateTrustScore(sourceName),
           localRelevance: calculateLocalRelevance(headline, description, locationString),
-          fullContent: fullContent // Add full content for carousel display
+          fullContent: fullContent, // Add full content for carousel display
+          storyBreakdown: analysis.breakdown,
+          storyNature: analysis.storyNature,
+          analysisConfidence: analysis.confidence
         };
       })
     );
