@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import { newsService } from '@/services/newsService';
 
@@ -15,9 +14,6 @@ interface NewsItem {
   trustScore?: number;
   localRelevance?: number;
   contextualInsights?: string[];
-  storyBreakdown?: string;
-  storyNature?: string;
-  analysisConfidence?: number;
   contextualInfo?: {
     topic: string;
     backgroundInfo: string[];
@@ -36,48 +32,37 @@ interface UseNewsOptions {
 
 export const useNews = (options: UseNewsOptions = {}) => {
   return useQuery({
-    queryKey: ['news', options.country, 'stored-with-analysis'],
+    queryKey: ['news', options.country],
     queryFn: async (): Promise<NewsItem[]> => {
-      console.log('Fetching news with stored analysis...');
+      console.log('Fetching news with optimized performance...');
       
       try {
         const news = await newsService.fetchAllNews();
+        console.log(`Successfully fetched ${news.length} articles`);
         
-        if (news.length > 0) {
-          console.log(`Successfully fetched ${news.length} articles with analysis`);
-          
-          // Count how many have analysis data
-          const analyzedCount = news.filter(article => 
-            article.storyBreakdown || article.storyNature
-          ).length;
-          
-          console.log(`${analyzedCount} out of ${news.length} articles have analysis data`);
-          
-          // Store in cache for offline use
+        if (news.length > 0 && !news.every(article => article.author === 'antiNews System')) {
           const cacheData = {
             news,
             timestamp: Date.now(),
-            analyzedCount
+            isRealNews: true
           };
-          localStorage.setItem('antinews-cache-with-analysis', JSON.stringify(cacheData));
-          
-          return news;
+          localStorage.setItem('antinews-cache', JSON.stringify(cacheData));
         }
         
-        return [];
+        return news;
       } catch (error) {
         console.error('Error fetching news:', error);
         
-        // Try to load from cache as fallback
         try {
-          const cachedNews = localStorage.getItem('antinews-cache-with-analysis');
+          const cachedNews = localStorage.getItem('antinews-cache');
           if (cachedNews) {
             const parsed = JSON.parse(cachedNews);
             const cacheAge = Date.now() - parsed.timestamp;
-            const maxCacheAge = 15 * 60 * 1000; // 15 minutes
+            const maxCacheAge = 5 * 60 * 1000;
             
-            if (parsed.news && parsed.news.length > 0 && cacheAge < maxCacheAge) {
-              console.log(`Using cached news (${parsed.analyzedCount} analyzed articles)`);
+            if (parsed.news && parsed.news.length > 0 && 
+                cacheAge < maxCacheAge && parsed.isRealNews) {
+              console.log('Using cached real news for performance');
               return parsed.news;
             }
           }
@@ -88,11 +73,11 @@ export const useNews = (options: UseNewsOptions = {}) => {
         return [];
       }
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 3 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 1,
-    retryDelay: 3000,
-    refetchInterval: 15 * 60 * 1000, // 15 minutes
+    retryDelay: 1000,
+    refetchInterval: 5 * 60 * 1000,
     refetchIntervalInBackground: false,
   });
 };

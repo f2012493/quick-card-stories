@@ -15,13 +15,18 @@ export interface NewsItem {
   clusterId?: string;
   contextualInsights?: string[];
   fullContent?: string; // Add full article content
-  storyBreakdown?: string;
-  storyNature?: string;
-  analysisConfidence?: number;
   contextualInfo?: {
     topic: string;
     backgroundInfo: string[];
     keyFacts: string[];
     relatedConcepts: string[];
   };
+  // Political content filtering metadata
+  isPolitical?: boolean;
+  democraticValue?: number; // 0-1 score for voter information value
+  accuracyScore?: number; // 0-1 score for clarity/accuracy/fairness
+  contextScore?: number; // 0-1 score for historical context/consequences
+  perspectiveBalance?: number; // 0-1 score for proportional representation
+  politicalFlag?: 'approved' | 'flagged' | 'rejected';
+  flagReason?: string;
 }

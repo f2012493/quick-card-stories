@@ -91,7 +91,6 @@ const fetchLocationFromIP = async (): Promise<LocationData> => {
 
 export const useLocation = () => {
   const [coordinates, setCoordinates] = useState<{ lat: number; lon: number } | null>(null);
-  const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'prompt'>('prompt');
 
   useEffect(() => {
     if ('geolocation' in navigator) {
@@ -101,15 +100,14 @@ export const useLocation = () => {
             lat: position.coords.latitude,
             lon: position.coords.longitude
           });
-          setLocationPermission('granted');
         },
         (error) => {
-          console.log('Geolocation error:', error.message);
-          setLocationPermission('denied');
+          // Silently fall back to IP-based location
+          console.log('Geolocation not available, using IP-based location');
         },
         {
           enableHighAccuracy: false,
-          timeout: 10000,
+          timeout: 5000,
           maximumAge: 600000 // 10 minutes
         }
       );
@@ -134,7 +132,6 @@ export const useLocation = () => {
     locationData,
     isLoading,
     error,
-    locationPermission,
     hasCoordinates: !!coordinates
   };
 };
