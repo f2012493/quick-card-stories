@@ -5,7 +5,8 @@ import {
   Share2, 
   Clock,
   User,
-  ExternalLink
+  ExternalLink,
+  Brain
 } from 'lucide-react';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
@@ -13,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import TrustScoring from './features/TrustScoring';
 import SummarySelector from './features/SummarySelector';
 import { useRelatedArticles } from '@/hooks/useRelatedArticles';
-
+import ThinkCheckModal from './ThinkCheckModal';
 import PoliticalFilterBadge from './PoliticalFilterBadge';
 
 interface News {
@@ -57,6 +58,7 @@ interface VideoCardProps {
 const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
+  const [showThinkCheck, setShowThinkCheck] = useState(false);
   
   const [currentContent, setCurrentContent] = useState(news.fullContent || news.tldr);
   const [summaryType, setSummaryType] = useState('original');
@@ -283,6 +285,16 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
                   <span className="text-sm hidden sm:inline">More</span>
                 </Button>
               )}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowThinkCheck(true)}
+                className="p-3 rounded-full bg-primary/20 backdrop-blur-md border border-primary/30 text-primary hover:bg-primary/30 transition-all duration-200"
+                title="Think Check AI"
+              >
+                <Brain className="w-5 h-5" />
+              </Button>
               
             </div>
 
@@ -304,6 +316,17 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
           onClose={() => setShowRelatedArticles(false)}
         />
       )}
+
+      {/* Think Check Modal */}
+      <ThinkCheckModal
+        open={showThinkCheck}
+        onOpenChange={setShowThinkCheck}
+        articleId={news.id}
+        headline={news.headline}
+        content={news.fullContent || news.tldr}
+        author={news.author}
+        sourceUrl={news.sourceUrl}
+      />
 
     </div>
   );
