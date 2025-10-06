@@ -5,7 +5,8 @@ import {
   Share2, 
   Clock,
   User,
-  ExternalLink
+  ExternalLink,
+  Brain
 } from 'lucide-react';
 import RelatedArticlesCarousel from './RelatedArticlesCarousel';
 import { useUserTracking } from '@/hooks/useUserTracking';
@@ -13,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import TrustScoring from './features/TrustScoring';
 import SummarySelector from './features/SummarySelector';
 import { useRelatedArticles } from '@/hooks/useRelatedArticles';
+import ThinkCheckModal from './ThinkCheckModal';
 
 import PoliticalFilterBadge from './PoliticalFilterBadge';
 
@@ -57,6 +59,7 @@ interface VideoCardProps {
 const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [showRelatedArticles, setShowRelatedArticles] = useState(false);
+  const [showThinkCheck, setShowThinkCheck] = useState(false);
   
   const [currentContent, setCurrentContent] = useState(news.fullContent || news.tldr);
   const [summaryType, setSummaryType] = useState('original');
@@ -271,6 +274,16 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
               >
                 <Share2 className="w-5 h-5" />
               </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowThinkCheck(true)}
+                className="p-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/70 hover:bg-white/20 hover:text-white transition-all duration-200"
+                title="Think Check"
+              >
+                <Brain className="w-5 h-5" />
+              </Button>
               
               {news.clusterId && relatedArticles && relatedArticles.length > 0 && (
                 <Button
@@ -304,6 +317,19 @@ const VideoCard = ({ news, isActive, onNavigateToArticle }: VideoCardProps) => {
           onClose={() => setShowRelatedArticles(false)}
         />
       )}
+
+      {/* Think Check Modal */}
+      <ThinkCheckModal
+        isOpen={showThinkCheck}
+        onClose={() => setShowThinkCheck(false)}
+        article={{
+          headline: news.headline,
+          author: news.author,
+          sourceUrl: news.sourceUrl,
+          trustScore: news.trustScore,
+          contextualInfo: news.contextualInfo
+        }}
+      />
 
     </div>
   );
