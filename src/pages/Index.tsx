@@ -4,10 +4,10 @@ import { Toaster } from 'sonner';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <>
       <TwitterFeed />
       <Toaster position="top-center" />
-    </div>
+    </>
   );
 };
 
