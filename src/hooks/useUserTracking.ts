@@ -13,22 +13,9 @@ interface TrackInteractionParams {
 export const useUserTracking = () => {
   const trackInteraction = useMutation({
     mutationFn: async (params: TrackInteractionParams) => {
-      const { error } = await supabase
-        .from('user_reading_history')
-        .insert({
-          user_id: params.userId,
-          article_id: params.articleId,
-          cluster_id: params.clusterId,
-          interaction_type: params.interactionType,
-          read_duration_seconds: params.readDurationSeconds,
-          read_at: new Date().toISOString()
-        });
-      
-      if (error) throw error;
-      
-      // Update user consumption count for views
+      // User reading history table doesn't exist yet
+      // Just update user consumption count for views
       if (params.interactionType === 'view') {
-        // First get current count
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('articles_consumed_today')
@@ -47,6 +34,9 @@ export const useUserTracking = () => {
           }
         }
       }
+      
+      // Log the interaction for debugging
+      console.log('Tracked interaction:', params);
     },
     onError: (error) => {
       console.error('Error tracking interaction:', error);
