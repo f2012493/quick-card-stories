@@ -131,7 +131,7 @@ const TwitterFeed = () => {
 
   if (isLoading && displayedNews.length === 0) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="feed-container bg-background">
         <div className="max-w-2xl mx-auto">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="p-4 border-b border-border">
@@ -151,8 +151,8 @@ const TwitterFeed = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto">
+    <div className="feed-container bg-background">
+      <div className="max-w-2xl mx-auto pb-20">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border p-4">
           <div className="flex items-center justify-between">
