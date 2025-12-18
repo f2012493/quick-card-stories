@@ -1,12 +1,11 @@
-
 import React from 'react';
-import VideoFeed from '../components/VideoFeed';
+import TwitterFeed from '../components/TwitterFeed';
 import { Toaster } from 'sonner';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-black overflow-hidden">
-      <VideoFeed />
+    <div className="min-h-screen bg-background">
+      <TwitterFeed />
       <Toaster position="top-center" />
     </div>
   );
