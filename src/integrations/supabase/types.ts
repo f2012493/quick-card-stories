@@ -7,62 +7,262 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
   }
   public: {
     Tables: {
-      ad_placements: {
+      ad_impressions: {
         Row: {
-          ad_position: number
-          ad_sponsor: string | null
-          ad_title: string | null
-          ad_video_url: string | null
-          click_count: number | null
-          contextual_tags: string[] | null
+          ad_id: string
+          ad_unit_id: string | null
+          click_revenue_cents: number | null
+          click_timestamp: string | null
           created_at: string | null
+          device_info: Json | null
           id: string
-          impression_count: number | null
+          location_data: Json | null
+          revenue_cents: number | null
+          session_id: string | null
+          timestamp: string | null
+          user_id: string | null
+          was_clicked: boolean | null
+        }
+        Insert: {
+          ad_id: string
+          ad_unit_id?: string | null
+          click_revenue_cents?: number | null
+          click_timestamp?: string | null
+          created_at?: string | null
+          device_info?: Json | null
+          id?: string
+          location_data?: Json | null
+          revenue_cents?: number | null
+          session_id?: string | null
+          timestamp?: string | null
+          user_id?: string | null
+          was_clicked?: boolean | null
+        }
+        Update: {
+          ad_id?: string
+          ad_unit_id?: string | null
+          click_revenue_cents?: number | null
+          click_timestamp?: string | null
+          created_at?: string | null
+          device_info?: Json | null
+          id?: string
+          location_data?: Json | null
+          revenue_cents?: number | null
+          session_id?: string | null
+          timestamp?: string | null
+          user_id?: string | null
+          was_clicked?: boolean | null
+        }
+        Relationships: []
+      }
+      ad_revenue_summary: {
+        Row: {
+          adsense_earnings_cents: number | null
+          click_revenue_cents: number | null
+          created_at: string | null
+          ctr: number | null
+          date: string
+          id: string
+          rpm_cents: number | null
+          total_clicks: number | null
+          total_impressions: number | null
+          total_revenue_cents: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          adsense_earnings_cents?: number | null
+          click_revenue_cents?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date: string
+          id?: string
+          rpm_cents?: number | null
+          total_clicks?: number | null
+          total_impressions?: number | null
+          total_revenue_cents?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          adsense_earnings_cents?: number | null
+          click_revenue_cents?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date?: string
+          id?: string
+          rpm_cents?: number | null
+          total_clicks?: number | null
+          total_impressions?: number | null
+          total_revenue_cents?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ad_units: {
+        Row: {
+          adsense_unit_id: string
+          category: string | null
+          cpm_cents: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          adsense_unit_id: string
+          category?: string | null
+          cpm_cents?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          adsense_unit_id?: string
+          category?: string | null
+          cpm_cents?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      agent_logs: {
+        Row: {
+          agent_type: Database["public"]["Enums"]["agent_type"]
+          context: Json | null
+          created_at: string
+          id: string
+          log_level: string
+          message: string
+          pipeline_id: string
+        }
+        Insert: {
+          agent_type: Database["public"]["Enums"]["agent_type"]
+          context?: Json | null
+          created_at?: string
+          id?: string
+          log_level?: string
+          message: string
+          pipeline_id: string
+        }
+        Update: {
+          agent_type?: Database["public"]["Enums"]["agent_type"]
+          context?: Json | null
+          created_at?: string
+          id?: string
+          log_level?: string
+          message?: string
+          pipeline_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_logs_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pipeline"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_outputs: {
+        Row: {
+          agent_type: Database["public"]["Enums"]["agent_type"]
+          created_at: string
+          error_message: string | null
+          id: string
+          input_data: Json
+          metadata: Json | null
+          output_data: Json
+          pipeline_id: string
+          processing_time_ms: number | null
+          status: string
+        }
+        Insert: {
+          agent_type: Database["public"]["Enums"]["agent_type"]
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_data: Json
+          metadata?: Json | null
+          output_data: Json
+          pipeline_id: string
+          processing_time_ms?: number | null
+          status?: string
+        }
+        Update: {
+          agent_type?: Database["public"]["Enums"]["agent_type"]
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_data?: Json
+          metadata?: Json | null
+          output_data?: Json
+          pipeline_id?: string
+          processing_time_ms?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_outputs_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pipeline"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_pipeline: {
+        Row: {
+          article_id: string
+          created_at: string
+          id: string
+          status: string
+          updated_at: string
           user_id: string | null
         }
         Insert: {
-          ad_position: number
-          ad_sponsor?: string | null
-          ad_title?: string | null
-          ad_video_url?: string | null
-          click_count?: number | null
-          contextual_tags?: string[] | null
-          created_at?: string | null
+          article_id: string
+          created_at?: string
           id?: string
-          impression_count?: number | null
+          status?: string
+          updated_at?: string
           user_id?: string | null
         }
         Update: {
-          ad_position?: number
-          ad_sponsor?: string | null
-          ad_title?: string | null
-          ad_video_url?: string | null
-          click_count?: number | null
-          contextual_tags?: string[] | null
-          created_at?: string | null
+          article_id?: string
+          created_at?: string
           id?: string
-          impression_count?: number | null
+          status?: string
+          updated_at?: string
           user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "ad_placements_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "agent_pipeline_article_id_fkey"
+            columns: ["article_id"]
             isOneToOne: false
-            referencedRelation: "user_profiles"
+            referencedRelation: "articles"
             referencedColumns: ["id"]
           },
         ]
       }
       articles: {
         Row: {
+          analysis_confidence: number | null
           author: string | null
           category: string | null
           clickbait_score: number | null
@@ -81,8 +281,11 @@ export type Database = {
           region_tags: string[] | null
           source_id: string | null
           status: Database["public"]["Enums"]["article_status"] | null
+          story_breakdown: string | null
+          story_nature: string | null
           title: string
           title_embedding: string | null
+          tldr: string | null
           trust_score: number | null
           updated_at: string | null
           url: string
@@ -90,6 +293,7 @@ export type Database = {
           video_processing_started_at: string | null
         }
         Insert: {
+          analysis_confidence?: number | null
           author?: string | null
           category?: string | null
           clickbait_score?: number | null
@@ -108,8 +312,11 @@ export type Database = {
           region_tags?: string[] | null
           source_id?: string | null
           status?: Database["public"]["Enums"]["article_status"] | null
+          story_breakdown?: string | null
+          story_nature?: string | null
           title: string
           title_embedding?: string | null
+          tldr?: string | null
           trust_score?: number | null
           updated_at?: string | null
           url: string
@@ -117,6 +324,7 @@ export type Database = {
           video_processing_started_at?: string | null
         }
         Update: {
+          analysis_confidence?: number | null
           author?: string | null
           category?: string | null
           clickbait_score?: number | null
@@ -135,8 +343,11 @@ export type Database = {
           region_tags?: string[] | null
           source_id?: string | null
           status?: Database["public"]["Enums"]["article_status"] | null
+          story_breakdown?: string | null
+          story_nature?: string | null
           title?: string
           title_embedding?: string | null
+          tldr?: string | null
           trust_score?: number | null
           updated_at?: string | null
           url?: string
@@ -146,6 +357,13 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "articles_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "news_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_articles_source_id"
             columns: ["source_id"]
             isOneToOne: false
             referencedRelation: "news_sources"
@@ -193,42 +411,18 @@ export type Database = {
             referencedRelation: "story_clusters"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      content_summaries: {
-        Row: {
-          abstractive_summary: string | null
-          article_id: string | null
-          created_at: string | null
-          extractive_summary: string | null
-          id: string
-          summary_type: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          abstractive_summary?: string | null
-          article_id?: string | null
-          created_at?: string | null
-          extractive_summary?: string | null
-          id?: string
-          summary_type?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          abstractive_summary?: string | null
-          article_id?: string | null
-          created_at?: string | null
-          extractive_summary?: string | null
-          id?: string
-          summary_type?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "content_summaries_article_id_fkey"
+            foreignKeyName: "fk_cluster_articles_article_id"
             columns: ["article_id"]
             isOneToOne: false
             referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_cluster_articles_cluster_id"
+            columns: ["cluster_id"]
+            isOneToOne: false
+            referencedRelation: "story_clusters"
             referencedColumns: ["id"]
           },
         ]
@@ -266,40 +460,50 @@ export type Database = {
         }
         Relationships: []
       }
-      personalized_feeds: {
+      personalized_content: {
         Row: {
-          cluster_id: string | null
-          expires_at: string | null
-          generated_at: string | null
+          article_id: string
+          content: Json
+          created_at: string
+          format: string
           id: string
-          personalized_score: number
-          rank_position: number | null
-          user_id: string | null
+          language: string
+          pipeline_id: string
+          user_id: string
         }
         Insert: {
-          cluster_id?: string | null
-          expires_at?: string | null
-          generated_at?: string | null
+          article_id: string
+          content: Json
+          created_at?: string
+          format: string
           id?: string
-          personalized_score: number
-          rank_position?: number | null
-          user_id?: string | null
+          language: string
+          pipeline_id: string
+          user_id: string
         }
         Update: {
-          cluster_id?: string | null
-          expires_at?: string | null
-          generated_at?: string | null
+          article_id?: string
+          content?: Json
+          created_at?: string
+          format?: string
           id?: string
-          personalized_score?: number
-          rank_position?: number | null
-          user_id?: string | null
+          language?: string
+          pipeline_id?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "personalized_feeds_cluster_id_fkey"
-            columns: ["cluster_id"]
+            foreignKeyName: "personalized_content_article_id_fkey"
+            columns: ["article_id"]
             isOneToOne: false
-            referencedRelation: "story_clusters"
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personalized_content_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pipeline"
             referencedColumns: ["id"]
           },
         ]
@@ -346,57 +550,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "story_analysis_article_id_fkey"
+            foreignKeyName: "fk_story_analysis_article_id"
             columns: ["article_id"]
             isOneToOne: false
             referencedRelation: "articles"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      story_cards: {
-        Row: {
-          card_order: number | null
-          card_type: string
-          content: string | null
-          created_at: string | null
-          id: string
-          metadata: Json | null
-          story_analysis_id: string | null
-          title: string
-          updated_at: string | null
-          visual_data: Json | null
-        }
-        Insert: {
-          card_order?: number | null
-          card_type: string
-          content?: string | null
-          created_at?: string | null
-          id?: string
-          metadata?: Json | null
-          story_analysis_id?: string | null
-          title: string
-          updated_at?: string | null
-          visual_data?: Json | null
-        }
-        Update: {
-          card_order?: number | null
-          card_type?: string
-          content?: string | null
-          created_at?: string | null
-          id?: string
-          metadata?: Json | null
-          story_analysis_id?: string | null
-          title?: string
-          updated_at?: string | null
-          visual_data?: Json | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "story_cards_story_analysis_id_fkey"
-            columns: ["story_analysis_id"]
+            foreignKeyName: "story_analysis_article_id_fkey"
+            columns: ["article_id"]
             isOneToOne: false
-            referencedRelation: "story_analysis"
+            referencedRelation: "articles"
             referencedColumns: ["id"]
           },
         ]
@@ -470,74 +634,35 @@ export type Database = {
         }
         Relationships: []
       }
-      story_templates: {
+      user_preferences: {
         Row: {
-          created_at: string | null
-          description: string | null
+          created_at: string
+          format: string
           id: string
-          is_active: boolean | null
-          name: string
-          template_config: Json | null
-          updated_at: string | null
+          language: string
+          tone: string
+          updated_at: string
+          user_id: string
         }
         Insert: {
-          created_at?: string | null
-          description?: string | null
+          created_at?: string
+          format?: string
           id?: string
-          is_active?: boolean | null
-          name: string
-          template_config?: Json | null
-          updated_at?: string | null
+          language?: string
+          tone?: string
+          updated_at?: string
+          user_id: string
         }
         Update: {
-          created_at?: string | null
-          description?: string | null
+          created_at?: string
+          format?: string
           id?: string
-          is_active?: boolean | null
-          name?: string
-          template_config?: Json | null
-          updated_at?: string | null
+          language?: string
+          tone?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
-      }
-      trust_scores: {
-        Row: {
-          article_id: string | null
-          created_at: string | null
-          id: string
-          trust_vote: boolean
-          user_id: string | null
-        }
-        Insert: {
-          article_id?: string | null
-          created_at?: string | null
-          id?: string
-          trust_vote: boolean
-          user_id?: string | null
-        }
-        Update: {
-          article_id?: string | null
-          created_at?: string | null
-          id?: string
-          trust_vote?: boolean
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trust_scores_article_id_fkey"
-            columns: ["article_id"]
-            isOneToOne: false
-            referencedRelation: "articles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trust_scores_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       user_profiles: {
         Row: {
@@ -602,123 +727,24 @@ export type Database = {
         }
         Relationships: []
       }
-      user_reading_history: {
-        Row: {
-          article_id: string | null
-          cluster_id: string | null
-          created_at: string | null
-          id: string
-          interaction_type: string | null
-          read_at: string | null
-          read_duration_seconds: number | null
-          user_id: string | null
-        }
-        Insert: {
-          article_id?: string | null
-          cluster_id?: string | null
-          created_at?: string | null
-          id?: string
-          interaction_type?: string | null
-          read_at?: string | null
-          read_duration_seconds?: number | null
-          user_id?: string | null
-        }
-        Update: {
-          article_id?: string | null
-          cluster_id?: string | null
-          created_at?: string | null
-          id?: string
-          interaction_type?: string | null
-          read_at?: string | null
-          read_duration_seconds?: number | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_reading_history_article_id_fkey"
-            columns: ["article_id"]
-            isOneToOne: false
-            referencedRelation: "articles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_reading_history_cluster_id_fkey"
-            columns: ["cluster_id"]
-            isOneToOne: false
-            referencedRelation: "story_clusters"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_topic_preferences: {
+      user_roles: {
         Row: {
           created_at: string | null
           id: string
-          interaction_count: number | null
-          last_interaction_at: string | null
-          preference_score: number | null
-          topic_keyword: string
-          updated_at: string | null
-          user_id: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Insert: {
           created_at?: string | null
           id?: string
-          interaction_count?: number | null
-          last_interaction_at?: string | null
-          preference_score?: number | null
-          topic_keyword: string
-          updated_at?: string | null
-          user_id?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Update: {
           created_at?: string | null
           id?: string
-          interaction_count?: number | null
-          last_interaction_at?: string | null
-          preference_score?: number | null
-          topic_keyword?: string
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      video_content: {
-        Row: {
-          article_id: string | null
-          audio_url: string | null
-          background_music_url: string | null
-          created_at: string | null
-          id: string
-          processing_status: string | null
-          subtitle_data: Json | null
-          updated_at: string | null
-          video_duration_seconds: number | null
-          video_url: string | null
-        }
-        Insert: {
-          article_id?: string | null
-          audio_url?: string | null
-          background_music_url?: string | null
-          created_at?: string | null
-          id?: string
-          processing_status?: string | null
-          subtitle_data?: Json | null
-          updated_at?: string | null
-          video_duration_seconds?: number | null
-          video_url?: string | null
-        }
-        Update: {
-          article_id?: string | null
-          audio_url?: string | null
-          background_music_url?: string | null
-          created_at?: string | null
-          id?: string
-          processing_status?: string | null
-          subtitle_data?: Json | null
-          updated_at?: string | null
-          video_duration_seconds?: number | null
-          video_url?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -727,112 +753,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      binary_quantize: {
-        Args: { "": string } | { "": unknown }
-        Returns: unknown
+      calculate_trust_score: { Args: { article_uuid: string }; Returns: number }
+      get_current_user_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"]
       }
-      calculate_trust_score: {
-        Args: { article_uuid: string }
-        Returns: number
+      get_public_ad_display_data: {
+        Args: never
+        Returns: {
+          category: string
+          description: string
+          id: string
+          is_active: boolean
+          title: string
+        }[]
       }
-      halfvec_avg: {
-        Args: { "": number[] }
-        Returns: unknown
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
-      halfvec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      halfvec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      halfvec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-      hnsw_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_sparsevec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnswhandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflat_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflat_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflathandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      l2_norm: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: number
-      }
-      l2_normalize: {
-        Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
-      }
-      reset_daily_consumption: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      sparsevec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      sparsevec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      sparsevec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
+      reset_daily_consumption: { Args: never; Returns: undefined }
       update_subscription_status: {
-        Args: { user_id: string; status: string }
+        Args: { status: string; user_id: string }
         Returns: undefined
-      }
-      vector_avg: {
-        Args: { "": number[] }
-        Returns: string
-      }
-      vector_dims: {
-        Args: { "": string } | { "": unknown }
-        Returns: number
-      }
-      vector_norm: {
-        Args: { "": string }
-        Returns: number
-      }
-      vector_out: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      vector_send: {
-        Args: { "": string }
-        Returns: string
-      }
-      vector_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
       }
     }
     Enums: {
+      agent_type: "verifier" | "contextualizer" | "analyst" | "impact"
+      app_role: "admin" | "user"
       article_status: "active" | "stale" | "archived"
       cluster_status: "active" | "trending" | "stale" | "archived"
       source_trust_level: "low" | "medium" | "high" | "verified"
@@ -963,6 +914,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      agent_type: ["verifier", "contextualizer", "analyst", "impact"],
+      app_role: ["admin", "user"],
       article_status: ["active", "stale", "archived"],
       cluster_status: ["active", "trending", "stale", "archived"],
       source_trust_level: ["low", "medium", "high", "verified"],
