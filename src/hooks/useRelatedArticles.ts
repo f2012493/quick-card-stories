@@ -2,16 +2,29 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+interface RelatedArticle {
+  id: string;
+  title: string;
+  content: string | null;
+  description: string | null;
+  url: string;
+  image_url: string | null;
+  author: string | null;
+  published_at: string;
+}
+
 export const useRelatedArticles = (clusterId?: string) => {
   return useQuery({
     queryKey: ['related-articles', clusterId],
-    queryFn: async () => {
+    queryFn: async (): Promise<RelatedArticle[]> => {
       if (!clusterId) return [];
       
+      // Use explicit foreign key hint to resolve ambiguity
       const { data, error } = await supabase
         .from('cluster_articles')
         .select(`
-          articles (
+          article_id,
+          articles!cluster_articles_article_id_fkey (
             id,
             title,
             content,
@@ -27,9 +40,9 @@ export const useRelatedArticles = (clusterId?: string) => {
       
       if (error) throw error;
       
-      return data
+      return (data || [])
         .map(item => item.articles)
-        .filter(Boolean)
+        .filter((article): article is RelatedArticle => article !== null)
         .map(article => ({
           id: article.id,
           title: article.title,

@@ -115,32 +115,6 @@ class StoryAnalysisService {
         return { success: false, error: 'Failed to create story analysis' };
       }
 
-      // Create basic story cards
-      const storyCards = [
-        {
-          story_analysis_id: data.id,
-          card_type: 'overview',
-          title: 'Story Overview',
-          content: 'This is an overview of the story. Analysis is being processed.',
-          card_order: 1
-        },
-        {
-          story_analysis_id: data.id,
-          card_type: 'background',
-          title: 'Background',
-          content: 'Background information about this story is being generated.',
-          card_order: 2
-        }
-      ];
-
-      const { error: cardsError } = await supabase
-        .from('story_cards')
-        .insert(storyCards);
-
-      if (cardsError) {
-        console.error('Error creating story cards:', cardsError);
-      }
-
       console.log('Story analysis created successfully:', data.id);
       return { 
         success: true, 
@@ -158,18 +132,7 @@ class StoryAnalysisService {
     try {
       const { data, error } = await supabase
         .from('story_analysis')
-        .select(`
-          *,
-          story_cards (
-            id,
-            card_type,
-            title,
-            content,
-            visual_data,
-            card_order,
-            metadata
-          )
-        `)
+        .select('*')
         .eq('article_id', articleId)
         .single();
 
@@ -185,25 +148,10 @@ class StoryAnalysisService {
     }
   }
 
-  // Get all available story templates
+  // Get all available story templates - returns empty array since table doesn't exist
   async getStoryTemplates() {
-    try {
-      const { data, error } = await supabase
-        .from('story_templates')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) {
-        console.error('Error fetching story templates:', error);
-        return [];
-      }
-
-      return data || [];
-    } catch (error) {
-      console.error('Error in getStoryTemplates:', error);
-      return [];
-    }
+    // story_templates table doesn't exist yet
+    return [];
   }
 
   // Batch analyze multiple articles
